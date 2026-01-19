@@ -4,7 +4,19 @@
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF? logo=github-actions)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-Decentralized news verification platform with tokenized rewards - User Interface powered by Next.js and Optimism blockchain.
+Decentralized news verification platform and public-good interface for community-driven fact-checking across Ethereum and Stellar ecosystems.
+
+## 🌍 Why TruthBounty Frontend?
+
+The TruthBounty Frontend is designed to make decentralized news verification **accessible, transparent, and usable** for everyone — not just blockchain experts.
+
+It provides a clean, intuitive interface for:
+- Submitting and verifying news claims
+- Understanding verification outcomes
+- Tracking reputation and rewards
+- Participating in truth verification as a public good
+
+This frontend translates complex cryptoeconomic systems into a **human-centered experience**.
 
 ## 🚀 Features
 
@@ -16,6 +28,27 @@ Decentralized news verification platform with tokenized rewards - User Interface
 - 🌓 **Dark/Light Mode** - Customizable user experience
 - 📱 **Responsive Design** - Mobile-first, accessible UI
 - ⚡ **Real-time Updates** - Live verification status and notifications
+
+## 🧭 Core User Flow
+
+1. User connects wallet (Ethereum / Stellar – planned)
+2. User authenticates via Worldcoin ID
+3. News claims are submitted or reviewed
+4. Verifications are performed with evidence
+5. Reputation updates in real time
+6. Rewards are tracked and claimed on-chain
+
+## 🌱 Ecosystem Alignment (Ethereum, Stellar & Public Goods)
+
+TruthBounty Frontend is aligned with open-source and public-good ecosystems:
+
+- **Ethereum & Optimism** – secure, scalable reward settlement
+- **Stellar (planned)** – low-cost access and global participation
+- **IPFS** – decentralized evidence access
+- **Worldcoin ID** – Sybil-resistant identity
+- **Drips Network** – sustainable open-source maintenance
+
+The UI is intentionally chain-agnostic, enabling seamless expansion across ecosystems without redesign.
 
 ## ⚙️ Tech Stack
 
