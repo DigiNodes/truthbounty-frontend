@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
+import TrustIndicator from "@/components/ui/TrustIndicator";
 
 
 const Topbar = () => {
@@ -27,6 +28,8 @@ const Topbar = () => {
           </select>
         </div>
         <div className="flex items-center space-x-4">
+          {/* brief trust indicator */}
+          <TrustIndicator />
           <button className="bg-[#232329] text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-[#232329]/80">Connect Wallet</button>
           <button
             className="bg-[#5b5bf6] text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
