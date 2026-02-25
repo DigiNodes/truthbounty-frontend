@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
 
