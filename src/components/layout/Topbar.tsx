@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
+import TrustIndicator from "@/components/ui/TrustIndicator";
 
 
 const Topbar = () => {

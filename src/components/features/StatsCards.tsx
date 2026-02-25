@@ -1,13 +1,20 @@
 import React from "react";
 
-const stats = [
-  { label: "Claims", value: "12,847" },
-  { label: "Verifications", value: "9,234" },
-  { label: "Votes Cast", value: "847,291" },
-  { label: "Unique Verifiers", value: "4,128" },
-  { label: "TVL", value: "$2.4M" },
-  { label: "Chains", value: "7" },
-];
+import { useTrust } from "@/components/hooks/useTrust";
+
+const StatsCards = () => {
+  const trust = useTrust();
+  const userTrustValue = trust.reputation.toString();
+
+  const stats = [
+    { label: "My Trust", value: userTrustValue, tooltip: true },
+    { label: "Claims", value: "12,847" },
+    { label: "Verifications", value: "9,234" },
+    { label: "Votes Cast", value: "847,291" },
+    { label: "Unique Verifiers", value: "4,128" },
+    { label: "TVL", value: "$2.4M" },
+    { label: "Chains", value: "7" },
+  ];
 
 const StatsCards = () => (
   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">

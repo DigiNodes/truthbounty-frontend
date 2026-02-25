@@ -23,6 +23,27 @@ This frontend translates complex cryptoeconomic systems into a **human-centered 
 
 - ✅ **Submit & Verify Claims** - Community-driven fact-checking interface
 - 🎯 **Reputation Dashboard** - Real-time reputation scoring and leaderboard
+
+### Trust & Sybil warnings
+
+A set of UI components warn users when their account is considered "low
+trust" based on missing identity verification, low reputation, suspicious
+patterns or a very new wallet.  Banners appear in the layout, and
+explanations are available via tooltips and a modal.
+
+You can simulate different states by storing a JSON object under
+`localStorage.trustInfo`.  Example:
+
+```js
+localStorage.setItem('trustInfo', JSON.stringify({
+  isVerified: false,
+  reputation: 15,
+  accountAgeDays: 2,
+  suspicious: true,
+}));
+```
+
+Reload the page to see how the warnings change.
 - 💎 **Token Rewards** - Track and claim ERC-20 rewards on Optimism
 - 🔐 **Worldcoin Authentication** - Sybil-resistant identity verification
 - 📁 **IPFS Evidence Viewer** - Decentralized evidence storage and retrieval
