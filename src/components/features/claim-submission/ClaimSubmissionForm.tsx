@@ -1,5 +1,7 @@
 "use client"
 import React, { useState } from "react";
+import { useTrust } from "@/components/hooks/useTrust";
+import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 
 export interface ClaimFormData {
   title: string;
@@ -22,6 +24,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const trust = useTrust();
+  const lowReputation = trust.reputation < 20;
+  const newWallet = trust.accountAgeDays < 7;
+  const lowTrust = !trust.isVerified || lowReputation || newWallet || trust.suspicious;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -37,6 +44,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         onSubmit={handleSubmit}
       >
         <h2 className="text-xl font-bold text-white mb-2">Submit a Claim</h2>
+        {lowTrust && (
+          <div className="bg-yellow-500 text-black px-2 py-1 rounded mb-2 text-sm">
+            ⚠️ Your account has a low <strong>trust score</strong>.{' '}
+            <TrustScoreTooltip />
+          </div>
+        )}
         <input
           className="bg-[#232329] text-white px-3 py-2 rounded"
           placeholder="Title"
