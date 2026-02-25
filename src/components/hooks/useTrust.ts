@@ -62,3 +62,46 @@ export function useTrust(): TrustInfo {
 
   return info;
 }
+
+/**
+ * Utility to generate a pseudo-random TrustInfo based on an address string.
+ * The values are stable across rerenders for the same address but not
+ * cryptographically secure – just enough for demo purposes.
+ */
+function makeTrustFromAddress(addr: string): TrustInfo {
+  // simple hash: sum of char codes
+  let sum = 0;
+  for (let i = 0; i < addr.length; i++) sum += addr.charCodeAt(i);
+  const reputation = sum % 101; // 0..100
+  const accountAgeDays = (sum % 30) + 1;
+  const isVerified = sum % 2 === 0;
+  const suspicious = sum % 10 < 2;
+  return { isVerified, reputation, accountAgeDays, suspicious };
+}
+
+/**
+ * Hook that returns trust information for the given address.  If the
+ * address is omitted it falls back to the current user.
+ */
+export function useTrustForAddress(address?: string): TrustInfo {
+  if (!address) return useTrust();
+
+  const [info, setInfo] = useState<TrustInfo>(() => {
+    // try to read a stored override first
+    try {
+      const stored = window.localStorage.getItem(`trustInfo_${address}`);
+      if (stored) return JSON.parse(stored) as TrustInfo;
+    } catch {
+      // ignore
+    }
+    return makeTrustFromAddress(address);
+  });
+
+  // there is no dynamic behaviour for other accounts in this mock;
+  // normally we would re-fetch when address changes.
+  useEffect(() => {
+    // nothing for now
+  }, [address]);
+
+  return info;
+}
