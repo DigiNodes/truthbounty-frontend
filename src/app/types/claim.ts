@@ -10,7 +10,7 @@ export type EvidenceType = 'link' | 'text' | 'image' | 'video' | 'document';
 export interface Evidence {
   id: string;
   type: EvidenceType;
-  value: string; // URL, text, IPFS hash, etc.
+  value: string; 
   createdAt: string;
 }
 

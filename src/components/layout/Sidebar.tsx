@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
 import { FaGithub, FaDiscord, FaCog } from "react-icons/fa";
@@ -24,17 +26,18 @@ const Sidebar = () => {
   return (
     <>
       <aside className="flex flex-col w-64 h-full bg-[#18181b] border-r border-[#232329] text-white">
-        <div className="flex items-center h-16 px-6 font-bold text-lg tracking-tight border-b border-[#232329]">
+        <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-[#232329]">
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2">{/* Logo */}
             <span className="font-bold text-white">T</span>
           </span>
-          TruthBounty
+           TruthBounty
+         
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
           {navItems.map((item) => (
             <div
               key={item.label}
-              className="flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium"
+              className="flex items-center px-3 py-3 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium"
               onClick={() => {
                 if (item.label === "Submit Claim") setShowClaimModal(true);
               }}

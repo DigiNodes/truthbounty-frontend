@@ -4,6 +4,7 @@ import StatsCards from "@/components/features/StatsCards";
 import ActivityAndNodes from "@/components/features/ActivityAndNodes";
 import ActiveClaimsTable from "@/components/features/ActiveClaimsTable";
 
+
 const DashboardPage = () => {
   return (
     <MainLayout>
@@ -14,7 +15,6 @@ const DashboardPage = () => {
             <ActivityAndNodes />
           </div>
           <div className="xl:col-span-1">
-            {/* Verification Nodes placeholder */}
             <div className="bg-[#18181b] rounded-xl p-6 h-full">Verification Nodes (placeholder)</div>
           </div>
         </div>
