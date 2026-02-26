@@ -1,3 +1,5 @@
+
+"use client";
 import React from "react";
 
 import { useTrust } from "@/components/hooks/useTrust";
@@ -11,7 +13,7 @@ export default function StatsCards() {
 
   const stats = [
     { label: "My Trust", value: userTrustValue, tooltip: true },
-    ...platformStats
+    ...platformStats,
   ];
 
   return (
@@ -23,13 +25,15 @@ export default function StatsCards() {
         >
           <div className="text-2xl font-bold text-white flex items-center">
             {stat.value}
-            {stat.tooltip && <span className="ml-2"><TrustScoreTooltip /></span>}
+            {stat.tooltip && (
+              <span className="ml-2">
+                <TrustScoreTooltip />
+              </span>
+            )}
           </div>
           <div className="text-xs text-[#a1a1aa] mt-1">{stat.label}</div>
         </div>
       ))}
     </div>
   );
-};
-
-export default StatsCards;
+}
