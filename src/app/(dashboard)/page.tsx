@@ -2,6 +2,7 @@ import React from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import StatsCards from "@/components/features/StatsCards";
 import ActivityAndNodes from "@/components/features/ActivityAndNodes";
+import VerificationNodes from "@/components/features/VerificationNodes";
 import ActiveClaimsTable from "@/components/features/ActiveClaimsTable";
 
 
@@ -15,7 +16,7 @@ const DashboardPage = () => {
             <ActivityAndNodes />
           </div>
           <div className="xl:col-span-1">
-            <div className="bg-[#18181b] rounded-xl p-6 h-full">Verification Nodes (placeholder)</div>
+            <VerificationNodes />
           </div>
         </div>
         <ActiveClaimsTable />

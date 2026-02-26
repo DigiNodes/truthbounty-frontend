@@ -1,43 +1,5 @@
 import React from "react";
-
-const claims = [
-  {
-    category: "Climate",
-    impact: "High Impact",
-    title: "Global average temperatures increased by 1.1°C since pre-industrial times",
-    source: "IPCC Report 2023",
-    status: "Verified",
-    confidence: "97%",
-    votes: "8,432",
-    stake: "$45,200",
-    time: "2h ago",
-    actions: "View",
-  },
-  {
-    category: "Health",
-    impact: "High Impact",
-    title: "New vaccine shows 95% efficacy in Phase 3 trials",
-    source: "Nature Medicine",
-    status: "Verified",
-    confidence: "94%",
-    votes: "6,721",
-    stake: "$38,600",
-    time: "9h ago",
-    actions: "View",
-  },
-  {
-    category: "Technology",
-    impact: "High Impact",
-    title: "Tech company achieved quantum supremacy milestone",
-    source: "Press Release",
-    status: "Under Review",
-    confidence: "Pending",
-    votes: "1,243",
-    stake: "$16,800",
-    time: "2d 4h",
-    actions: "Vote",
-  },
-];
+import { activeClaims } from "@/data/mock-data";
 
 const ActiveClaimsTable = () => (
   <div className="bg-[#18181b] rounded-xl p-6 border border-[#232329]">
@@ -66,7 +28,7 @@ const ActiveClaimsTable = () => (
         </tr>
       </thead>
       <tbody>
-        {claims.map((claim, idx) => (
+        {activeClaims.map((claim, idx) => (
           <tr key={idx} className="border-b border-[#232329] hover:bg-[#232329]/40">
             <td className="py-3">
               <div className="flex flex-col">
