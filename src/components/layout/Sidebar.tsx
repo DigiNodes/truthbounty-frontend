@@ -1,17 +1,25 @@
 "use client"
 
 import React, { useState } from "react";
-import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
+import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
 import { FaGithub, FaDiscord, FaCog } from "react-icons/fa";
 import { HiOutlineDocumentText } from "react-icons/hi";
+import { 
+  MdRssFeed, 
+  MdDashboard, 
+  MdAddCircleOutline, 
+  MdGavel, 
+  MdVerifiedUser, 
+  MdAnalytics 
+} from "react-icons/md";
 
 const navItems = [
-  { label: "Claims Feed", icon: "feed" },
-  { label: "My Dashboard", icon: "dashboard" },
-  { label: "Submit Claim", icon: "plus" },
-  { label: "Active Disputes", icon: "disputes" },
-  { label: "Verifiers", icon: "verifiers" },
-  { label: "Analytics", icon: "analytics" },
+  { label: "Claims Feed", icon: MdRssFeed },
+  { label: "My Dashboard", icon: MdDashboard },
+  { label: "Submit Claim", icon: MdAddCircleOutline },
+  { label: "Active Disputes", icon: MdGavel },
+  { label: "Verifiers", icon: MdVerifiedUser },
+  { label: "Analytics", icon: MdAnalytics },
 ];
 
 const Sidebar = () => {
@@ -42,32 +50,32 @@ const Sidebar = () => {
                 if (item.label === "Submit Claim") setShowClaimModal(true);
               }}
             >
-              {/* TODO: Add icons */}
-              <span className="ml-2">{item.label}</span>
+              <item.icon className="w-5 h-5 text-[#a1a1aa]" />
+              <span className="ml-3">{item.label}</span>
             </div>
           ))}
           <div className="mt-8">
             <div className="flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium">
-              <HiOutlineDocumentText className="w-4 h-4" />
-              <span className="ml-2">Documentation</span>
+              <HiOutlineDocumentText className="w-4 h-4 text-[#a1a1aa]" />
+              <span className="ml-3">Documentation</span>
             </div>
             <div className="flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium">
-              <FaGithub className="w-4 h-4" />
-              <span className="ml-2">GitHub</span>
+              <FaGithub className="w-4 h-4 text-[#a1a1aa]" />
+              <span className="ml-3">GitHub</span>
             </div>
             <div className="flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium">
-              <FaDiscord className="w-4 h-4" />
-              <span className="ml-2">Discord</span>
+              <FaDiscord className="w-4 h-4 text-[#a1a1aa]" />
+              <span className="ml-3">Discord</span>
             </div>
             <div className="flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium">
-              <FaCog className="w-4 h-4" />
-              <span className="ml-2">Settings</span>
+              <FaCog className="w-4 h-4 text-[#a1a1aa]" />
+              <span className="ml-3">Settings</span>
             </div>
           </div>
         </nav>
         <div className="p-4">
           {/* User profile or Worldcoin badge placeholder */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5b5bf6] to-[#232329] flex items-center justify-center text-white font-bold text-lg">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5b5bf6] to-[#232329] flex items-center justify-center text-white font-bold text-lg cursor-pointer hover:opacity-90 transition-opacity">
             {/* User */}
             <span>🪪</span>
           </div>
