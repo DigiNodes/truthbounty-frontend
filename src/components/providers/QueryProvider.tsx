@@ -1,0 +1,44 @@
+// src/components/providers/QueryProvider.tsx
+
+'use client';
+
+import React, { ReactNode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/app/queries/queryClient';
+import { WebSocketProvider } from './WebSocketProvider';
+import { useRealtimeData } from '@/hooks/useRealtimeData';
+
+interface QueryProviderProps {
+  children: ReactNode;
+}
+
+/**
+ * Component that handles real-time data sync when WebSocket is connected
+ */
+function RealtimeDataSync() {
+  useRealtimeData();
+  return null;
+}
+
+export function QueryProvider({ children }: QueryProviderProps) {
+  // WebSocket URL - can be configured via environment variable
+  const wsUrl = typeof window !== 'undefined' 
+    ? (window as any).env?.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws'
+    : 'ws://localhost:8080/ws';
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WebSocketProvider
+        config={{
+          url: wsUrl,
+          reconnectAttempts: 5,
+          reconnectInterval: 3000,
+          heartbeatInterval: 30000,
+        }}
+      >
+        <RealtimeDataSync />
+        {children}
+      </WebSocketProvider>
+    </QueryClientProvider>
+  );
+}
