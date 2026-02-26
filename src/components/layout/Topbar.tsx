@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
 import TrustIndicator from "@/components/ui/TrustIndicator";
+import { WebSocketIndicator } from "@/components/ui/WebSocketStatus";
 
 
 const Topbar = () => {
@@ -28,6 +29,8 @@ const Topbar = () => {
           </select>
         </div>
         <div className="flex items-center space-x-4">
+          {/* WebSocket connection status */}
+          <WebSocketIndicator />
           {/* brief trust indicator */}
           <TrustIndicator />
           <button className="bg-[#232329] text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-[#232329]/80">Connect Wallet</button>
