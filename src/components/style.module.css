@@ -1,0 +1,38 @@
+.card {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 8px;
+  height: 38px;
+  background: #ffffff;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 22px;
+  color: #1a1523;
+  margin-right: 1rem;
+}
+
+.displayData {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.disconnectButton {
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.disconnectButton:hover {
+  background: #dc2626;
+}
