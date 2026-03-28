@@ -69,10 +69,13 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* Theme support - applied via classes */
+.light {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 :root {
@@ -165,6 +168,8 @@ a {
 
 @utility animate-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
   /* Improve touch targets */
