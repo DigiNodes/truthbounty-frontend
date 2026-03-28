@@ -129,16 +129,20 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
 
         <div className="flex space-x-4 pt-4">
           {!dispute && (
-            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 rounded-lg font-medium flex items-center justify-center transition-colors">
-              <ThumbsUp size={18} className="mr-2" /> Verify (Stake + Vote)
+            <button 
+              className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 rounded-lg font-medium flex items-center justify-center transition-colors"
+              aria-label="Verify this claim by staking and voting"
+            >
+              <ThumbsUp size={18} className="mr-2" aria-hidden="true" /> Verify (Stake + Vote)
             </button>
           )}
 
           <button
             className="flex-1 border border-red-900 text-red-500 hover:bg-red-950/30 py-3 rounded-lg font-medium flex items-center justify-center transition-colors"
             onClick={() => setDisputeModalOpen(true)}
+            aria-label="Open a dispute for this claim"
           >
-            <Shield size={18} className="mr-2" /> Dispute
+            <Shield size={18} className="mr-2" aria-hidden="true" /> Dispute
           </button>
         </div>
       </div>
