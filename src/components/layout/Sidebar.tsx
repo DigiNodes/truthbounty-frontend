@@ -60,11 +60,11 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-40
-        flex flex-col w-64 h-full bg-[#18181b] border-r border-[#232329] text-white
+        flex flex-col w-64 h-full bg-card border-r border-border text-foreground
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-[#232329]">
+        <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-border">
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2">{/* Logo */}
             <span className="font-bold text-white">T</span>
           </span>
@@ -75,7 +75,7 @@ const Sidebar = () => {
           {navItems.map((item) => (
             <div
               key={item.label}
-              className="flex items-center px-3 py-3 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium"
+              className="flex items-center px-3 py-3 rounded-lg hover:bg-accent cursor-pointer text-sm font-medium"
               onClick={() => {
                 if (item.label === "Submit Claim") setShowClaimModal(true);
                 setIsMobileMenuOpen(false);

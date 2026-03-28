@@ -2,3 +2,4 @@
 
 export { QueryProvider } from './QueryProvider';
 export { WebSocketProvider, useWebSocketContext, useWebSocketStatus } from './WebSocketProvider';
+export { ThemeProvider, useTheme } from './ThemeProvider';
