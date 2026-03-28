@@ -13,22 +13,36 @@ export function WalletConnection() {
     await disconnect()
   }
 
+  const handleCopyAddress = () => {
+    if (account?.address) {
+      navigator.clipboard.writeText(account.address)
+      alert('Address copied to clipboard')
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleCopyAddress()
+    }
+  }
+
   return (
     <>
       {mounted && account ? (
         <div className={styles.displayData}>
-          <div 
+          <button 
             className={`${styles.card} cursor-pointer`}
-            onClick={() => {
-              navigator.clipboard.writeText(account.address)
-              alert('Address copied to clipboard')
-            }}
+            onClick={handleCopyAddress}
+            onKeyDown={handleKeyDown}
+            aria-label={`Wallet address: ${account.displayName}. Click to copy to clipboard.`}
           >
             {account.displayName}
-          </div>
+          </button>
           <button 
             className={styles.disconnectButton}
             onClick={handleDisconnect}
+            aria-label="Disconnect wallet"
           >
             Disconnect
           </button>

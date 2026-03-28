@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 
@@ -7,34 +7,58 @@ interface ActiveClaimsTableProps {
 }
 
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
+  const [activeFilter, setActiveFilter] = useState("All");
+
+  const filters = ["All", "Verified", "Disputed", "Under Review", "High Impact"];
+
   if (isLoading) {
     return <ActiveClaimsTableSkeleton />;
   }
 
   return (
     <div className="bg-[#18181b] rounded-xl p-6 border border-[#232329]">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2">
-          <button className="px-3 py-1 rounded bg-[#232329] text-xs text-white">All</button>
-          <button className="px-3 py-1 rounded bg-transparent text-xs text-[#a1a1aa]">Verified</button>
-          <button className="px-3 py-1 rounded bg-transparent text-xs text-[#a1a1aa]">Disputed</button>
-          <button className="px-3 py-1 rounded bg-transparent text-xs text-[#a1a1aa]">Under Review</button>
-          <button className="px-3 py-1 rounded bg-transparent text-xs text-[#a1a1aa]">High Impact</button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter claims">
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              className={`px-3 py-1 rounded text-xs ${
+                activeFilter === filter
+                  ? "bg-[#232329] text-white"
+                  : "bg-transparent text-[#a1a1aa] hover:text-white"
+              }`}
+              onClick={() => setActiveFilter(filter)}
+              aria-pressed={activeFilter === filter}
+            >
+              {filter}
+            </button>
+          ))}
         </div>
         <div className="flex gap-2">
-          <input className="bg-[#232329] text-white px-2 py-1 rounded text-xs" placeholder="Search claims..." />
-          <button className="px-3 py-1 rounded bg-[#232329] text-xs text-white">Filter</button>
+          <label className="sr-only" htmlFor="claims-search">Search claims</label>
+          <input 
+            id="claims-search"
+            className="bg-[#232329] text-white px-2 py-1 rounded text-xs" 
+            placeholder="Search claims..." 
+            aria-label="Search claims"
+          />
+          <button 
+            className="px-3 py-1 rounded bg-[#232329] text-xs text-white"
+            aria-label="Open additional filters"
+          >
+            Filter
+          </button>
         </div>
       </div>
-      <table className="w-full text-sm text-left">
+      <table className="w-full text-sm text-left" aria-label="Active claims">
         <thead>
           <tr className="text-[#a1a1aa] border-b border-[#232329]">
-            <th className="py-2">Claim</th>
-            <th className="py-2">Status</th>
-            <th className="py-2">Confidence</th>
-            <th className="py-2">Votes / Stake</th>
-            <th className="py-2">Time Left</th>
-            <th className="py-2">Actions</th>
+            <th scope="col" className="py-2">Claim</th>
+            <th scope="col" className="py-2">Status</th>
+            <th scope="col" className="py-2">Confidence</th>
+            <th scope="col" className="py-2">Votes / Stake</th>
+            <th scope="col" className="py-2">Time Left</th>
+            <th scope="col" className="py-2">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -54,7 +78,12 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
               <td className="py-3">{claim.votes} <span className="text-[#a1a1aa]">/ {claim.stake}</span></td>
               <td className="py-3">{claim.time}</td>
               <td className="py-3">
-                <button className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]">{claim.actions}</button>
+                <button 
+                  className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
+                  aria-label={`${claim.actions} claim: ${claim.title}`}
+                >
+                  {claim.actions}
+                </button>
               </td>
             </tr>
           ))}

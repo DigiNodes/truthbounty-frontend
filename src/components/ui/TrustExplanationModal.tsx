@@ -1,14 +1,74 @@
-import React from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 
 interface Props {
   onClose: () => void;
 }
 
 export default function TrustExplanationModal({ onClose }: Props) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  // Store the previously focused element
+  useEffect(() => {
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    // Focus the close button when modal opens
+    const closeButton = modalRef.current?.querySelector('button');
+    closeButton?.focus();
+    
+    return () => {
+      previousActiveElement.current?.focus();
+    };
+  }, []);
+
+  // Handle escape key
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+    }
+  }, [onClose]);
+
+  // Focus trap
+  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    
+    const focusableElements = modalRef.current?.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (!focusableElements || focusableElements.length === 0) return;
+    
+    const firstElement = focusableElements[0] as HTMLElement;
+    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-[#18181b] p-8 rounded-xl w-full max-w-lg border border-[#232329]">
-        <h2 className="text-2xl font-bold mb-4">How trust and reputation work</h2>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+      role="presentation"
+      onKeyDown={handleFocusTrap}
+    >
+      <div 
+        ref={modalRef}
+        className="bg-[#18181b] p-8 rounded-xl w-full max-w-lg border border-[#232329]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trust-modal-title"
+        onKeyDown={handleKeyDown}
+      >
+        <h2 id="trust-modal-title" className="text-2xl font-bold mb-4">How trust and reputation work</h2>
         <p className="mb-2">
           To maintain protocol integrity we compute a simple <strong>trust
           score</strong> for every account.  Accounts with low scores are
@@ -32,7 +92,7 @@ export default function TrustExplanationModal({ onClose }: Props) {
           </li>
           <li>
             <strong>Be patient with new wallets</strong>.  Accounts less than a
-            week old start with limited privileges until they’ve demonstrated
+            week old start with limited privileges until they've demonstrated
             good behaviour.
           </li>
         </ul>
@@ -40,6 +100,7 @@ export default function TrustExplanationModal({ onClose }: Props) {
           <button
             onClick={onClose}
             className="bg-[#5b5bf6] text-white px-4 py-2 rounded hover:bg-[#6c6cf7]"
+            aria-label="Close trust explanation"
           >
             Got it
           </button>
