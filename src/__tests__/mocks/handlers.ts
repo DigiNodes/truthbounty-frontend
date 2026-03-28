@@ -1,116 +1,93 @@
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { createMockClaim, createMockVerification } from '../utils/test-utils'
 
-// MSW handlers for API mocking
+// MSW handlers for API mocking (v2 syntax)
 export const handlers = [
   // GET /api/claims
-  rest.get('/api/claims', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json([
-        createMockClaim({ id: 'claim-1', title: 'First Claim' }),
-        createMockClaim({ id: 'claim-2', title: 'Second Claim', status: 'UNDER_REVIEW' }),
-        createMockClaim({ id: 'claim-3', title: 'Third Claim', status: 'VERIFIED' }),
-      ])
-    )
-  }),
-
-  // GET /api/claims/:id
-  rest.get('/api/claims/:claimId', (req, res, ctx) => {
-    const { claimId } = req.params
-    return res(
-      ctx.status(200),
-      ctx.json(createMockClaim({ id: claimId, title: `Claim ${claimId}` }))
-    )
-  }),
-
-  // POST /api/claims
-  rest.post('/api/claims', async (req, res, ctx) => {
-    const body = await req.json()
-    return res(
-      ctx.status(201),
-      ctx.json(
-        createMockClaim({
-          id: 'new-claim',
-          title: body.title,
-          description: body.description,
-          status: 'OPEN',
-        })
-      )
-    )
-  }),
-
-  // GET /api/claims?status=:status
-  rest.get('/api/claims', (req, res, ctx) => {
-    const status = req.url.searchParams.get('status')
+  http.get('/api/claims', ({ request }) => {
+    const url = new URL(request.url)
+    const status = url.searchParams.get('status')
+    
     const claims = [
-      createMockClaim({ id: 'claim-1', title: 'Open Claim', status: 'OPEN' }),
-      createMockClaim({ id: 'claim-2', title: 'Review Claim', status: 'UNDER_REVIEW' }),
-      createMockClaim({ id: 'claim-3', title: 'Verified Claim', status: 'VERIFIED' }),
+      createMockClaim({ id: 'claim-1', title: 'First Claim' }),
+      createMockClaim({ id: 'claim-2', title: 'Second Claim', status: 'UNDER_REVIEW' }),
+      createMockClaim({ id: 'claim-3', title: 'Third Claim', status: 'VERIFIED' }),
+      createMockClaim({ id: 'claim-4', title: 'Open Claim', status: 'OPEN' }),
+      createMockClaim({ id: 'claim-5', title: 'Review Claim', status: 'UNDER_REVIEW' }),
+      createMockClaim({ id: 'claim-6', title: 'Verified Claim', status: 'VERIFIED' }),
     ]
     
     const filteredClaims = status 
       ? claims.filter(claim => claim.status === status)
-      : claims
+      : claims.slice(0, 3)
     
-    return res(ctx.status(200), ctx.json(filteredClaims))
+    return HttpResponse.json(filteredClaims, { status: 200 })
+  }),
+
+  // GET /api/claims/:id
+  http.get('/api/claims/:claimId', ({ params }) => {
+    const { claimId } = params
+    return HttpResponse.json(
+      createMockClaim({ id: String(claimId), title: `Claim ${claimId}` }),
+      { status: 200 }
+    )
+  }),
+
+  // POST /api/claims
+  http.post('/api/claims', async ({ request }) => {
+    const body = await request.json() as { title: string; description: string }
+    return HttpResponse.json(
+      createMockClaim({
+        id: 'new-claim',
+        title: body.title,
+        description: body.description,
+        status: 'OPEN',
+      }),
+      { status: 201 }
+    )
   }),
 
   // POST /api/verifications
-  rest.post('/api/verifications', async (req, res, ctx) => {
-    const body = await req.json()
-    return res(
-      ctx.status(201),
-      ctx.json(
-        createMockVerification({
-          id: 'new-verification',
-          claimId: body.claimId,
-          decision: body.decision.toUpperCase(),
-          status: 'PENDING',
-        })
-      )
+  http.post('/api/verifications', async ({ request }) => {
+    const body = await request.json() as { claimId: string; decision: string }
+    return HttpResponse.json(
+      createMockVerification({
+        id: 'new-verification',
+        claimId: body.claimId,
+        decision: body.decision.toUpperCase(),
+        status: 'PENDING',
+      }),
+      { status: 201 }
     )
   }),
 
   // GET /api/user/:userId/reputation
-  rest.get('/api/user/:userId/reputation', (req, res, ctx) => {
-    const { userId } = req.params
-    return res(
-      ctx.status(200),
-      ctx.json({
-        userId,
-        reputation: 50,
-        isVerified: true,
-        accountAgeDays: 30,
-        suspicious: false,
-      })
-    )
+  http.get('/api/user/:userId/reputation', ({ params }) => {
+    const { userId } = params
+    return HttpResponse.json({
+      userId: String(userId),
+      reputation: 50,
+      isVerified: true,
+      accountAgeDays: 30,
+      suspicious: false,
+    }, { status: 200 })
   }),
 
   // GET /api/leaderboard
-  rest.get('/api/leaderboard', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json([
-        { address: '0x123...', reputation: 100, verifications: 10 },
-        { address: '0x456...', reputation: 80, verifications: 8 },
-        { address: '0x789...', reputation: 60, verifications: 6 },
-      ])
-    )
+  http.get('/api/leaderboard', () => {
+    return HttpResponse.json([
+      { address: '0x123...', reputation: 100, verifications: 10 },
+      { address: '0x456...', reputation: 80, verifications: 8 },
+      { address: '0x789...', reputation: 60, verifications: 6 },
+    ], { status: 200 })
   }),
 
   // Error handlers
-  rest.get('/api/claims/error', (req, res, ctx) => {
-    return res(
-      ctx.status(500),
-      ctx.json({ error: 'Internal Server Error' })
-    )
+  http.get('/api/claims/error', () => {
+    return HttpResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }),
 
-  rest.post('/api/claims/error', (req, res, ctx) => {
-    return res(
-      ctx.status(400),
-      ctx.json({ error: 'Bad Request' })
-    )
+  http.post('/api/claims/error', () => {
+    return HttpResponse.json({ error: 'Bad Request' }, { status: 400 })
   }),
 ]
