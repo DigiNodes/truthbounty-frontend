@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
 import { FaGithub, FaDiscord, FaCog } from "react-icons/fa";
 import { HiOutlineDocumentText } from "react-icons/hi";
@@ -12,19 +12,27 @@ import {
   MdVerifiedUser,
   MdAnalytics
 } from "react-icons/md";
-
-const navItems = [
-  { label: "Claims Feed", icon: MdRssFeed },
-  { label: "My Dashboard", icon: MdDashboard },
-  { label: "Submit Claim", icon: MdAddCircleOutline },
-  { label: "Active Disputes", icon: MdGavel },
-  { label: "Verifiers", icon: MdVerifiedUser },
-  { label: "Analytics", icon: MdAnalytics },
-];
+import { useFeatureFlags } from "@/components/providers";
 
 const Sidebar = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isEnabled } = useFeatureFlags();
+
+  // Navigation items based on feature flags
+  const navItems = useMemo(() => {
+    const items = [
+      { label: "Claims Feed", icon: MdRssFeed, flag: null },
+      { label: "My Dashboard", icon: MdDashboard, flag: null },
+      { label: "Submit Claim", icon: MdAddCircleOutline, flag: 'CLAIM_SUBMISSION' as const },
+      { label: "Active Disputes", icon: MdGavel, flag: 'CLAIM_DISPUTES' as const },
+      { label: "Verifiers", icon: MdVerifiedUser, flag: 'CLAIM_VERIFICATION' as const },
+      { label: "Analytics", icon: MdAnalytics, flag: 'ANALYTICS_DASHBOARD' as const },
+    ];
+    
+    // Filter items based on feature flags
+    return items.filter(item => item.flag === null || isEnabled(item.flag));
+  }, [isEnabled]);
 
   const handleSubmit = (data: ClaimFormData) => {
     // TODO: Integrate with backend or state
