@@ -24,6 +24,7 @@ const navItems = [
 
 const Sidebar = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSubmit = (data: ClaimFormData) => {
     // TODO: Integrate with backend or state
@@ -33,7 +34,36 @@ const Sidebar = () => {
 
   return (
     <>
-      <aside className="flex flex-col w-64 h-full bg-[#18181b] border-r border-[#232329] text-white">
+      {/* Mobile menu button */}
+      <button
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#18181b] rounded-lg border border-[#232329] text-white"
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Toggle menu"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {isMobileMenuOpen ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-40
+        flex flex-col w-64 h-full bg-[#18181b] border-r border-[#232329] text-white
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-[#232329]">
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2">{/* Logo */}
             <span className="font-bold text-white">T</span>
@@ -41,13 +71,14 @@ const Sidebar = () => {
            TruthBounty
          
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {navItems.map((item) => (
             <div
               key={item.label}
               className="flex items-center px-3 py-3 rounded-lg hover:bg-[#232329] cursor-pointer text-sm font-medium"
               onClick={() => {
                 if (item.label === "Submit Claim") setShowClaimModal(true);
+                setIsMobileMenuOpen(false);
               }}
             >
               <item.icon className="w-5 h-5 text-[#a1a1aa]" />

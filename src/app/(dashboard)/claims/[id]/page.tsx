@@ -9,7 +9,7 @@ export default async function ClaimDetailPage({
   params: { id: string };
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <ClaimDetails claimId={params.id} />
       <EvidenceViewer claimId={params.id} />
       <StakeForm claimId={params.id} />

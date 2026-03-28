@@ -22,19 +22,19 @@ export function ClaimDetails({ claimId }: { claimId: string }) {
   const lowTrustClaimant = !claimantTrust.isVerified || lowRep || newAcct || claimantTrust.suspicious;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {lowTrustClaimant && (
-        <div className="bg-yellow-500 text-black p-3 rounded">
+        <div className="bg-yellow-500 text-black p-2.5 sm:p-3 rounded text-sm sm:text-base">
           ⚠️ This claim was submitted by a low‑trust account (score{' '}
           {claimantTrust.reputation}).{' '}
           <TrustScoreTooltip />
         </div>
       )}
-      <div className="card">
-        <h2 className="text-xl font-semibold">{claim.title}</h2>
-        <p className="text-muted">{claim.description}</p>
+      <div className="card p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold">{claim.title}</h2>
+        <p className="text-muted text-sm sm:text-base">{claim.description}</p>
 
-        <div className="mt-3 text-sm">
+        <div className="mt-2 sm:mt-3 text-sm">
           <span>Status: </span>
           <span className="font-medium">{claim.status}</span>
         </div>
