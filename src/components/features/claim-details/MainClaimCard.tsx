@@ -11,14 +11,25 @@ import { useState } from "react";
 import { Dispute } from "@/app/types/dispute";
 import { OpenDispute } from "../disputes/OpenDispute";
 import { DisputeVoting } from "../disputes/DisputeVoting";
+import { MainClaimCardSkeleton } from "@/components/skeletons";
 
-export const MainClaimCard = ({ data }: { data: ClaimData }) => {
-  const totalVotes = data.votesFor + data.votesAgainst;
-  const forPercentage = (data.votesFor / totalVotes) * 100;
-  const againstPercentage = (data.votesAgainst / totalVotes) * 100;
+interface MainClaimCardProps {
+  data: ClaimData | null;
+  isLoading?: boolean;
+}
+
+export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) => {
   const [dispute, setDispute] = useState<Dispute | null>(null);
 
   const [isDisputeModalOpen, setDisputeModalOpen] = useState(false);
+
+  if (isLoading || !data) {
+    return <MainClaimCardSkeleton />;
+  }
+
+  const totalVotes = data.votesFor + data.votesAgainst;
+  const forPercentage = (data.votesFor / totalVotes) * 100;
+  const againstPercentage = (data.votesAgainst / totalVotes) * 100;
 
   const handleOpenDispute = async (payload: any) => {
     console.log("Opening dispute:", payload);
@@ -40,23 +51,23 @@ export const MainClaimCard = ({ data }: { data: ClaimData }) => {
   };
 
   return (
-    <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3 text-sm">
-          <span className="bg-gray-800 text-gray-300 px-3 py-1 rounded-md">
+    <div className="bg-[#13141b] border border-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 sm:gap-0">
+        <div className="flex items-center space-x-2 sm:space-x-3 text-sm">
+          <span className="bg-gray-800 text-gray-300 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm">
             {data.category}
           </span>
-          <span className="text-gray-500">{data.hash}</span>
+          <span className="text-gray-500 text-xs sm:text-sm">{data.hash}</span>
         </div>
-        <div className="flex items-center space-x-2 text-green-600 bg-green-600/10 px-3 py-1 rounded-md text-sm border border-green-600/20">
-          <CheckCircle2 size={16} />
+        <div className="flex items-center space-x-2 text-green-600 bg-green-600/10 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm border border-green-600/20">
+          <CheckCircle2 size={14} sm:size={16} />
           <span>{data.status}</span>
         </div>
       </div>
 
-      <h1 className="text-2xl font-semibold text-white mb-3">{data.title}</h1>
+      <h1 className="text-xl sm:text-2xl font-semibold text-white mb-3">{data.title}</h1>
 
-      <div className="flex items-center space-x-4 text-sm text-gray-400 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-sm text-gray-400 mb-6 sm:mb-8">
         <a
           href="#"
           className="flex items-center hover:text-gray-200 transition-colors"

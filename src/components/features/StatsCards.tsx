@@ -4,10 +4,15 @@ import React from "react";
 
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
+import { StatsCardsSkeleton } from "@/components/skeletons";
 
 import { platformStats } from "@/data/mock-data";
 
-export default function StatsCards() {
+interface StatsCardsProps {
+  isLoading?: boolean;
+}
+
+export default function StatsCards({ isLoading = false }: StatsCardsProps) {
   const trust = useTrust();
   const userTrustValue = trust.reputation.toString();
 
@@ -15,6 +20,10 @@ export default function StatsCards() {
     { label: "My Trust", value: userTrustValue, tooltip: true },
     ...platformStats,
   ];
+
+  if (isLoading) {
+    return <StatsCardsSkeleton />;
+  }
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
