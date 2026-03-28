@@ -5,13 +5,13 @@ import TrustWarningBanner from "@/components/ui/TrustWarningBanner";
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="flex h-screen bg-[#131316]">
+    <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
       {/* banner warns about Sybil/low-trust accounts */}
       <TrustWarningBanner />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#131316]">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-background">{children}</main>
       </div>
     </div>
   );

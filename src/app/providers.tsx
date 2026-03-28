@@ -3,7 +3,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { QueryProvider } from '@/components/providers/QueryProvider';
+import { QueryProvider, ThemeProvider } from '@/components/providers';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -11,8 +11,10 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <QueryProvider>
-      {children}
-    </QueryProvider>
+    <ThemeProvider defaultTheme="system">
+      <QueryProvider>
+        {children}
+      </QueryProvider>
+    </ThemeProvider>
   );
 }
