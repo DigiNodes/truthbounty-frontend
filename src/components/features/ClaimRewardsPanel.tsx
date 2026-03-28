@@ -1,8 +1,13 @@
 "use client";
 import React from "react";
 import { useRewards } from "@/hooks/useRewards";
+import { ClaimRewardsPanelSkeleton } from "@/components/skeletons";
 
-export default function ClaimRewardsPanel() {
+interface ClaimRewardsPanelProps {
+  isLoading?: boolean;
+}
+
+export default function ClaimRewardsPanel({ isLoading: externalLoading = false }: ClaimRewardsPanelProps) {
   const {
     pendingRewards,
     totalClaimable,
@@ -13,9 +18,13 @@ export default function ClaimRewardsPanel() {
   } = useRewards();
 
   const hasRewards = totalClaimable > 0;
-  const isLoading = status === "loading";
+  const isLoading = externalLoading;
   const isSuccess = status === "success";
   const isError = status === "error";
+
+  if (isLoading) {
+    return <ClaimRewardsPanelSkeleton />;
+  }
 
   return (
     <div className="bg-[#18181b] rounded-xl border border-[#232329] overflow-hidden">

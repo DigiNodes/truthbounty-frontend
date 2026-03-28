@@ -5,15 +5,32 @@ import { getClaimById } from '@/app/lib/api';
 import { Claim } from '@/app/types/claim';
 import { useTrustForAddress } from '@/components/hooks/useTrust';
 import TrustScoreTooltip from '@/components/ui/TrustScoreTooltip';
+import { ClaimDetailsSkeleton } from '@/components/skeletons';
 
-export function ClaimDetails({ claimId }: { claimId: string }) {
+interface ClaimDetailsProps {
+  claimId: string;
+  isLoading?: boolean;
+}
+
+export function ClaimDetails({ claimId, isLoading: externalLoading = false }: ClaimDetailsProps) {
   const [claim, setClaim] = useState<Claim | null>(null);
+  const [internalLoading, setInternalLoading] = useState(true);
 
   useEffect(() => {
-    getClaimById(claimId).then(setClaim);
+    setInternalLoading(true);
+    getClaimById(claimId).then((data) => {
+      setClaim(data);
+      setInternalLoading(false);
+    });
   }, [claimId]);
 
-  if (!claim) return <div>Loading claim...</div>;
+  const isLoading = externalLoading || internalLoading;
+
+  if (isLoading) {
+    return <ClaimDetailsSkeleton />;
+  }
+
+  if (!claim) return <ClaimDetailsSkeleton />;
 
   // compute trust for the claimant address
   const claimantTrust = useTrustForAddress(claim.claimantAddress);

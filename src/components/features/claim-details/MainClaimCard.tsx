@@ -11,14 +11,25 @@ import { useState } from "react";
 import { Dispute } from "@/app/types/dispute";
 import { OpenDispute } from "../disputes/OpenDispute";
 import { DisputeVoting } from "../disputes/DisputeVoting";
+import { MainClaimCardSkeleton } from "@/components/skeletons";
 
-export const MainClaimCard = ({ data }: { data: ClaimData }) => {
-  const totalVotes = data.votesFor + data.votesAgainst;
-  const forPercentage = (data.votesFor / totalVotes) * 100;
-  const againstPercentage = (data.votesAgainst / totalVotes) * 100;
+interface MainClaimCardProps {
+  data: ClaimData | null;
+  isLoading?: boolean;
+}
+
+export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) => {
   const [dispute, setDispute] = useState<Dispute | null>(null);
 
   const [isDisputeModalOpen, setDisputeModalOpen] = useState(false);
+
+  if (isLoading || !data) {
+    return <MainClaimCardSkeleton />;
+  }
+
+  const totalVotes = data.votesFor + data.votesAgainst;
+  const forPercentage = (data.votesFor / totalVotes) * 100;
+  const againstPercentage = (data.votesAgainst / totalVotes) * 100;
 
   const handleOpenDispute = async (payload: any) => {
     console.log("Opening dispute:", payload);
