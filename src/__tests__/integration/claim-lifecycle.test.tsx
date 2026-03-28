@@ -1,5 +1,5 @@
 import React from 'react'
-import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient } from '@tanstack/react-query'
 import { render, createMockClaim, createMockVerification, mockWebSocketEvent } from '../utils/test-utils'
@@ -19,10 +19,13 @@ jest.mock('@/app/api/claims.api', () => ({
 
 jest.mock('@/app/lib/api', () => ({
   submitVerification: jest.fn(),
+  submitDispute: jest.fn(),
+  resolveDispute: jest.fn(),
 }))
 
 jest.mock('@/app/lib/wallet', () => ({
   getTokenBalance: jest.fn(() => Promise.resolve(100)),
+  sendTransaction: jest.fn(() => Promise.resolve('0xabc123')),
 }))
 
 // Mock WebSocket provider
@@ -47,10 +50,15 @@ describe('Claim Lifecycle Integration Tests', () => {
       },
     })
     user = userEvent.setup()
+    jest.clearAllMocks()
   })
 
-  describe('Complete Claim Flow', () => {
-    it('should handle full claim lifecycle: submission → verification → resolution', async () => {
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  describe('Complete Claim Submission → Verification → Resolution Flow', () => {
+    it('should complete full end-to-end claim lifecycle with proper form submission and API calls', async () => {
       // Mock API responses
       const { fetchClaims, fetchClaimDetail, submitClaim } = require('@/app/api/claims.api')
       const { submitVerification } = require('@/app/lib/api')

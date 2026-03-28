@@ -17,28 +17,29 @@ const Topbar = () => {
 
   return (
     <>
-      <header className="flex items-center justify-between h-16 px-8 border-b border-[#232329] bg-[#18181b]">
-        <div className="flex items-center space-x-4">
-          <select className="bg-[#232329] text-white px-3 py-1 rounded-md text-sm">
+      <header className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 border-b border-[#232329] bg-[#18181b]">
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          <select className="bg-[#232329] text-white px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm">
             <option>All Chains</option>
           </select>
-          <select className="bg-[#232329] text-white px-3 py-1 rounded-md text-sm">
+          <select className="bg-[#232329] text-white px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm">
             <option>All</option>
             <option>30d</option>
             <option>7d</option>
           </select>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* WebSocket connection status */}
           <WebSocketIndicator />
           {/* brief trust indicator */}
           <TrustIndicator />
-          <button className="bg-[#232329] text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-[#232329]/80">Connect Wallet</button>
+          <button className="hidden sm:block bg-[#232329] text-white px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-[#232329]/80">Connect Wallet</button>
           <button
-            className="bg-[#5b5bf6] text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
+            className="bg-[#5b5bf6] text-white px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
             onClick={() => setShowClaimModal(true)}
           >
-            + Submit Claim
+            <span className="hidden sm:inline">+ Submit Claim</span>
+            <span className="sm:hidden">+ Claim</span>
           </button>
         </div>
       </header>
