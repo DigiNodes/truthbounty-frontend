@@ -10,13 +10,13 @@ export function EvidenceViewer({ claimId }: { claimId: string }) {
 
   return (
     <div className="card p-4 sm:p-6">
-      <h3 className="font-semibold mb-2 text-base sm:text-lg">Evidence</h3>
+      <h3 className="font-semibold mb-3 text-base sm:text-lg">Evidence</h3>
 
-      <div className="space-y-2 sm:space-y-3">
+      <div className="space-y-3 sm:space-y-3">
         {evidence.map((e, idx) => {
           if (e.type === 'link') {
             return (
-              <a key={idx} href={e.value} target="_blank" className="text-blue-600 underline text-sm sm:text-base break-all">
+              <a key={idx} href={e.value} target="_blank" className="text-blue-600 underline text-sm sm:text-base break-all block py-1">
                 {e.value}
               </a>
             );
@@ -26,7 +26,7 @@ export function EvidenceViewer({ claimId }: { claimId: string }) {
             return <img key={idx} src={e.value} className="rounded-lg max-h-40 sm:max-h-60 w-full object-cover" />;
           }
 
-          return <p key={idx} className="text-sm sm:text-base">{e.value}</p>;
+          return <p key={idx} className="text-sm sm:text-base leading-relaxed">{e.value}</p>;
         })}
       </div>
     </div>

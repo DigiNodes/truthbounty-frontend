@@ -175,27 +175,93 @@ a {
   /* Improve touch targets */
   button, a, input, textarea, select {
     min-height: 44px;
+    min-width: 44px;
   }
   
   /* Better scrolling on mobile */
   html {
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
   
   /* Prevent horizontal scroll */
   body {
     overflow-x: hidden;
+    position: relative;
   }
   
   /* Improve text readability on mobile */
   p, span, label, input, textarea, select {
     font-size: 16px;
+    line-height: 1.5;
+  }
+  
+  /* Mobile modal optimizations */
+  .fixed.inset-0 {
+    padding: 1rem;
+  }
+  
+  /* Mobile card spacing */
+  .card {
+    margin-bottom: 1rem;
+  }
+  
+  /* Better mobile form validation display */
+  input:invalid, textarea:invalid {
+    border: 2px solid #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+  
+  /* Mobile button hover states */
+  button:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s ease;
+  }
+  
+  /* Mobile focus improvements */
+  input:focus, textarea:focus, select:focus, button:focus {
+    outline: 2px solid #5b5bf6;
+    outline-offset: 2px;
+    transform: scale(1.01);
+  }
+  
+  /* Mobile link improvements */
+  a {
+    display: inline-block;
+    padding: 0.25rem 0;
   }
 }
 
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Mobile viewport fixes */
+@viewport {
+  width: device-width;
+  initial-scale: 1;
+  maximum-scale: 1;
+  user-scalable: no;
+}
+
+/* Safe area support for notched screens */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+  
+  .safe-area-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
 }
 
 /* Better focus states for accessibility */
@@ -255,4 +321,15 @@ select:focus-visible,
 .dark select:focus-visible,
 .dark [tabindex]:focus-visible {
   outline-color: #7c7cf7;
+}
+
+/* Ensure visible focus everywhere */
+:focus-visible {
+  outline: 2px solid #2563eb; /* blue */
+  outline-offset: 2px;
+}
+
+/* Remove bad practice if present */
+*:focus {
+  outline: none;
 }

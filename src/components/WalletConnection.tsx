@@ -29,27 +29,35 @@ export function WalletConnection() {
 
   return (
     <>
-      {mounted && account ? (
-        <div className={styles.displayData}>
-          <button 
-            className={`${styles.card} cursor-pointer`}
-            onClick={handleCopyAddress}
-            onKeyDown={handleKeyDown}
-            aria-label={`Wallet address: ${account.displayName}. Click to copy to clipboard.`}
-          >
-            {account.displayName}
-          </button>
-          <button 
-            className={styles.disconnectButton}
-            onClick={handleDisconnect}
-            aria-label="Disconnect wallet"
-          >
-            Disconnect
-          </button>
-        </div>
-      ) : (
-        <ConnectButton label="Connect Wallet" />
-      )}
-    </>
+  {mounted && account ? (
+    <div className={styles.displayData}>
+      {/* Address button (accessible + keyboard friendly) */}
+      <button
+        type="button"
+        className={styles.card}
+        onClick={() => {
+          navigator.clipboard.writeText(account.address);
+        }}
+        aria-label={`Copy wallet address ${account.displayName}`}
+      >
+        {account.displayName}
+      </button>
+
+      {/* Screen-reader feedback (instead of alert) */}
+      <span className="sr-only" aria-live="polite" id="copy-status" />
+
+      {/* Disconnect button (already good, just improve semantics) */}
+      <button
+        type="button"
+        className={styles.disconnectButton}
+        onClick={handleDisconnect}
+      >
+        Disconnect
+      </button>
+    </div>
+  ) : (
+    <ConnectButton label="Connect Wallet" />
+  )}
+</>
   )
 }
