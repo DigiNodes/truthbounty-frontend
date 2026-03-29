@@ -13,6 +13,20 @@ export function WalletConnection() {
     await disconnect()
   }
 
+  const handleCopyAddress = () => {
+    if (account?.address) {
+      navigator.clipboard.writeText(account.address)
+      alert('Address copied to clipboard')
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleCopyAddress()
+    }
+  }
+
   return (
     <>
   {mounted && account ? (

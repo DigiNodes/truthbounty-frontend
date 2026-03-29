@@ -6,10 +6,12 @@ import TrustIndicator from "@/components/ui/TrustIndicator";
 import { WebSocketIndicator } from "@/components/ui/WebSocketStatus";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { WalletConnection } from "../WalletConnection";
+import { FeatureFlagGate, useFeatureFlags } from "@/components/providers";
 
 
 const Topbar = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const { isEnabled } = useFeatureFlags();
 
   const handleSubmit = (data: ClaimFormData) => {
     // TODO: Integrate with backend or state
@@ -19,33 +21,57 @@ const Topbar = () => {
 
   return (
     <>
-      <header className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 border-b border-[#232329] bg-card">
+      <header className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 border-b border-[#232329] bg-card" role="banner">
         <div className="flex items-center space-x-2 sm:space-x-4">
-          <select className="bg-accent text-foreground px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm">
+          <label className="sr-only" htmlFor="chain-select">Select chain</label>
+          <select 
+            id="chain-select"
+            className="bg-accent text-foreground px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm"
+            aria-label="Select chain"
+          >
             <option>All Chains</option>
           </select>
-          <select className="bg-accent text-foreground px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm">
-            <option>All</option>
-            <option>30d</option>
-            <option>7d</option>
-          </select>
+          <FeatureFlagGate flag="ADVANCED_FILTERS">
+            <>
+              <label className="sr-only" htmlFor="time-filter">Filter by time</label>
+              <select 
+                id="time-filter"
+                className="bg-accent text-foreground px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm"
+                aria-label="Filter by time"
+              >
+                <option>All</option>
+                <option>30d</option>
+                <option>7d</option>
+              </select>
+            </>
+          </FeatureFlagGate>
         </div>
         <div className="flex items-center space-x-2 sm:space-x-4">
           {/* WebSocket connection status */}
-          <WebSocketIndicator />
+          <FeatureFlagGate flag="REALTIME_UPDATES">
+            <WebSocketIndicator />
+          </FeatureFlagGate>
           {/* Theme toggle */}
           <ThemeToggle />
           {/* brief trust indicator */}
-          <TrustIndicator />
-          <WalletConnection />
-          <button className="hidden sm:block bg-accent text-foreground px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-accent/80">Connect Wallet</button>
-          <button
-            className="bg-[#5b5bf6] text-white px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
-            onClick={() => setShowClaimModal(true)}
-          >
-            <span className="hidden sm:inline">+ Submit Claim</span>
-            <span className="sm:hidden">+ Claim</span>
-          </button>
+          <FeatureFlagGate flag="TRUST_SCORE_DISPLAY">
+            <TrustIndicator />
+          </FeatureFlagGate>
+          {/* Wallet connection */}
+          <FeatureFlagGate flag="WALLET_CONNECTION">
+            <WalletConnection />
+          </FeatureFlagGate>
+          {/* Submit Claim button */}
+          <FeatureFlagGate flag="CLAIM_SUBMISSION">
+            <button
+              className="bg-[#5b5bf6] text-white px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
+              onClick={() => setShowClaimModal(true)}
+              aria-label="Submit a new claim"
+            >
+              <span className="hidden sm:inline">+ Submit Claim</span>
+              <span className="sm:hidden">+ Claim</span>
+            </button>
+          </FeatureFlagGate>
         </div>
       </header>
       {showClaimModal && (

@@ -137,6 +137,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
           <button
             className="flex-1 border border-red-900 text-red-500 hover:bg-red-950/30 py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base"
             onClick={() => setDisputeModalOpen(true)}
+            aria-label="Open a dispute for this claim"
           >
             <Shield size={18} className="mr-2 flex-shrink-0" /> <span className="truncate">Dispute</span>
           </button>
