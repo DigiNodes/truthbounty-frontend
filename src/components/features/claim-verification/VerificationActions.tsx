@@ -19,10 +19,16 @@ export function VerificationActions({ claimId }: { claimId: string }) {
 
   return (
     <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6">
-      <button onClick={() => submit('verify')} className="btn-primary flex-1 py-2.5 sm:py-2 text-base sm:text-sm">
+      <button 
+        onClick={() => submit('verify')} 
+        className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+      >
         Verify
       </button>
-      <button onClick={() => submit('reject')} className="btn-danger flex-1 py-2.5 sm:py-2 text-base sm:text-sm">
+      <button 
+        onClick={() => submit('reject')} 
+        className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+      >
         Reject
       </button>
 
