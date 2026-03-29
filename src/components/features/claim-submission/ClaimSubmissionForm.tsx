@@ -48,7 +48,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   }}
 >
   <form
-    className="bg-[#18181b] p-4 sm:p-6 md:p-8 rounded-xl w-full max-w-md border border-[#232329] flex flex-col gap-3 sm:gap-4 max-h-[90vh] overflow-y-auto"
+    className="bg-[#18181b] p-4 sm:p-6 md:p-8 rounded-xl w-full max-w-md border border-[#232329] flex flex-col gap-4 sm:gap-4 max-h-[90vh] overflow-y-auto"
     onSubmit={handleSubmit}
   >
     <h2 id="claim-title" className="text-lg sm:text-xl font-bold text-white mb-2">
@@ -70,7 +70,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     <input
       id="title"
       name="title"
-      className="bg-[#232329] text-white px-3 py-2.5 sm:py-2 rounded text-base"
+      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
       placeholder="Title"
       value={title}
       onChange={e => setTitle(e.target.value)}
@@ -82,7 +82,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     <input
       id="category"
       name="category"
-      className="bg-[#232329] text-white px-3 py-2.5 sm:py-2 rounded text-base"
+      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
       placeholder="Category"
       value={category}
       onChange={e => setCategory(e.target.value)}
@@ -94,7 +94,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     <input
       id="impact"
       name="impact"
-      className="bg-[#232329] text-white px-3 py-2.5 sm:py-2 rounded text-base"
+      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
       placeholder="Impact (e.g. High Impact)"
       value={impact}
       onChange={e => setImpact(e.target.value)}
@@ -106,7 +106,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     <input
       id="source"
       name="source"
-      className="bg-[#232329] text-white px-3 py-2.5 sm:py-2 rounded text-base"
+      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
       placeholder="Source"
       value={source}
       onChange={e => setSource(e.target.value)}
@@ -118,7 +118,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     <textarea
       id="description"
       name="description"
-      className="bg-[#232329] text-white px-3 py-2.5 sm:py-2 rounded text-base"
+      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation resize-none"
       placeholder="Description"
       value={description}
       onChange={e => setDescription(e.target.value)}
@@ -127,10 +127,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     />
 
     {/* Actions */}
-    <div className="flex flex-col sm:flex-row gap-2 mt-2">
+    <div className="flex flex-col sm:flex-row gap-3 mt-4">
       <button
         type="button"
-        className="flex-1 bg-[#232329] text-white px-4 py-2.5 sm:py-2 rounded hover:bg-[#232329]/80 text-base font-medium"
+        className="flex-1 bg-[#232329] text-white px-4 py-3 rounded-lg hover:bg-[#232329]/80 text-base font-medium min-h-[44px] touch-manipulation transition-colors"
         onClick={onClose}
         disabled={loading}
       >
@@ -139,7 +139,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
       <button
         type="submit"
-        className="flex-1 bg-[#5b5bf6] text-white px-4 py-2.5 sm:py-2 rounded hover:bg-[#6c6cf7] text-base font-medium"
+        className="flex-1 bg-[#5b5bf6] text-white px-4 py-3 rounded-lg hover:bg-[#6c6cf7] text-base font-medium min-h-[44px] touch-manipulation transition-colors disabled:opacity-50"
         disabled={loading}
       >
         {loading ? "Submitting..." : "Submit"}
