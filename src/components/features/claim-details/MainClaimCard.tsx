@@ -59,8 +59,8 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
           </span>
           <span className="text-gray-500 text-xs sm:text-sm">{data.hash}</span>
         </div>
-        <div className="flex items-center space-x-2 text-green-600 bg-green-600/10 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm border border-green-600/20">
-          <CheckCircle2 size={14} sm:size={16} />
+        <div className="flex items-center space-x-2 sm:space-x-3 text-green-600 bg-green-600/10 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm border border-green-600/20">
+          <CheckCircle2 size={14} className="sm:size-16" />
           <span>{data.status}</span>
         </div>
       </div>
@@ -127,18 +127,18 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
           </div>
         </div>
 
-        <div className="flex space-x-4 pt-4">
+        <div className="flex space-x-3 sm:space-x-4 pt-4">
           {!dispute && (
-            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 rounded-lg font-medium flex items-center justify-center transition-colors">
-              <ThumbsUp size={18} className="mr-2" /> Verify (Stake + Vote)
+            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base">
+              <ThumbsUp size={18} className="mr-2 flex-shrink-0" /> <span className="truncate">Verify (Stake + Vote)</span>
             </button>
           )}
 
           <button
-            className="flex-1 border border-red-900 text-red-500 hover:bg-red-950/30 py-3 rounded-lg font-medium flex items-center justify-center transition-colors"
+            className="flex-1 border border-red-900 text-red-500 hover:bg-red-950/30 py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base"
             onClick={() => setDisputeModalOpen(true)}
           >
-            <Shield size={18} className="mr-2" /> Dispute
+            <Shield size={18} className="mr-2 flex-shrink-0" /> <span className="truncate">Dispute</span>
           </button>
         </div>
       </div>
