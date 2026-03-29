@@ -25,6 +25,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <html lang="en">
+  <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    {/* Skip link for keyboard users */}
+    <a
+      href="#main"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 bg-white text-black px-3 py-2 rounded"
+    >
+      Skip to content
+    </a>
+
+    <Providers>
+      {/* Optional: wrap nav inside Providers if it depends on context */}
+      <nav aria-label="Main navigation">
+        {/* your existing navigation component */}
+      </nav>
+
+      <main id="main" tabIndex={-1}>
+        {children}
+      </main>
+    </Providers>
+  </body>
+</html>
     <html lang="en" suppressHydrationWarning>
       <head>
         <ThemeInitScript />
