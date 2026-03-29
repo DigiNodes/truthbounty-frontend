@@ -11,6 +11,14 @@ export interface ClaimFormData {
   description: string;
 }
 
+interface FormErrors {
+  title?: string;
+  category?: string;
+  impact?: string;
+  source?: string;
+  description?: string;
+}
+
 interface ClaimFormProps {
   onSubmit: (data: ClaimFormData) => void;
   onClose: () => void;
@@ -23,14 +31,86 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const [source, setSource] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<{[key: string]: boolean}>({});
 
   const trust = useTrust();
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
   const lowTrust = !trust.isVerified || lowReputation || newWallet || trust.suspicious;
 
+  const validateField = (name: string, value: string): string | undefined => {
+    if (!value || value.trim() === '') {
+      return `${name.charAt(0).toUpperCase() + name.slice(1)} is required`;
+    }
+    if (name === 'title' && value.length < 3) {
+      return 'Title must be at least 3 characters long';
+    }
+    if (name === 'description' && value.length < 10) {
+      return 'Description must be at least 10 characters long';
+    }
+    if (name === 'source' && !value.match(/^https?://.+/)) {
+      return 'Please enter a valid URL starting with http:// or https://';
+    }
+    return undefined;
+  };
+
+  const handleFieldChange = (name: string, value: string) => {
+    const setter = {
+      title: setTitle,
+      category: setCategory,
+      impact: setImpact,
+      source: setSource,
+      description: setDescription
+    }[name];
+    
+    if (setter) {
+      setter(value);
+      
+      if (touched[name]) {
+        const error = validateField(name, value);
+        setErrors(prev => ({ ...prev, [name]: error }));
+      }
+    }
+  };
+
+  const handleFieldBlur = (name: string, value: string) => {
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const error = validateField(name, value);
+    setErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    const fields = ['title', 'category', 'impact', 'source', 'description'];
+    
+    fields.forEach(field => {
+      const value = {
+        title,
+        category,
+        impact,
+        source,
+        description
+      }[field as keyof ClaimFormData];
+      
+      const error = validateField(field, value);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
+    
+    setErrors(newErrors);
+    setTouched(Object.fromEntries(fields.map(field => [field, true])));
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
     onSubmit({ title, category, impact, source, description });
     setLoading(false);
@@ -67,64 +147,124 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
     {/* Title */}
     <label htmlFor="title" className="sr-only">Title</label>
-    <input
-      id="title"
-      name="title"
-      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
-      placeholder="Title"
-      value={title}
-      onChange={e => setTitle(e.target.value)}
-      required
-    />
+    <div>
+      <input
+        id="title"
+        name="title"
+        className={`bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation transition-colors ${
+          errors.title ? 'border-2 border-red-500' : 'border border-transparent'
+        }`}
+        placeholder="Title"
+        value={title}
+        onChange={e => handleFieldChange('title', e.target.value)}
+        onBlur={() => handleFieldBlur('title', title)}
+        required
+        aria-invalid={!!errors.title}
+        aria-describedby={errors.title ? 'title-error' : undefined}
+      />
+      {errors.title && touched.title && (
+        <p id="title-error" className="text-red-500 text-sm mt-1" role="alert">
+          {errors.title}
+        </p>
+      )}
+    </div>
 
     {/* Category */}
     <label htmlFor="category" className="sr-only">Category</label>
-    <input
-      id="category"
-      name="category"
-      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
-      placeholder="Category"
-      value={category}
-      onChange={e => setCategory(e.target.value)}
-      required
-    />
+    <div>
+      <input
+        id="category"
+        name="category"
+        className={`bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation transition-colors ${
+          errors.category ? 'border-2 border-red-500' : 'border border-transparent'
+        }`}
+        placeholder="Category"
+        value={category}
+        onChange={e => handleFieldChange('category', e.target.value)}
+        onBlur={() => handleFieldBlur('category', category)}
+        required
+        aria-invalid={!!errors.category}
+        aria-describedby={errors.category ? 'category-error' : undefined}
+      />
+      {errors.category && touched.category && (
+        <p id="category-error" className="text-red-500 text-sm mt-1" role="alert">
+          {errors.category}
+        </p>
+      )}
+    </div>
 
     {/* Impact */}
     <label htmlFor="impact" className="sr-only">Impact</label>
-    <input
-      id="impact"
-      name="impact"
-      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
-      placeholder="Impact (e.g. High Impact)"
-      value={impact}
-      onChange={e => setImpact(e.target.value)}
-      required
-    />
+    <div>
+      <input
+        id="impact"
+        name="impact"
+        className={`bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation transition-colors ${
+          errors.impact ? 'border-2 border-red-500' : 'border border-transparent'
+        }`}
+        placeholder="Impact (e.g. High Impact)"
+        value={impact}
+        onChange={e => handleFieldChange('impact', e.target.value)}
+        onBlur={() => handleFieldBlur('impact', impact)}
+        required
+        aria-invalid={!!errors.impact}
+        aria-describedby={errors.impact ? 'impact-error' : undefined}
+      />
+      {errors.impact && touched.impact && (
+        <p id="impact-error" className="text-red-500 text-sm mt-1" role="alert">
+          {errors.impact}
+        </p>
+      )}
+    </div>
 
     {/* Source */}
     <label htmlFor="source" className="sr-only">Source</label>
-    <input
-      id="source"
-      name="source"
-      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation"
-      placeholder="Source"
-      value={source}
-      onChange={e => setSource(e.target.value)}
-      required
-    />
+    <div>
+      <input
+        id="source"
+        name="source"
+        className={`bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation transition-colors ${
+          errors.source ? 'border-2 border-red-500' : 'border border-transparent'
+        }`}
+        placeholder="Source URL"
+        value={source}
+        onChange={e => handleFieldChange('source', e.target.value)}
+        onBlur={() => handleFieldBlur('source', source)}
+        required
+        aria-invalid={!!errors.source}
+        aria-describedby={errors.source ? 'source-error' : undefined}
+      />
+      {errors.source && touched.source && (
+        <p id="source-error" className="text-red-500 text-sm mt-1" role="alert">
+          {errors.source}
+        </p>
+      )}
+    </div>
 
     {/* Description */}
     <label htmlFor="description" className="sr-only">Description</label>
-    <textarea
-      id="description"
-      name="description"
-      className="bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation resize-none"
-      placeholder="Description"
-      value={description}
-      onChange={e => setDescription(e.target.value)}
-      rows={4}
-      required
-    />
+    <div>
+      <textarea
+        id="description"
+        name="description"
+        className={`bg-[#232329] text-white px-4 py-3 rounded-lg text-base min-h-[44px] w-full touch-manipulation resize-none transition-colors ${
+          errors.description ? 'border-2 border-red-500' : 'border border-transparent'
+        }`}
+        placeholder="Description"
+        value={description}
+        onChange={e => handleFieldChange('description', e.target.value)}
+        onBlur={() => handleFieldBlur('description', description)}
+        rows={4}
+        required
+        aria-invalid={!!errors.description}
+        aria-describedby={errors.description ? 'description-error' : undefined}
+      />
+      {errors.description && touched.description && (
+        <p id="description-error" className="text-red-500 text-sm mt-1" role="alert">
+          {errors.description}
+        </p>
+      )}
+    </div>
 
     {/* Actions */}
     <div className="flex flex-col sm:flex-row gap-3 mt-4">
