@@ -49,7 +49,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     if (name === 'description' && value.length < 10) {
       return 'Description must be at least 10 characters long';
     }
-    if (name === 'source' && !value.match(/^https?://.+/)) {
+    if (name === 'source' && !/^https?:\/\/.+/.test(value)) {
       return 'Please enter a valid URL starting with http:// or https://';
     }
     return undefined;
