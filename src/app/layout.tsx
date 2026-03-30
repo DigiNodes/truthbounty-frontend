@@ -25,8 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-  <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeInitScript />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
     {/* Skip link for keyboard users */}
     <a
       href="#main"
@@ -47,13 +50,5 @@ export default function RootLayout({
     </Providers>
   </body>
 </html>
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <ThemeInitScript />
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
   );
 }
