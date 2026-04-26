@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { WorldcoinVerifyButton } from './WorldcoinVerifyButton';
 import { VerificationStatusIndicator } from './VerificationStatusIndicator';
 import { VerificationSuccessCard } from './VerificationSuccessCard';
 import { VerificationErrorCard } from './VerificationErrorCard';
 import { WorldcoinInfoTooltip } from './WorldcoinInfoTooltip';
+import { useWorldcoinVerification } from '@/hooks/useWorldcoinVerification';
 import type { WorldcoinVerificationStatus } from '@/app/types/worldcoin';
 
 interface WorldcoinVerificationPanelProps {
@@ -19,62 +20,41 @@ export function WorldcoinVerificationPanel({
   onVerificationChange,
   compact = false,
 }: WorldcoinVerificationPanelProps) {
-  const [status, setStatus] = useState<WorldcoinVerificationStatus>('NOT_STARTED');
-  const [verificationLevel, setVerificationLevel] = useState<'orb' | 'device'>('orb');
-  const [verifiedAt, setVerifiedAt] = useState<string | undefined>();
-  const [expiresAt, setExpiresAt] = useState<string | undefined>();
-  const [error, setError] = useState<string | undefined>();
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [showError, setShowError] = useState(false);
+  const {
+    status,
+    verification,
+    handleIDKitProof,
+    isMockMode,
+    isConfigured,
+    refresh,
+  } = useWorldcoinVerification({
+    walletAddress,
+    autoCheck: true,
+  });
 
-  // Check existing verification status on mount
-  useEffect(() => {
-    if (walletAddress) {
-      checkVerificationStatus();
-    }
-  }, [walletAddress]);
+  const verificationLevel = verification?.result?.verification_level || 'orb';
+  const verifiedAt = verification?.verifiedAt;
+  const expiresAt = verification?.expiresAt;
+  const error = verification?.error;
 
-  const checkVerificationStatus = async () => {
-    try {
-      // Check localStorage for demo purposes
-      const trustInfo = JSON.parse(localStorage.getItem('trustInfo') || '{}');
-      if (trustInfo.isVerified) {
-        setStatus('SUCCESS');
-        setVerifiedAt(new Date().toISOString());
-        setExpiresAt(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString());
-      }
-    } catch (e) {
-      console.error('Failed to check verification status:', e);
-    }
-  };
+  // Show success/error based on status
+  const showSuccess = status === 'SUCCESS' && verifiedAt;
+  const showError = status === 'FAILED' && error;
 
   const handleVerificationStart = () => {
-    setStatus('IN_PROGRESS');
-    setShowSuccess(false);
-    setShowError(false);
-    setError(undefined);
+    // Status changes automatically through hook
   };
 
   const handleVerificationComplete = (success: boolean) => {
+    onVerificationChange?.(success);
     if (success) {
-      setStatus('SUCCESS');
-      setVerificationLevel('orb');
-      setVerifiedAt(new Date().toISOString());
-      setExpiresAt(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString());
-      setShowSuccess(true);
-      onVerificationChange?.(true);
-    } else {
-      setStatus('FAILED');
-      setError('Verification failed. Please try again.');
-      setShowError(true);
-      onVerificationChange?.(false);
+      // Refresh verification status from backend
+      refresh();
     }
   };
 
   const handleRetry = () => {
-    setStatus('NOT_STARTED');
-    setShowError(false);
-    setError(undefined);
+    refresh();
   };
 
   if (compact) {
@@ -92,7 +72,9 @@ export function WorldcoinVerificationPanel({
               walletAddress={walletAddress}
               onVerificationStart={handleVerificationStart}
               onVerificationComplete={handleVerificationComplete}
+              onIDKitProof={handleIDKitProof}
               disabled={!walletAddress}
+              useMockMode={isMockMode}
             />
             <WorldcoinInfoTooltip />
           </>
@@ -109,7 +91,9 @@ export function WorldcoinVerificationPanel({
             Identity Verification
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Verify your identity with Worldcoin to unlock full platform access
+            {isMockMode
+              ? '(Mock Mode) Click the button to simulate identity verification'
+              : 'Verify your identity with Worldcoin to unlock full platform access'}
           </p>
         </div>
         <WorldcoinInfoTooltip />
@@ -120,7 +104,10 @@ export function WorldcoinVerificationPanel({
           verificationLevel={verificationLevel}
           verifiedAt={verifiedAt}
           expiresAt={expiresAt}
-          onClose={() => setShowSuccess(false)}
+          onClose={() => {
+            // Status can be viewed again, just refresh
+            refresh();
+          }}
         />
       )}
 
@@ -128,7 +115,9 @@ export function WorldcoinVerificationPanel({
         <VerificationErrorCard
           error={error}
           onRetry={handleRetry}
-          onDismiss={() => setShowError(false)}
+          onDismiss={() => {
+            handleRetry();
+          }}
         />
       )}
 
@@ -153,6 +142,12 @@ export function WorldcoinVerificationPanel({
                 </p>
               )}
               
+              {status === 'IN_PROGRESS' && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Verification in progress...
+                </p>
+              )}
+              
               {status === 'SUCCESS' && verifiedAt && (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Verified on {new Date(verifiedAt).toLocaleDateString()}
@@ -165,7 +160,9 @@ export function WorldcoinVerificationPanel({
                 walletAddress={walletAddress}
                 onVerificationStart={handleVerificationStart}
                 onVerificationComplete={handleVerificationComplete}
+                onIDKitProof={handleIDKitProof}
                 disabled={!walletAddress}
+                useMockMode={isMockMode}
               />
             )}
           </div>
