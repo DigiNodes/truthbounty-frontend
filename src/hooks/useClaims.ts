@@ -1,7 +1,7 @@
 // src/hooks/useClaims.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../queries/queryKeys';
-import { fetchClaims, fetchClaimDetail, submitClaim } from '../api/claims.api';
+import { queryKeys } from '../app/queries/queryKeys';
+import { fetchClaims, fetchClaimDetail, submitClaim } from '../app/api/claims.api';
 
 export const useClaims = () => {
   const queryClient = useQueryClient();
