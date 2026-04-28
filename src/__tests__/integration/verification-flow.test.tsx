@@ -42,7 +42,7 @@ describe('Verification Flow Integration Tests', () => {
       submitVerification.mockResolvedValue(mockVerification)
 
       render(
-        <VerificationActions claimId="claim-1" />,
+        <VerificationActions claimId="claim-1" stakeAmount={50} />,
         { queryClient }
       )
 
@@ -59,7 +59,8 @@ describe('Verification Flow Integration Tests', () => {
       await waitFor(() => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
-          decision: 'verify'
+          decision: 'verify',
+          stakeAmount: 50
         })
       })
     })
@@ -70,7 +71,7 @@ describe('Verification Flow Integration Tests', () => {
       submitVerification.mockResolvedValue(mockVerification)
 
       render(
-        <VerificationActions claimId="claim-1" />,
+        <VerificationActions claimId="claim-1" stakeAmount={50} />,
         { queryClient }
       )
 
@@ -87,7 +88,8 @@ describe('Verification Flow Integration Tests', () => {
       await waitFor(() => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
-          decision: 'reject'
+          decision: 'reject',
+          stakeAmount: 50
         })
       })
     })
@@ -97,7 +99,7 @@ describe('Verification Flow Integration Tests', () => {
       submitVerification.mockRejectedValue(new Error('Verification failed'))
 
       render(
-        <VerificationActions claimId="claim-1" />,
+        <VerificationActions claimId="claim-1" stakeAmount={50} />,
         { queryClient }
       )
 
@@ -116,7 +118,7 @@ describe('Verification Flow Integration Tests', () => {
       submitVerification.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)))
 
       render(
-        <VerificationActions claimId="claim-1" />,
+        <VerificationActions claimId="claim-1" stakeAmount={50} />,
         { queryClient }
       )
 
@@ -256,7 +258,7 @@ describe('Verification Flow Integration Tests', () => {
         <div>
           <ClaimDetails claim={mockClaim} />
           <StakeForm claimId="claim-1" />
-          <VerificationActions claimId="claim-1" />
+          <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
         { queryClient }
       )
@@ -282,7 +284,8 @@ describe('Verification Flow Integration Tests', () => {
       await waitFor(() => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
-          decision: 'verify'
+          decision: 'verify',
+          stakeAmount: 50
         })
       })
     })
@@ -302,7 +305,7 @@ describe('Verification Flow Integration Tests', () => {
         <div>
           <ClaimDetails claim={mockClaim} />
           <StakeForm claimId="claim-1" />
-          <VerificationActions claimId="claim-1" />
+          <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
         { queryClient }
       )
@@ -314,7 +317,8 @@ describe('Verification Flow Integration Tests', () => {
       await waitFor(() => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
-          decision: 'reject'
+          decision: 'reject',
+          stakeAmount: 50
         })
       })
     })
@@ -326,7 +330,7 @@ describe('Verification Flow Integration Tests', () => {
       submitVerification.mockRejectedValue(new Error('Network error'))
 
       render(
-        <VerificationActions claimId="claim-1" />,
+        <VerificationActions claimId="claim-1" stakeAmount={50} />,
         { queryClient }
       )
 
@@ -359,7 +363,7 @@ describe('Verification Flow Integration Tests', () => {
       render(
         <div>
           <StakeForm claimId="claim-1" />
-          <VerificationActions claimId="claim-1" />
+          <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
         { queryClient }
       )
@@ -380,7 +384,7 @@ describe('Verification Flow Integration Tests', () => {
         <div>
           <ClaimDetails claim={createMockClaim()} />
           <StakeForm claimId="claim-1" />
-          <VerificationActions claimId="claim-1" />
+          <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
         { queryClient }
       )

@@ -176,7 +176,8 @@ describe('Claim Lifecycle Integration Tests', () => {
       await waitFor(() => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
-          decision: 'verify'
+          decision: 'verify',
+          stakeAmount: 50
         })
       })
     })

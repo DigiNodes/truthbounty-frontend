@@ -1,7 +1,7 @@
 // src/hooks/useLeaderboard.ts
 import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '../queries/queryKeys';
-import { fetchLeaderboard } from '../api/leaderboard.api';
+import { queryKeys } from '../app/queries/queryKeys';
+import { fetchLeaderboard } from '../app/api/leaderboard.api';
 
 export const useLeaderboard = () => {
   return useQuery(queryKeys.leaderboard, fetchLeaderboard, {

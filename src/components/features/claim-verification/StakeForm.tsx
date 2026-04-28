@@ -3,13 +3,24 @@
 import { useState, useEffect } from 'react';
 import { getTokenBalance } from '@/app/lib/wallet';
 
-export function StakeForm({ claimId }: { claimId: string }) {
+export function StakeForm({ 
+  claimId, 
+  onStakeChange 
+}: { 
+  claimId: string;
+  onStakeChange?: (stake: string) => void;
+}) {
   const [stake, setStake] = useState('');
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     getTokenBalance().then(setBalance);
   }, []);
+
+  const handleStakeChange = (value: string) => {
+    setStake(value);
+    onStakeChange?.(value);
+  };
 
   return (
     <div className="card p-4 sm:p-6">
@@ -18,7 +29,7 @@ export function StakeForm({ claimId }: { claimId: string }) {
       <input
         type="number"
         value={stake}
-        onChange={(e) => setStake(e.target.value)}
+        onChange={(e) => handleStakeChange(e.target.value)}
         placeholder="Enter stake amount"
         className="input w-full p-3 sm:p-3 text-base min-h-[44px] touch-manipulation"
       />
