@@ -3,6 +3,7 @@
 import React from 'react';
 import { Copy, ExternalLink, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { openTransactionInExplorer } from '@/lib/explorer';
 
 export interface TransactionItemProps {
   type: 'verification' | 'stake' | 'withdrawal' | 'dispute';
@@ -143,6 +144,7 @@ export function TransactionItem({
             size="sm"
             className="h-6 w-6 p-0 hover:bg-slate-700"
             title="View on explorer"
+            onClick={() => openTransactionInExplorer(hash)}
           >
             <ExternalLink className="w-4 h-4 text-slate-400" />
           </Button>
