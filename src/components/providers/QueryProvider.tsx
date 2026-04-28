@@ -23,7 +23,7 @@ function RealtimeDataSync() {
 export function QueryProvider({ children }: QueryProviderProps) {
   // WebSocket URL - can be configured via environment variable
   const wsUrl = typeof window !== 'undefined' 
-    ? (window as any).env?.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws'
+    ?  process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/ws"
     : 'ws://localhost:8080/ws';
 
   return (
