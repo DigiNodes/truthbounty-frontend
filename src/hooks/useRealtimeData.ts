@@ -184,25 +184,6 @@ export function useRealtimeData() {
   ]);
 }
 
-/**
- * Hook for subscribing to specific claim updates in real-time
- */
-export function useRealtimeClaim(claimId: string) {
-  const { subscribe, isConnected } = useWebSocketContext();
-
-  useEffect(() => {
-    if (!isConnected) return;
-
-    const unsubscribe = subscribe('CLAIM_STATUS_CHANGED', (payload) => {
-      if (payload.claimId === claimId) {
-        // Force refetch of claim data
-        console.log(`Claim ${claimId} status changed to ${payload.newStatus}`);
-      }
-    });
-
-    return unsubscribe;
-  }, [isConnected, subscribe, claimId]);
-}
 
 /**
  * Hook for subscribing to leaderboard updates in real-time
