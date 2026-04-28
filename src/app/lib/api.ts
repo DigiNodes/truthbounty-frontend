@@ -7,6 +7,7 @@ export async function getClaimById(id: string) {
 export async function submitVerification(payload: {
   claimId: string;
   decision: 'verify' | 'reject';
+  stakeAmount: number;
 }) {
   const res = await fetch('/api/verifications', {
     method: 'POST',

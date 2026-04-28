@@ -4,13 +4,25 @@ import { useState } from 'react';
 import { submitVerification } from '@/app/lib/api';
 import { TransactionStatus } from './TransactionStatus';
 
-export function VerificationActions({ claimId }: { claimId: string }) {
+export function VerificationActions({ 
+  claimId, 
+  stakeAmount 
+}: { 
+  claimId: string;
+  stakeAmount: number;
+}) {
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
 
   const submit = async (decision: 'verify' | 'reject') => {
+    if (!stakeAmount || stakeAmount <= 0) {
+      setStatus('error');
+      console.error('Stake amount is required and must be greater than 0');
+      return;
+    }
+
     try {
       setStatus('pending');
-      await submitVerification({ claimId, decision });
+      await submitVerification({ claimId, decision, stakeAmount });
       setStatus('success');
     } catch {
       setStatus('error');
