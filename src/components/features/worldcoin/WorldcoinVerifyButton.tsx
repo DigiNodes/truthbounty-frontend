@@ -48,15 +48,6 @@ export function WorldcoinVerifyButton({
         await new Promise(resolve => setTimeout(resolve, 2000));
         setStatus('SUCCESS');
         onVerificationComplete?.(true);
-        
-        // Update trust info in localStorage
-        try {
-          const trustInfo = JSON.parse(localStorage.getItem('trustInfo') || '{}');
-          trustInfo.isVerified = true;
-          localStorage.setItem('trustInfo', JSON.stringify(trustInfo));
-        } catch (e) {
-          console.error('Failed to update trust info:', e);
-        }
       } catch (error) {
         console.error('Mock verification failed:', error);
         setStatus('FAILED');

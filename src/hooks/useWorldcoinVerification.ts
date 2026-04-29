@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { WorldcoinVerification, WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
 import { getVerificationStatus, submitWorldcoinVerification, mockWorldcoinVerification, shouldUseMock } from '@/app/lib/worldcoin';
 import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
+import { queryKeys } from '@/app/queries/queryKeys';
 
 interface UseWorldcoinVerificationOptions {
   walletAddress?: string;
@@ -38,6 +40,7 @@ export function useWorldcoinVerification({
   const [isMockMode] = useState(() => shouldUseMock());
   const [isConfigured] = useState(() => isWorldcoinConfigured());
   const idkitRef = useRef<any>(null);
+  const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {
     if (!walletAddress) return;
@@ -89,14 +92,8 @@ export function useWorldcoinVerification({
       setVerification(result);
       setStatus(result.status);
       
-      // Update localStorage for demo
-      try {
-        const trustInfo = JSON.parse(localStorage.getItem('trustInfo') || '{}');
-        trustInfo.isVerified = result.status === 'SUCCESS';
-        localStorage.setItem('trustInfo', JSON.stringify(trustInfo));
-      } catch (e) {
-        console.error('Failed to update trust info:', e);
-      }
+      // Invalidate cached verification status so consumers refetch from API
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.verification(walletAddress) });
     } catch (err) {
       console.error('Verification failed:', err);
       setError(err instanceof Error ? err.message : 'Verification failed');
@@ -125,14 +122,8 @@ export function useWorldcoinVerification({
       setVerification(result);
       setStatus(result.status);
       
-      // Update localStorage
-      try {
-        const trustInfo = JSON.parse(localStorage.getItem('trustInfo') || '{}');
-        trustInfo.isVerified = result.status === 'SUCCESS';
-        localStorage.setItem('trustInfo', JSON.stringify(trustInfo));
-      } catch (e) {
-        console.error('Failed to update trust info:', e);
-      }
+      // Invalidate cached verification status so consumers refetch from API
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.verification(walletAddress) });
     } catch (err) {
       console.error('IDKit verification failed:', err);
       setError(err instanceof Error ? err.message : 'Verification failed');
