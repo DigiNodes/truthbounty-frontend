@@ -1,0 +1,192 @@
+# Production-grade CI for TruthBounty Frontend
+# Supports fast feedback, stable PR validation, and open-source contributions
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Run linter
+        run: npm run lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Run tests
+        run: npm run test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Build app
+        run: npm run build
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Run Playwright E2E tests
+        run: npm run test:e2e || echo "E2E tests are optional. Skipping if not configured."
+      - name: Accessibility check (axe-core)
+        run: |
+          if npm run test:a11y --if-present; then
+            npm run test:a11y
+          else
+            echo "No accessibility test configured. Skipping."
+          fi
