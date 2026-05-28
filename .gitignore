@@ -42,3 +42,8 @@ next-env.d.ts
 
 *storybook.log
 storybook-static
+
+# Hide CI workflow and automation scripts from contributors
+.github/workflows/ci.yml
+create_issues_frontend.sh
+issues_to_created_frontend.md
