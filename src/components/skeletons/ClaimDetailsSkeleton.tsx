@@ -2,12 +2,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function ClaimDetailsSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="claim-details-skeleton">
       {/* Warning banner placeholder */}
-      <div className="hidden" />
+      <div className="card p-4 bg-[#1f1f23] border border-[#232329] rounded-xl">
+        <Skeleton className="h-5 w-3/4" />
+      </div>
 
       {/* Main content card */}
-      <div className="card p-6 bg-[#18181b] border border-[#232329] rounded-xl space-y-4">
+      <div className="card p-6 bg-[#18181b] border border-[#232329] rounded-xl space-y-4" data-testid="claim-details-skeleton-card">
         {/* Title */}
         <Skeleton className="h-7 w-3/4" />
 
