@@ -168,6 +168,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         {["title", "category", "impact", "source"].map((field) => (
           <div key={field}>
             <input
+              id={`claim-${field}`}
+              name={field}
+              type="text"
               className={`input ${errors[field] ? "border-red-500" : ""}`}
               placeholder={capitalize(field)}
               value={
@@ -194,6 +197,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         ))}
 
         <textarea
+          id="claim-description"
+          name="description"
           placeholder="Description"
           value={description}
           onChange={(e) =>

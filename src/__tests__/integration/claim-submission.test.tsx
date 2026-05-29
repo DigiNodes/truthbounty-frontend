@@ -193,6 +193,36 @@ describe('Claim Submission Integration Tests', () => {
       expect(onSubmit).toHaveBeenCalledWith(mockClaim)
     })
 
+    it('should submit the form when pressing Enter inside a text field', async () => {
+      const { submitClaim } = require('@/app/api/claims.api')
+      const mockClaim = createMockClaim({ title: 'Enter Key Claim', status: 'OPEN' })
+      submitClaim.mockResolvedValue(mockClaim)
+
+      const onSubmit = jest.fn()
+
+      render(<ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />, { queryClient })
+
+      const titleInput = screen.getByPlaceholderText('Title')
+      const categoryInput = screen.getByPlaceholderText('Category')
+      const impactInput = screen.getByPlaceholderText('Impact')
+      const sourceInput = screen.getByPlaceholderText('Source')
+      const descriptionInput = screen.getByPlaceholderText('Description')
+
+      await user.type(titleInput, 'Enter Key Claim')
+      await user.type(categoryInput, 'fraud')
+      await user.type(impactInput, 'High Impact')
+      await user.type(sourceInput, 'https://example.com')
+      await user.type(descriptionInput, 'This description is long enough to pass validation.')
+
+      await user.type(titleInput, '{Enter}')
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({ title: 'Enter Key Claim' })
+        )
+      })
+    })
+
     it('should show loading state during submission', async () => {
       const { submitClaim } = require('@/app/api/claims.api')
       submitClaim.mockImplementation(
