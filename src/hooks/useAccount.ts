@@ -75,19 +75,93 @@ const addressToHistoricObject = (address: string) => {
 };
 
 export function useAccount(): typeof addressObject | null {
-  const [ , setLoading] = useState(true);
+  const [ , setTick] = useState(false);
 
   useEffect(() => {
-    if (address !== undefined) return;
+    let mounted = true;
 
-    addressLookup
-      .then(user => { 
-        if (user) {
-          address = user.address;
-          persistConnection(user.address);
+    const notify = () => {
+      // toggle to force re-render for subscribers
+      setTick((t) => !t);
+    };
+
+    const validate = async () => {
+      try {
+        if (await isConnected()) {
+          const current = await getAddress();
+          if (current && current.address) {
+            if (address !== current.address) {
+              address = current.address;
+              persistConnection(current.address);
+              if (mounted) notify();
+            }
+            return;
+          }
         }
-      })
-      .finally(() => { setLoading(false) });
+
+        // not connected
+        if (address !== undefined) {
+          resetAddress();
+          if (mounted) notify();
+        }
+      } catch (error) {
+        // swallow errors but ensure state consistency
+        console.error('Failed to validate wallet connection:', error);
+      }
+    };
+
+    // initial lookup (only if we don't already have an address)
+    if (address === undefined) {
+      addressLookup
+        .then(user => {
+          if (user) {
+            address = user.address;
+            persistConnection(user.address);
+          }
+        })
+        .finally(() => { if (mounted) notify(); });
+    } else {
+      // validate existing address on mount
+      void validate();
+    }
+
+    // Re-check when the window regains focus or becomes visible
+    const onFocus = () => void validate();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void validate();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Listen for storage changes (other tabs) and apply persisted changes
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === WALLET_STORAGE_KEY) {
+        const persisted = getPersistedConnection();
+        if (!persisted && address !== undefined) {
+          // cleared from another tab
+          resetAddress();
+          if (mounted) notify();
+        } else if (persisted && persisted !== address) {
+          // changed in another tab
+          address = persisted || undefined;
+          if (mounted) notify();
+        }
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+
+    // As a safety net, poll occasionally to detect manual disconnects.
+    const interval = setInterval(() => void validate(), 5000);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('storage', onStorage);
+      clearInterval(interval);
+    };
   }, []);
 
   if (address) return addressToHistoricObject(address);
