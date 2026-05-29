@@ -32,4 +32,5 @@ export {
   ActivityChartSkeleton,
   MainClaimCardSkeleton,
   ClaimDetailsSkeleton,
+  ClaimDetailsSkeleton as ClaimDetailSkeleton,
 }
