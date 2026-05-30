@@ -131,6 +131,8 @@ export function RealtimeActivityFeed() {
       <div
         ref={feedRef}
         className="space-y-2 max-h-64 overflow-y-auto"
+        aria-live="polite"
+        aria-label="Live activity feed"
       >
         {activities.length === 0 ? (
           <p className="text-gray-500 text-sm">Waiting for activity...</p>
