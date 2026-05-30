@@ -26,7 +26,14 @@ export function EvidenceViewer({ claimId }: { claimId: string }) {
       </button>
 
       {expanded && (
-        <div id="evidence-content" className="space-y-3 sm:space-y-3">
+        <div
+          id="evidence-content"
+          data-testid="evidence-scroll-container"
+          className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
+          // Scroll lock: bound the panel height and contain scroll within it
+          // so scrolling does not chain to the page (prevents double scrollbars).
+          style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}
+        >
           {evidence.map((e, idx) => {
             if (e.type === 'link') {
               return (
