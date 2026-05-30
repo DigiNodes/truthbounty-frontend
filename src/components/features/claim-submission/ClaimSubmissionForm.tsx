@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { setAllowed } from "@stellar/freighter-api";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
+import { useAccount } from "@/hooks/useAccount";
 
 export interface ClaimFormData {
   title: string;
@@ -38,6 +40,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const trust = useTrust();
+  const account = useAccount();
+  const isWalletConnected = !!account?.address;
 
   const { mutateAsync, isLoading } = useSubmitClaim();
 
@@ -90,6 +94,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     e.preventDefault();
     setSubmitError(null);
 
+    // Protocol invariant: submission requires a connected wallet.
+    if (!isWalletConnected) {
+      setSubmitError("Please connect your wallet before submitting a claim.");
+      return;
+    }
+
     if (!validateForm()) return;
 
     try {
@@ -136,6 +146,17 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
+  const handleConnectWallet = async () => {
+    try {
+      await setAllowed();
+    } catch (err) {
+      console.error("Failed to request wallet connection:", err);
+      setSubmitError(
+        "Could not open the wallet. Please install/enable Freighter and try again."
+      );
+    }
+  };
+
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
@@ -151,6 +172,26 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         onSubmit={handleSubmit}
       >
         <h2 className="text-xl font-bold text-white">Submit a Claim</h2>
+
+        {!isWalletConnected && (
+          <div
+            data-testid="connect-wallet-banner"
+            role="alert"
+            className="flex flex-col gap-2 bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-3 rounded-lg text-sm"
+          >
+            <p className="font-medium">
+              You need to connect a wallet to submit a claim.
+            </p>
+            <button
+              type="button"
+              data-testid="connect-wallet-button"
+              onClick={handleConnectWallet}
+              className="self-start bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-md font-semibold"
+            >
+              Connect Wallet
+            </button>
+          </div>
+        )}
 
         {lowTrust && (
           <div className="bg-yellow-500 text-black px-2 py-1 rounded text-sm">
@@ -223,10 +264,21 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
+            data-testid="submit-claim-button"
+            disabled={isLoading || !isWalletConnected}
+            aria-disabled={isLoading || !isWalletConnected}
+            title={
+              !isWalletConnected
+                ? "Connect your wallet to submit"
+                : undefined
+            }
+            className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? "Submitting..." : "Submit"}
+            {isLoading
+              ? "Submitting..."
+              : !isWalletConnected
+              ? "Connect Wallet to Submit"
+              : "Submit"}
           </button>
         </div>
       </form>
