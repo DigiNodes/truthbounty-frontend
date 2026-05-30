@@ -167,9 +167,9 @@ export function useRealtimeData() {
       subscribe('LEADERBOARD_UPDATED', handleLeaderboardUpdated),
     ];
 
-    // Cleanup subscriptions on unmount
+    // Cleanup subscriptions on unmount or when dependencies change
     return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      unsubscribers.forEach((unsubscribe) => unsubscribe?.());
     };
   }, [
     isConnected,
@@ -199,6 +199,6 @@ export function useRealtimeLeaderboard() {
       queryClient.setQueryData(queryKeys.leaderboard, payload.rankings);
     });
 
-    return unsubscribe;
+    return () => unsubscribe?.();
   }, [isConnected, subscribe, queryClient]);
 }
