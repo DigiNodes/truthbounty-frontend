@@ -154,6 +154,26 @@ a {
   body {
     @apply bg-background text-foreground;
   }
+
+  /*
+   * Design system: header typography
+   * Heading elements have a consistent font-weight scale across the app.
+   * - h1: 700 (bold)
+   * - h2..h6: 600 (semibold)
+   * These rules can be overridden by explicit Tailwind utility classes
+   * (e.g. font-bold, font-semibold) but provide a safe baseline so any
+   * unstyled heading still aligns with the design system.
+   */
+  h1 {
+    font-weight: 700;
+  }
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+  }
 }
 
 /* Skeleton shimmer animation */
