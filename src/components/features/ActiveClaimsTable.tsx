@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 
@@ -8,8 +8,16 @@ interface ActiveClaimsTableProps {
 
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const filters = ["All", "Verified", "Disputed", "Under Review", "High Impact"];
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    // Restore focus so keyboard users stay on the search field after clearing.
+    searchInputRef.current?.focus();
+  };
 
   if (isLoading) {
     return <ActiveClaimsTableSkeleton />;
@@ -36,13 +44,31 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
         </div>
         <div className="flex gap-2">
           <label className="sr-only" htmlFor="claims-search">Search claims</label>
-          <input 
-            id="claims-search"
-            className="bg-[#232329] text-white px-2 py-1 rounded text-xs" 
-            placeholder="Search claims..." 
-            aria-label="Search claims"
-          />
-          <button 
+          <div className="relative">
+            <input
+              id="claims-search"
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs"
+              placeholder="Search claims..."
+              aria-label="Search claims"
+            />
+            {searchQuery.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                aria-label="Clear search"
+                title="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-5 h-5 rounded text-[#a1a1aa] hover:text-white hover:bg-[#3a3a42] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b5bf6]"
+              >
+                {/* simple X glyph; avoids adding an icon dependency */}
+                <span aria-hidden="true" className="text-sm leading-none">×</span>
+              </button>
+            )}
+          </div>
+          <button
             className="px-3 py-1 rounded bg-[#232329] text-xs text-white"
             aria-label="Open additional filters"
           >
