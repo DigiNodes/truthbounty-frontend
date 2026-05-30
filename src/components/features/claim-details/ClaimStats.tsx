@@ -4,7 +4,7 @@ import { CheckCircle2, FileText, Shield } from "lucide-react";
 export const ClaimStats = ({ data }: { data: ClaimData }) => {
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6 mb-6">
-      <h2 className="text-white font-medium mb-6">Claim Stats</h2>
+      <h2 className="text-white font-semibold mb-6">Claim Stats</h2>
       <div className="space-y-5">
         <div className="flex justify-between items-center pb-4 border-b border-gray-800/60">
           <span className="text-sm text-gray-400 flex items-center"><Shield size={16} className="mr-2" /> Total Staked</span>

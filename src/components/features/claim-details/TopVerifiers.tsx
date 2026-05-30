@@ -3,7 +3,7 @@ import { TopVerifier } from "@/app/types/dispute";
 export const TopVerifiers = ({ verifiers }: { verifiers: TopVerifier[] }) => {
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6">
-      <h2 className="text-white font-medium mb-6">Top Verifiers</h2>
+      <h2 className="text-white font-semibold mb-6">Top Verifiers</h2>
       <div className="space-y-4">
         {verifiers.map((verifier) => (
           <div key={verifier.id} className="flex items-center justify-between">
