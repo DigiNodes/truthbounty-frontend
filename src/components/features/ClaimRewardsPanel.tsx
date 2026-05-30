@@ -2,6 +2,7 @@
 import React from "react";
 import { useRewards } from "@/hooks/useRewards";
 import { ClaimRewardsPanelSkeleton } from "@/components/skeletons";
+import { getTransactionExplorerUrl } from "@/lib/explorer";
 
 interface ClaimRewardsPanelProps {
   isLoading?: boolean;
@@ -175,9 +176,23 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
           {isSuccess && lastTxHash ? (
             <>
               ✓ Transaction confirmed &nbsp;
-              <span className="font-mono opacity-70">
+              <a
+                href={getTransactionExplorerUrl(lastTxHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono opacity-70 underline hover:opacity-100"
+              >
                 {lastTxHash.slice(0, 18)}…{lastTxHash.slice(-6)}
-              </span>
+              </a>
+              &nbsp;
+              <a
+                href={getTransactionExplorerUrl(lastTxHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:opacity-100"
+              >
+                View on Explorer
+              </a>
             </>
           ) : (
             <>⚠ {errorMessage}</>
