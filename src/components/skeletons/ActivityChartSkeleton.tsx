@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function ActivityChartSkeleton() {
   return (
-    <div className="bg-[#18181b] rounded-xl p-6 h-72 flex flex-col justify-between border border-[#232329]">
+    <div className="bg-[#18181b] rounded-xl p-6 h-72 flex flex-col justify-between border border-[#232329] overflow-y-auto">
       {/* Header */}
       <Skeleton className="h-5 w-40 mb-2" />
 

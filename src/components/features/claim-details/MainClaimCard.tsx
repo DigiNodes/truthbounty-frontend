@@ -65,7 +65,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         </div>
       </div>
 
-      <h1 className="text-xl sm:text-2xl font-semibold text-white mb-3">{data.title}</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">{data.title}</h1>
 
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-sm text-gray-400 mb-6 sm:mb-8">
         <a
@@ -81,7 +81,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
 
       <div className="space-y-6">
         <div>
-          <h3 className="text-white text-sm font-medium mb-3">
+          <h3 className="text-white text-sm font-semibold mb-3">
             Verification Breakdown
           </h3>
           <div className="flex justify-between text-sm mb-2">
@@ -111,7 +111,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         </div>
 
         <div>
-          <h3 className="text-white text-sm font-medium mb-3">
+          <h3 className="text-white text-sm font-semibold mb-3">
             Confidence Score
           </h3>
           <div className="flex items-center space-x-4">
