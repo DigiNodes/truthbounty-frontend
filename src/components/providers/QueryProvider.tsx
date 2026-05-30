@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/app/queries/queryClient';
 import { WebSocketProvider } from './WebSocketProvider';
 import { useRealtimeData } from '@/hooks/useRealtimeData';
+import { QueryDevtools } from './QueryDevtools';
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -39,6 +40,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
         <RealtimeDataSync />
         {children}
       </WebSocketProvider>
+      {/* DevTools are gated by process.env.NODE_ENV — never rendered in production. */}
+      <QueryDevtools />
     </QueryClientProvider>
   );
 }
