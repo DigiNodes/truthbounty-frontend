@@ -23,7 +23,7 @@ const ActivityAndNodes = ({ isLoading = false }: ActivityAndNodesProps) => {
   }
 
   return (
-    <div className="bg-[#18181b] rounded-xl p-6 h-72 flex flex-col justify-between border border-[#232329]">
+    <div className="bg-[#18181b] rounded-xl p-6 h-72 flex flex-col justify-between border border-[#232329] overflow-y-auto">
       <div className="text-white font-semibold mb-2">Verification Activity</div>
       <div className="flex-1 w-full h-full min-h-0">
         <ResponsiveContainer width="100%" height="100%">
