@@ -10,29 +10,50 @@ import { ClaimDetailsSkeleton } from '@/components/skeletons';
 interface ClaimDetailsProps {
   claimId: string;
   isLoading?: boolean;
+  onNotFound?: () => void;
 }
 
-export function ClaimDetails({ claimId, isLoading: externalLoading = false }: ClaimDetailsProps) {
+export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNotFound }: ClaimDetailsProps) {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [internalLoading, setInternalLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     setInternalLoading(true);
+    setNotFound(false);
     getClaimById(claimId).then((data) => {
       setClaim(data);
       setInternalLoading(false);
+    }).catch((err) => {
+      if (err.message === 'CLAIM_NOT_FOUND') {
+        setNotFound(true);
+        onNotFound?.();
+      }
+      setInternalLoading(false);
     });
-  }, [claimId]);
+  }, [claimId, onNotFound]);
 
   const isLoading = externalLoading || internalLoading;
 
-  if (isLoading) {
+  if (isLoading && !notFound) {
     return <ClaimDetailsSkeleton />;
   }
 
-  if (!claim) return <ClaimDetailsSkeleton />;
+  if (notFound) {
+    return (
+      <div className="card p-6 sm:p-8 text-center">
+        <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Claim not found</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          The claim you&apos;re looking for doesn&apos;t exist or may have been removed.
+        </p>
+      </div>
+    );
+  }
 
-  // compute trust for the claimant address
+  if (!claim) {
+    return <ClaimDetailsSkeleton />;
+  }
+
   const claimantTrust = useTrustForAddress(claim.claimantAddress);
   const lowRep = claimantTrust.reputation < 20;
   const newAcct = claimantTrust.accountAgeDays < 7;
