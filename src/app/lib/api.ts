@@ -1,6 +1,11 @@
 export async function getClaimById(id: string) {
   const res = await fetch(`/api/claims/${id}`);
-  if (!res.ok) throw new Error('Failed to fetch claim');
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('CLAIM_NOT_FOUND');
+    }
+    throw new Error('Failed to fetch claim');
+  }
   return res.json();
 }
 
