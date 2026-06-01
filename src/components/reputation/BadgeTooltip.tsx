@@ -14,7 +14,7 @@ export default function BadgeTooltip({ tier, score, children }: Props) {
     <div className="relative group inline-block">
       {children}
 
-      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-black text-white text-xs p-2 rounded shadow-lg">
+      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-black text-white text-xs p-2 rounded shadow-lg z-50">
         <p className="font-semibold">{tier.toUpperCase()} Tier</p>
         <p>Reputation Score: {score}</p>
         <p>Higher tiers unlock trust benefits.</p>

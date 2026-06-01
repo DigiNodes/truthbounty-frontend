@@ -120,7 +120,7 @@ export function TransactionItem({
       {errorMessage && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded flex items-start gap-2">
           <span className="text-red-400 mt-0.5">⚠️</span>
-          <p className="text-sm text-red-400">{errorMessage}</p>
+          <p className="text-sm text-red-400 break-words">{errorMessage}</p>
         </div>
       )}
 
