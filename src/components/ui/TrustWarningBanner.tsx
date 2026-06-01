@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "./TrustScoreTooltip";
 import TrustExplanationModal from "./TrustExplanationModal";
@@ -11,32 +11,39 @@ export default function TrustWarningBanner() {
 
   const lowReputation = reputation < 20;
   const newWallet = accountAgeDays < 7;
-  const lowTrust = !isVerified || lowReputation || newWallet || suspicious;
+  const zeroWeight = !isVerified || suspicious;
+  const lowTrust = zeroWeight || lowReputation || newWallet;
+
+  const warnings = useMemo(() => {
+    const items: string[] = [];
+    if (!isVerified) items.push("you have not completed identity verification");
+    if (lowReputation) items.push(`your reputation score is only ${reputation}`);
+    if (newWallet) items.push("this wallet is very new");
+    if (suspicious) items.push("suspicious activity has been detected");
+    return items;
+  }, [isVerified, lowReputation, reputation, newWallet, suspicious]);
 
   if (!lowTrust) return null;
 
-  // build message pieces
-  const warnings: string[] = [];
-  if (!isVerified) warnings.push("you have not completed identity verification");
-  if (lowReputation) warnings.push(`your reputation score is only ${reputation}`);
-  if (newWallet) warnings.push("this wallet is very new");
-  if (suspicious) warnings.push("suspicious activity has been detected");
-
   return (
     <>
-      <div className="bg-yellow-500 text-black px-8 py-3 flex items-center justify-between">
+      <div className="bg-yellow-500 text-black px-4 sm:px-8 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col">
           <div className="font-semibold flex items-center gap-1">
-            ⚠️ Low trust account{' '}
-            <TrustScoreTooltip />
+            ⚠️ Low trust account <TrustScoreTooltip />
           </div>
           <div className="text-sm mt-1">
             {warnings.join(', ')}. Please verify your identity and follow our
             guidelines to improve your reputation.
           </div>
+          {zeroWeight ? (
+            <div className="mt-2 text-sm font-medium" data-testid="zero-weight-warning">
+              Your verification weight is currently 0, so votes from this wallet will not count until the identity warning is resolved.
+            </div>
+          ) : null}
         </div>
         <button
-          className="underline text-sm"
+          className="underline text-sm self-start sm:self-auto"
           onClick={() => setShowExplanation(true)}
         >
           Learn more

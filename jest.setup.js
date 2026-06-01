@@ -13,12 +13,19 @@ global.WebSocket = jest.fn(() => ({
 // Mock fetch globally
 global.fetch = jest.fn()
 
-// Mock localStorage
+// Mock localStorage with in-memory behavior so tests can observe persisted state.
+const storage = new Map()
 const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
+  getItem: jest.fn((key) => (storage.has(key) ? storage.get(key) : null)),
+  setItem: jest.fn((key, value) => {
+    storage.set(String(key), String(value))
+  }),
+  removeItem: jest.fn((key) => {
+    storage.delete(String(key))
+  }),
+  clear: jest.fn(() => {
+    storage.clear()
+  }),
 }
 global.localStorage = localStorageMock
 
@@ -40,5 +47,6 @@ Object.defineProperty(window, 'matchMedia', {
 // Clean up after each test
 afterEach(() => {
   jest.clearAllMocks()
+  storage.clear()
   queryClient.clear()
 })

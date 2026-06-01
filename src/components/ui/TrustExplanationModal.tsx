@@ -8,19 +8,16 @@ export default function TrustExplanationModal({ onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
-  // Store the previously focused element
   useEffect(() => {
     previousActiveElement.current = document.activeElement as HTMLElement;
-    // Focus the close button when modal opens
     const closeButton = modalRef.current?.querySelector('button');
     closeButton?.focus();
-    
+
     return () => {
       previousActiveElement.current?.focus();
     };
   }, []);
 
-  // Handle escape key
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -28,16 +25,15 @@ export default function TrustExplanationModal({ onClose }: Props) {
     }
   }, [onClose]);
 
-  // Focus trap
   const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== "Tab") return;
-    
+
     const focusableElements = modalRef.current?.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
+
     if (!focusableElements || focusableElements.length === 0) return;
-    
+
     const firstElement = focusableElements[0] as HTMLElement;
     const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
 
@@ -46,23 +42,21 @@ export default function TrustExplanationModal({ onClose }: Props) {
         e.preventDefault();
         lastElement.focus();
       }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
+    } else if (document.activeElement === lastElement) {
+      e.preventDefault();
+      firstElement.focus();
     }
   }, []);
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+    <div
+      className="fixed inset-0 z-50 modal-shell bg-black/60"
       role="presentation"
       onKeyDown={handleFocusTrap}
     >
-      <div 
+      <div
         ref={modalRef}
-        className="bg-[#18181b] p-8 rounded-xl w-full max-w-lg border border-[#232329]"
+        className="modal-panel bg-[#18181b] border border-[#232329]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="trust-modal-title"
@@ -71,19 +65,19 @@ export default function TrustExplanationModal({ onClose }: Props) {
         <h2 id="trust-modal-title" className="text-2xl font-bold mb-4">How trust and reputation work</h2>
         <p className="mb-2">
           To maintain protocol integrity we compute a simple <strong>trust
-          score</strong> for every account.  Accounts with low scores are
+          score</strong> for every account. Accounts with low scores are
           treated with extra caution, and dishonest behaviour may result in
           penalties or reduced access.
         </p>
         <ul className="list-disc pl-5 space-y-1 text-sm">
           <li>
-            <strong>Verify your identity</strong> via the on‑chain verification
-            flow – it proves to others that you are a real person and
-            significantly increases your score.
+            <strong>Verify your identity</strong> via the on-chain verification
+            flow. Until that is complete, your verification weight may remain
+            zero and your votes can be ignored.
           </li>
           <li>
             <strong>Build reputation</strong> by submitting accurate claims and
-            participating honestly in verifications.  Positive feedback raises
+            participating honestly in verifications. Positive feedback raises
             your score over time.
           </li>
           <li>
@@ -91,8 +85,8 @@ export default function TrustExplanationModal({ onClose }: Props) {
             wallets, submitting conflicting data, or rapid-fire activity.
           </li>
           <li>
-            <strong>Be patient with new wallets</strong>.  Accounts less than a
-            week old start with limited privileges until they've demonstrated
+            <strong>Be patient with new wallets</strong>. Accounts less than a
+            week old start with limited privileges until they have demonstrated
             good behaviour.
           </li>
         </ul>
