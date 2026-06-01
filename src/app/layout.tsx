@@ -27,6 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta charSet="utf-8" />
         <ThemeInitScript />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
