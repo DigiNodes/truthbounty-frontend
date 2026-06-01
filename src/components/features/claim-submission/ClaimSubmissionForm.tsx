@@ -24,7 +24,7 @@ interface FormErrors {
 }
 
 interface ClaimFormProps {
-  onSubmit?: (data: ClaimFormData) => void; // optional now
+  onSubmit?: (data: ClaimFormData) => void;
   onClose: () => void;
 }
 
@@ -50,7 +50,6 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const lowTrust =
     !trust.isVerified || lowReputation || newWallet || trust.suspicious;
 
-  // ---------------- VALIDATION ----------------
   const validateField = (name: string, value: string): string | undefined => {
     if (!value.trim()) return `${capitalize(name)} is required`;
 
@@ -89,12 +88,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     return Object.keys(newErrors).length === 0;
   };
 
-  // ---------------- SUBMIT ----------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
-    // Protocol invariant: submission requires a connected wallet.
     if (!isWalletConnected) {
       setSubmitError("Please connect your wallet before submitting a claim.");
       return;
@@ -111,14 +108,15 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         description,
       });
 
-      // optional callback for parent
       onSubmit?.({ title, category, impact, source, description });
 
-      onClose(); // ✅ only on success
-    } catch (err: any) {
+      onClose();
+    } catch (err: unknown) {
       console.error("Claim submission failed:", err);
       setSubmitError(
-        err?.message || "Failed to submit claim. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Failed to submit claim. Please try again."
       );
     }
   };
@@ -160,15 +158,15 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  // ---------------- UI ----------------
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 modal-shell bg-black/60"
       role="dialog"
       aria-modal="true"
+      data-testid="claim-submission-modal"
     >
       <form
-        className="bg-[#18181b] p-6 rounded-xl w-full max-w-md border border-[#232329] flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+        className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
       >
         <h2 className="text-xl font-bold text-white">Submit a Claim</h2>
@@ -194,7 +192,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         )}
 
         {lowTrust && (
-          <div className="bg-yellow-500 text-black px-2 py-1 rounded text-sm">
+          <div className="bg-yellow-500 text-black px-2 py-2 rounded text-sm">
             ⚠️ Low trust score <TrustScoreTooltip />
           </div>
         )}
@@ -205,14 +203,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           </p>
         )}
 
-        {/* Inputs (same structure, shortened here) */}
         {["title", "category", "impact", "source"].map((field) => (
           <div key={field}>
             <input
               id={`claim-${field}`}
               name={field}
               type="text"
-              className={`input ${errors[field] ? "border-red-500" : ""}`}
+              className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
               placeholder={capitalize(field)}
               value={
                 { title, category, impact, source }[
@@ -231,8 +228,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
                 )
               }
             />
-            {errors[field] && touched[field] && (
-              <p className="text-red-500 text-sm">{errors[field]}</p>
+            {errors[field as keyof FormErrors] && touched[field] && (
+              <p className="text-red-500 text-sm">{errors[field as keyof FormErrors]}</p>
             )}
           </div>
         ))}
@@ -261,24 +258,16 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           >
             Cancel
           </button>
-
           <button
             type="submit"
-            data-testid="submit-claim-button"
             disabled={isLoading || !isWalletConnected}
-            aria-disabled={isLoading || !isWalletConnected}
-            title={
-              !isWalletConnected
-                ? "Connect your wallet to submit"
-                : undefined
-            }
-            className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
           >
             {isLoading
               ? "Submitting..."
               : !isWalletConnected
-              ? "Connect Wallet to Submit"
-              : "Submit"}
+                ? "Connect your wallet to submit"
+                : "Submit Claim"}
           </button>
         </div>
       </form>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, AlertTriangle } from 'lucide-react'; 
+import { X, AlertTriangle } from 'lucide-react';
 import { CreateDisputePayload } from '@/app/types/dispute';
-
 
 interface OpenDisputeProps {
   claimId: string;
@@ -19,7 +18,6 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
   const firstFocusableRef = useRef<HTMLTextAreaElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
-  // Store the previously focused element
   useEffect(() => {
     if (isOpen) {
       previousActiveElement.current = document.activeElement as HTMLElement;
@@ -31,14 +29,12 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
     };
   }, [isOpen]);
 
-  // Focus first input when modal opens
   useEffect(() => {
     if (isOpen) {
       firstFocusableRef.current?.focus();
     }
   }, [isOpen]);
 
-  // Handle escape key
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -46,16 +42,15 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
     }
   }, [onClose]);
 
-  // Focus trap
   const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== "Tab") return;
-    
+
     const focusableElements = modalRef.current?.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
+
     if (!focusableElements || focusableElements.length === 0) return;
-    
+
     const firstElement = focusableElements[0] as HTMLElement;
     const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
 
@@ -64,11 +59,9 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
         e.preventDefault();
         lastElement.focus();
       }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
+    } else if (document.activeElement === lastElement) {
+      e.preventDefault();
+      firstElement.focus();
     }
   }, []);
 
@@ -88,14 +81,14 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6"
+    <div
+      className="fixed inset-0 z-50 modal-shell bg-black/80 backdrop-blur-sm"
       role="presentation"
       onKeyDown={handleFocusTrap}
     >
-      <div 
+      <div
         ref={modalRef}
-        className="w-full max-w-md rounded-xl border border-zinc-800 bg-[#111111] p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="modal-panel border border-zinc-800 bg-[#111111] shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="dispute-modal-title"
@@ -106,8 +99,8 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSubmit }: OpenDisputeP
             <AlertTriangle size={18} aria-hidden="true" />
             <h2 id="dispute-modal-title" className="text-base sm:text-lg font-bold text-white">Open Dispute</h2>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-zinc-500 hover:text-white p-1"
             aria-label="Close dispute modal"
           >
