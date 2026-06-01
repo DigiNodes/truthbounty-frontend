@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import Link from 'next/link';
 import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
 import { FaGithub, FaDiscord, FaCog, FaBug } from "react-icons/fa";
-import { HiOutlineDocumentText } from "react-icons/hi";
+import { HiOutlineDocumentText, HiOutlineQuestionMarkCircle } from "react-icons/hi";
 import {
   MdRssFeed,
   MdDashboard,
@@ -148,6 +148,12 @@ const Sidebar = () => {
           </div>
 
           <ul className="mt-8 space-y-2" role="list">
+            <li>
+              <Link href="/how-it-works" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-accent text-sm font-medium text-left transition-colors">
+                <HiOutlineQuestionMarkCircle className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
+                <span className="ml-3">How it works</span>
+              </Link>
+            </li>
             <li>
               <Link href={RESOURCE_LINKS.docs} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
                 <HiOutlineDocumentText className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
