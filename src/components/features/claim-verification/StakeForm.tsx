@@ -14,7 +14,10 @@ export function StakeForm({
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {
-    getTokenBalance().then(setBalance);
+    const fetchBalance = () => getTokenBalance().then(setBalance).catch(() => {});
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStakeChange = (value: string) => {
