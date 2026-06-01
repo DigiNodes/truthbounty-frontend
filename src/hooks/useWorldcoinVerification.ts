@@ -7,9 +7,14 @@ import { getVerificationStatus, submitWorldcoinVerification, mockWorldcoinVerifi
 import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
 import { queryKeys } from '@/app/queries/queryKeys';
 
+/** Polling interval in ms — re-checks verification status to keep badge in sync */
+const POLL_INTERVAL_MS = 30_000;
+
 interface UseWorldcoinVerificationOptions {
   walletAddress?: string;
   autoCheck?: boolean;
+  /** Override polling interval (ms). Pass 0 to disable polling. */
+  pollInterval?: number;
 }
 
 interface UseWorldcoinVerificationReturn {
@@ -26,12 +31,15 @@ interface UseWorldcoinVerificationReturn {
 }
 
 /**
- * Hook for managing Worldcoin verification state
- * Supports both real IDKit verification and mock verification for development
+ * Hook for managing Worldcoin verification state.
+ * Supports both real IDKit verification and mock verification for development.
+ * Polls the backend on a configurable interval to keep the "Verified" badge
+ * in sync with the server — fixing the badge desync issue (#189).
  */
 export function useWorldcoinVerification({
   walletAddress,
   autoCheck = true,
+  pollInterval = POLL_INTERVAL_MS,
 }: UseWorldcoinVerificationOptions = {}): UseWorldcoinVerificationReturn {
   const [verification, setVerification] = useState<WorldcoinVerification | null>(null);
   const [status, setStatus] = useState<WorldcoinVerificationStatus>('NOT_STARTED');
@@ -139,6 +147,20 @@ export function useWorldcoinVerification({
       refresh();
     }
   }, [autoCheck, walletAddress, refresh]);
+
+  // Poll verification status to keep badge in sync with backend (#189)
+  useEffect(() => {
+    if (!walletAddress || pollInterval <= 0) return;
+
+    const id = setInterval(() => {
+      // Only poll when not already loading and not mid-verification
+      if (status !== 'IN_PROGRESS') {
+        refresh();
+      }
+    }, pollInterval);
+
+    return () => clearInterval(id);
+  }, [walletAddress, pollInterval, status, refresh]);
 
   return {
     verification,

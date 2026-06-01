@@ -28,12 +28,12 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
 
   const getIcon = () => {
     if (theme === 'system') {
-      return <Monitor className="w-4 h-4" />;
+      return <Monitor className="w-4 h-4" aria-hidden="true" />;
     }
     if (theme === 'light') {
-      return <Sun className="w-4 h-4" />;
+      return <Sun className="w-4 h-4" aria-hidden="true" />;
     }
-    return <Moon className="w-4 h-4" />;
+    return <Moon className="w-4 h-4" aria-hidden="true" />;
   };
 
   const getLabel = () => {
@@ -51,7 +51,10 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
   return (
     <button
       onClick={handleToggle}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#232329] hover:bg-[#2a2a32] text-white transition-colors ${className}`}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-md
+        bg-gray-100 hover:bg-gray-200 text-gray-800
+        dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100
+        transition-colors ${className}`}
       title={`Theme: ${theme} (click to change)`}
       aria-label={`Toggle theme (current: ${theme})`}
     >
