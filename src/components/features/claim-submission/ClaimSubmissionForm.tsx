@@ -198,7 +198,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         )}
 
         {submitError && (
-          <p className="text-red-500 text-sm" role="alert">
+          <p className="text-red-500 text-sm break-words" role="alert">
             {submitError}
           </p>
         )}
@@ -229,7 +229,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               }
             />
             {errors[field as keyof FormErrors] && touched[field] && (
-              <p className="text-red-500 text-sm">{errors[field as keyof FormErrors]}</p>
+              <p className="text-red-500 text-sm break-words">{errors[field as keyof FormErrors]}</p>
             )}
           </div>
         ))}
@@ -246,7 +246,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         />
 
         {errors.description && touched.description && (
-          <p className="text-red-500 text-sm">{errors.description}</p>
+          <p className="text-red-500 text-sm break-words">{errors.description}</p>
         )}
 
         <div className="flex gap-3 mt-4">
