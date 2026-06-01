@@ -345,3 +345,20 @@ select:focus-visible,
 *:focus {
   outline: none;
 }
+
+
+/* Code block font-family consistency (#190)
+   Ensures all <code> and <pre> elements use the design-system mono font
+   (--font-geist-mono) rather than the browser default monospace stack. */
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: 0.875em;
+}
+
+pre {
+  overflow-x: auto;
+  white-space: pre;
+}
