@@ -19,6 +19,26 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
     searchInputRef.current?.focus();
   };
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const filteredClaims = activeClaims.filter((claim) => {
+    const matchesFilter =
+      activeFilter === "All"
+        ? true
+        : activeFilter === "High Impact"
+        ? claim.impact === "High Impact"
+        : claim.status === activeFilter;
+
+    const searchableText = [claim.category, claim.title, claim.source]
+      .join(" ")
+      .toLowerCase();
+
+    const matchesSearch =
+      normalizedQuery.length === 0 || searchableText.includes(normalizedQuery);
+
+    return matchesFilter && matchesSearch;
+  });
+
   if (isLoading) {
     return <ActiveClaimsTableSkeleton />;
   }
@@ -88,31 +108,56 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
           </tr>
         </thead>
         <tbody>
-          {activeClaims.map((claim, idx) => (
-            <tr key={idx} className="border-b border-[#232329] hover:bg-[#232329]/40">
-              <td className="py-3">
-                <div className="flex flex-col">
-                  <span className="text-xs text-[#5b5bf6] font-semibold">{claim.category} <span className="ml-2 bg-[#232329] text-[#5b5bf6] px-2 py-0.5 rounded-full text-[10px]">{claim.impact}</span></span>
-                  <span className="text-white font-medium leading-tight">{claim.title}</span>
-                  <span className="text-xs text-[#a1a1aa]">{claim.source}</span>
-                </div>
-              </td>
-              <td className="py-3">
-                <span className={claim.status === "Verified" ? "text-green-400" : claim.status === "Under Review" ? "text-yellow-400" : "text-red-400"}>{claim.status}</span>
-              </td>
-              <td className="py-3">{claim.confidence}</td>
-              <td className="py-3">{claim.votes} <span className="text-[#a1a1aa]">/ {claim.stake}</span></td>
-              <td className="py-3">{claim.time}</td>
-              <td className="py-3">
-                <button 
-                  className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
-                  aria-label={`${claim.actions} claim: ${claim.title}`}
-                >
-                  {claim.actions}
-                </button>
+          {filteredClaims.length > 0 ? (
+            filteredClaims.map((claim, idx) => (
+              <tr key={idx} className="border-b border-[#232329] hover:bg-[#232329]/40">
+                <td className="py-3">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-[#5b5bf6] font-semibold">
+                      {claim.category}{" "}
+                      <span className="ml-2 bg-[#232329] text-[#5b5bf6] px-2 py-0.5 rounded-full text-[10px]">
+                        {claim.impact}
+                      </span>
+                    </span>
+                    <span className="text-white font-medium leading-tight">{claim.title}</span>
+                    <span className="text-xs text-[#a1a1aa]">{claim.source}</span>
+                  </div>
+                </td>
+                <td className="py-3">
+                  <span
+                    className={
+                      claim.status === "Verified"
+                        ? "text-green-400"
+                        : claim.status === "Under Review"
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                    }
+                  >
+                    {claim.status}
+                  </span>
+                </td>
+                <td className="py-3">{claim.confidence}</td>
+                <td className="py-3">
+                  {claim.votes} <span className="text-[#a1a1aa]">/ {claim.stake}</span>
+                </td>
+                <td className="py-3">{claim.time}</td>
+                <td className="py-3">
+                  <button
+                    className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
+                    aria-label={`${claim.actions} claim: ${claim.title}`}
+                  >
+                    {claim.actions}
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={6} className="py-8 text-center text-sm text-[#a1a1aa]">
+                No claims match the current search or filter. Try clearing your search or choosing a different filter.
               </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>

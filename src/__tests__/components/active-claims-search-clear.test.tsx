@@ -57,6 +57,27 @@ describe('ActiveClaimsTable — search clear button', () => {
     expect(document.activeElement).toBe(searchInput);
   });
 
+  it('renders a friendly empty state when the selected filter matches no claims', () => {
+    render(<ActiveClaimsTable />);
+
+    fireEvent.click(screen.getByRole('button', { name: /disputed/i }));
+
+    expect(
+      screen.getByText(/no claims match the current search or filter/i)
+    ).toBeInTheDocument();
+  });
+
+  it('renders a friendly empty state when the search yields no results', () => {
+    render(<ActiveClaimsTable />);
+
+    const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'impossible-text' } });
+
+    expect(
+      screen.getByText(/no claims match the current search or filter/i)
+    ).toBeInTheDocument();
+  });
+
   it('clear button has type="button" so it never submits an enclosing form', () => {
     render(<ActiveClaimsTable />);
 
