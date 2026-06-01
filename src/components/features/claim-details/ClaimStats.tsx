@@ -1,7 +1,9 @@
 import { ClaimData } from "@/app/types/dispute";
-import { CheckCircle2, FileText, Shield } from "lucide-react";
+import { CheckCircle2, Shield } from "lucide-react";
+import { getCategoryIcon } from "@/lib/category-icons";
 
 export const ClaimStats = ({ data }: { data: ClaimData }) => {
+  const CategoryIcon = getCategoryIcon(data.category);
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6 mb-6">
       <h2 className="text-white font-semibold mb-6">Claim Stats</h2>
@@ -15,7 +17,7 @@ export const ClaimStats = ({ data }: { data: ClaimData }) => {
           <span className="text-sm font-medium text-white">{data.verifiersCount}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-400 flex items-center"><FileText size={16} className="mr-2" /> Category</span>
+          <span className="text-sm text-gray-400 flex items-center"><CategoryIcon size={16} className="mr-2" /> Category</span>
           <span className="text-xs font-medium text-white bg-gray-800 px-3 py-1 rounded-md">{data.category}</span>
         </div>
       </div>
