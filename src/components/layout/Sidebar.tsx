@@ -1,25 +1,43 @@
 "use client"
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import Link from 'next/link';
 import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
-import { FaGithub, FaDiscord, FaCog } from "react-icons/fa";
+import { FaGithub, FaDiscord, FaCog, FaBug } from "react-icons/fa";
 import { HiOutlineDocumentText } from "react-icons/hi";
-import { 
+import {
   MdRssFeed,
   MdDashboard,
   MdAddCircleOutline,
   MdGavel,
   MdVerifiedUser,
-  MdAnalytics
+  MdAnalytics,
+  MdPendingActions,
 } from "react-icons/md";
 import { useFeatureFlags } from "@/components/providers";
+import {
+  getPendingTransactions,
+  subscribeToPendingTransactions,
+  type PendingTransactionEntry,
+} from '@/lib/pending-transactions';
+
+const RESOURCE_LINKS = {
+  docs: 'https://github.com/DigiNodes/truthbounty-frontend/blob/main/docs/ARCHITECTURE.md',
+  github: 'https://github.com/DigiNodes/truthbounty-frontend',
+  discord: 'https://discord.gg/storybook',
+  bugReport: 'https://github.com/DigiNodes/truthbounty-frontend/issues/new/choose',
+};
 
 const Sidebar = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingTransactions, setPendingTransactions] = useState<PendingTransactionEntry[]>(() => getPendingTransactions());
   const { isEnabled } = useFeatureFlags();
 
-  // Navigation items based on feature flags
+  useEffect(() => {
+    return subscribeToPendingTransactions(setPendingTransactions);
+  }, []);
+
   const navItems = useMemo(() => {
     const items = [
       { label: "Claims Feed", icon: MdRssFeed, flag: null },
@@ -29,14 +47,11 @@ const Sidebar = () => {
       { label: "Verifiers", icon: MdVerifiedUser, flag: 'CLAIM_VERIFICATION' as const },
       { label: "Analytics", icon: MdAnalytics, flag: 'ANALYTICS_DASHBOARD' as const },
     ];
-    
-    // Filter items based on feature flags
+
     return items.filter(item => item.flag === null || isEnabled(item.flag));
   }, [isEnabled]);
 
   const handleSubmit = (data: ClaimFormData) => {
-    // TODO: Integrate with backend or state
-    // For now, just log
     console.log("Claim submitted:", data);
   };
 
@@ -54,7 +69,6 @@ const Sidebar = () => {
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#18181b] rounded-lg border border-[#232329] text-white"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -71,7 +85,6 @@ const Sidebar = () => {
         </svg>
       </button>
 
-      {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
@@ -80,8 +93,7 @@ const Sidebar = () => {
         />
       )}
 
-      {/* Sidebar */}
-      <aside 
+      <aside
         id="sidebar-navigation"
         className={`
         fixed lg:static inset-y-0 left-0 z-40
@@ -95,9 +107,9 @@ const Sidebar = () => {
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2" aria-hidden="true">
             <span className="font-bold text-white">T</span>
           </span>
-           TruthBounty
-         
+          TruthBounty
         </div>
+
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto" role="navigation">
           <ul className="space-y-2" role="list">
             {navItems.map((item) => (
@@ -113,24 +125,52 @@ const Sidebar = () => {
               </li>
             ))}
           </ul>
+
+          <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3" data-testid="sidebar-pending-transactions">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+              <MdPendingActions className="h-4 w-4" aria-hidden="true" />
+              Pending transactions
+            </div>
+            {pendingTransactions.length === 0 ? (
+              <p className="mt-2 text-xs text-amber-100/70">
+                No transactions are waiting for confirmation right now.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2" role="list">
+                {pendingTransactions.slice(0, 3).map((transaction) => (
+                  <li key={transaction.id} className="rounded-lg border border-amber-400/20 bg-black/10 px-3 py-2">
+                    <p className="text-sm text-white">{transaction.title}</p>
+                    <p className="mt-1 text-xs text-amber-100/80">{transaction.description}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <ul className="mt-8 space-y-2" role="list">
             <li>
-              <button className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <Link href={RESOURCE_LINKS.docs} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
                 <HiOutlineDocumentText className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">Documentation</span>
-              </button>
+              </Link>
             </li>
             <li>
-              <button className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <a href={RESOURCE_LINKS.github} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
                 <FaGithub className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">GitHub</span>
-              </button>
+              </a>
             </li>
             <li>
-              <button className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <a href={RESOURCE_LINKS.discord} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
                 <FaDiscord className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">Discord</span>
-              </button>
+              </a>
+            </li>
+            <li>
+              <a href={RESOURCE_LINKS.bugReport} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+                <FaBug className="w-4 h-4 text-[#f59e0b]" aria-hidden="true" />
+                <span className="ml-3">Report Bug</span>
+              </a>
             </li>
             <li>
               <button className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
@@ -141,8 +181,7 @@ const Sidebar = () => {
           </ul>
         </nav>
         <div className="p-4">
-          {/* User profile or Worldcoin badge placeholder */}
-          <button 
+          <button
             className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5b5bf6] to-[#232329] flex items-center justify-center text-white font-bold text-lg hover:opacity-90 transition-opacity"
             aria-label="User profile"
           >

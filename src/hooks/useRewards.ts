@@ -2,6 +2,10 @@
 import { useState, useCallback } from "react";
 import { claimableRewards, ClaimableReward } from "@/data/mock-data";
 import { claimRewards } from "@/app/lib/wallet";
+import {
+  clearPendingTransaction,
+  trackPendingTransaction,
+} from '@/lib/pending-transactions';
 
 export type ClaimStatus = "idle" | "loading" | "success" | "error";
 
@@ -27,25 +31,30 @@ export function useRewards(): UseRewardsReturn {
     if (pendingRewards.length === 0 || status === "loading") return;
 
     const ids = pendingRewards.map((r) => r.claimId);
+    const transactionId = `rewards:${ids.join(',')}`;
 
     setStatus("loading");
     setErrorMessage(null);
+    trackPendingTransaction({
+      id: transactionId,
+      kind: 'rewards',
+      title: 'Rewards claim pending',
+      description: `Claiming ${ids.length} reward${ids.length === 1 ? '' : 's'} from your dashboard.`,
+    });
 
     try {
       const { txHash } = await claimRewards(ids);
+      clearPendingTransaction(transactionId);
       setLastTxHash(txHash);
-      setPendingRewards([]); // balance cleared after successful claim
+      setPendingRewards([]);
       setStatus("success");
-
-      // Auto-reset button label after 3s (stays disabled — no more rewards)
       setTimeout(() => setStatus("idle"), 3000);
     } catch (err: unknown) {
+      clearPendingTransaction(transactionId);
       const message =
         err instanceof Error ? err.message : "Claim failed. Please try again.";
       setErrorMessage(message);
       setStatus("error");
-
-      // Auto-reset error state after 4s so the user can retry
       setTimeout(() => setStatus("idle"), 4000);
     }
   }, [pendingRewards, status]);
