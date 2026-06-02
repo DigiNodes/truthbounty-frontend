@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { createPublicClient, http, formatUnits } from "viem";
 import { mainnet } from "viem/chains"; // change if using another chain
@@ -50,6 +50,14 @@ export default function RewardsPage() {
     hash,
   });
 
+  const claimableAmount = useMemo(
+    () =>
+      rewards.reduce((sum, reward) => sum + Number(reward?.amount ?? 0), 0),
+    [rewards],
+  );
+
+  const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
+
   // ✅ Fetch real token balance
   const fetchBalance = async () => {
     if (!address) return;
@@ -72,17 +80,24 @@ export default function RewardsPage() {
   const fetchRewards = async () => {
     if (!address) return;
 
+    setLoading(true);
+
     try {
       const res = await fetch(`/api/rewards?user=${address}`);
       const data = await res.json();
-      setRewards(data);
+      setRewards(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Rewards fetch error:", err);
+      setRewards([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   // ✅ Claim rewards (REAL TX)
   const handleClaim = async () => {
+    if (!canClaim) return;
+
     try {
       writeContract({
         address: CONTRACT_ADDRESS,
@@ -114,7 +129,7 @@ export default function RewardsPage() {
       <p><strong>Wallet:</strong> {address || "Not connected"}</p>
       <p><strong>Balance:</strong> {balance}</p>
 
-      <button onClick={handleClaim} disabled={isPending || !address}>
+      <button onClick={handleClaim} disabled={!canClaim}>
         {isPending ? "Claiming..." : "Claim Rewards"}
       </button>
 
