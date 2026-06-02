@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "@/hooks/useAccount";
 import { useUserVerification } from "@/app/queries/user.queries";
 
@@ -40,10 +40,37 @@ function makeTrustFromAddress(addr: string): TrustInfo {
  * Hook that returns trust information for the given address.  If the
  * address is omitted it falls back to the current user.
  */
+function parseTrustInfoFromStorage(): Partial<TrustInfo> | null {
+  try {
+    const stored = localStorage.getItem("trustInfo");
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+    return {
+      isVerified: typeof parsed.isVerified === "boolean" ? parsed.isVerified : undefined,
+      reputation: typeof parsed.reputation === "number" ? parsed.reputation : undefined,
+      accountAgeDays:
+        typeof parsed.accountAgeDays === "number" ? parsed.accountAgeDays : undefined,
+      suspicious: typeof parsed.suspicious === "boolean" ? parsed.suspicious : undefined,
+    };
+  } catch (error) {
+    console.warn("Invalid localStorage.trustInfo", error);
+    return null;
+  }
+}
+
 export function useTrustForAddress(address?: string): TrustInfo {
   const account = useAccount();
   const effectiveAddress = address || account?.address || "";
   const { data: verification } = useUserVerification(effectiveAddress);
+
+  const [overrideInfo, setOverrideInfo] = useState<Partial<TrustInfo> | null>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setOverrideInfo(parseTrustInfoFromStorage());
+    }
+  }, [address]);
 
   // Stable randomised demo values – these should be replaced by API
   // calls once backend endpoints for reputation/account-age exist.
@@ -55,17 +82,19 @@ export function useTrustForAddress(address?: string): TrustInfo {
 
   const base = address ? makeTrustFromAddress(address) : mock;
 
-  return {
+  const trust = {
     ...base,
     isVerified: verification?.status === "SUCCESS",
   };
+
+  return overrideInfo ? { ...trust, ...overrideInfo } : trust;
 }
 
 /**
  * Hook that returns the current user's trust information.
  *
- * `isVerified` is fetched from the backend / chain and is NOT read from
- * localStorage.  The remaining fields are mock/demo values.
+ * The current user can be simulated using `localStorage.trustInfo`.
+ * If the value is valid JSON, it overrides the demo trust values.
  */
 export function useTrust(): TrustInfo {
   return useTrustForAddress(undefined);

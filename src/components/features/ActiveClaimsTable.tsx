@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
+import { getCategoryIcon } from "@/lib/category-icons";
 
 interface ActiveClaimsTableProps {
   isLoading?: boolean;
@@ -118,6 +119,16 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
                       <span className="ml-2 bg-[#232329] text-[#5b5bf6] px-2 py-0.5 rounded-full text-[10px]">
                         {claim.impact}
                       </span>
+          {activeClaims.map((claim, idx) => {
+            const CategoryIcon = getCategoryIcon(claim.category);
+            return (
+              <tr key={idx} className="border-b border-[#232329] hover:bg-[#232329]/40">
+                <td className="py-3">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-[#5b5bf6] font-semibold flex items-center gap-1.5">
+                      <CategoryIcon size={14} />
+                      {claim.category} 
+                      <span className="ml-2 bg-[#232329] text-[#5b5bf6] px-2 py-0.5 rounded-full text-[10px]">{claim.impact}</span>
                     </span>
                     <span className="text-white font-medium leading-tight">{claim.title}</span>
                     <span className="text-xs text-[#a1a1aa]">{claim.source}</span>
@@ -158,6 +169,22 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
               </td>
             </tr>
           )}
+              <td className="py-3">
+                <span className={claim.status === "Verified" ? "text-green-400" : claim.status === "Under Review" ? "text-yellow-400" : "text-red-400"}>{claim.status}</span>
+              </td>
+              <td className="py-3">{claim.confidence}</td>
+              <td className="py-3">{claim.votes} <span className="text-[#a1a1aa]">/ {claim.stake}</span></td>
+              <td className="py-3">{claim.time}</td>
+              <td className="py-3">
+                <button 
+                  className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
+                  aria-label={`${claim.actions} claim: ${claim.title}`}
+                >
+                  {claim.actions}
+                </button>
+              </td>
+            </tr>
+          )})}
         </tbody>
       </table>
     </div>

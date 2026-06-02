@@ -1,6 +1,6 @@
 
 "use client";
-import React from "react";
+import React, { memo } from "react";
 
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
@@ -12,7 +12,7 @@ interface StatsCardsProps {
   isLoading?: boolean;
 }
 
-export default function StatsCards({ isLoading = false }: StatsCardsProps) {
+const StatsCards = memo(function StatsCards({ isLoading = false }: StatsCardsProps) {
   const trust = useTrust();
   const userTrustValue = trust.reputation.toString();
 
@@ -45,4 +45,6 @@ export default function StatsCards({ isLoading = false }: StatsCardsProps) {
       ))}
     </div>
   );
-}
+});
+
+export default StatsCards;
