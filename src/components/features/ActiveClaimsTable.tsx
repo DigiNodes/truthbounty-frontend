@@ -2,14 +2,18 @@ import React, { useRef, useState } from "react";
 import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface ActiveClaimsTableProps {
   isLoading?: boolean;
 }
 
+const DEBOUNCE_DELAY = 300;
+
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const filters = ["All", "Verified", "Disputed", "Under Review", "High Impact"];
