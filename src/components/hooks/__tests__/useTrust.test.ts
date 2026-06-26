@@ -39,4 +39,22 @@ describe("useTrust", () => {
       expect(result.current.suspicious).toBe(true);
     });
   });
+
+  it("keeps existing trust values when a partial override is stored", async () => {
+    localStorage.setItem(
+      "trustInfo",
+      JSON.stringify({
+        isVerified: false,
+      }),
+    );
+
+    const { result } = renderHook(() => useTrust());
+
+    await waitFor(() => {
+      expect(result.current.isVerified).toBe(false);
+      expect(typeof result.current.reputation).toBe("number");
+      expect(typeof result.current.accountAgeDays).toBe("number");
+      expect(typeof result.current.suspicious).toBe("boolean");
+    });
+  });
 });
