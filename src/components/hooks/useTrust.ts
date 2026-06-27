@@ -46,13 +46,22 @@ function parseTrustInfoFromStorage(): Partial<TrustInfo> | null {
     if (!stored) return null;
 
     const parsed = JSON.parse(stored);
-    return {
-      isVerified: typeof parsed.isVerified === "boolean" ? parsed.isVerified : undefined,
-      reputation: typeof parsed.reputation === "number" ? parsed.reputation : undefined,
-      accountAgeDays:
-        typeof parsed.accountAgeDays === "number" ? parsed.accountAgeDays : undefined,
-      suspicious: typeof parsed.suspicious === "boolean" ? parsed.suspicious : undefined,
-    };
+    const overrides: Partial<TrustInfo> = {};
+
+    if (typeof parsed.isVerified === "boolean") {
+      overrides.isVerified = parsed.isVerified;
+    }
+    if (typeof parsed.reputation === "number") {
+      overrides.reputation = parsed.reputation;
+    }
+    if (typeof parsed.accountAgeDays === "number") {
+      overrides.accountAgeDays = parsed.accountAgeDays;
+    }
+    if (typeof parsed.suspicious === "boolean") {
+      overrides.suspicious = parsed.suspicious;
+    }
+
+    return Object.keys(overrides).length > 0 ? overrides : null;
   } catch (error) {
     console.warn("Invalid localStorage.trustInfo", error);
     return null;
