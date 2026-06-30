@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { useTrust } from "../useTrust";
+import { useTrust, useTrustForAddress } from "../useTrust";
 
 jest.mock("@/hooks/useAccount", () => ({
   useAccount: jest.fn(),
@@ -55,6 +55,38 @@ describe("useTrust", () => {
       expect(typeof result.current.reputation).toBe("number");
       expect(typeof result.current.accountAgeDays).toBe("number");
       expect(typeof result.current.suspicious).toBe("boolean");
+    });
+  });
+
+  it("does not leak current-user overrides into address-specific trust lookups", async () => {
+    localStorage.setItem(
+      "trustInfo",
+      JSON.stringify({
+        reputation: 15,
+        isVerified: false,
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ address }: { address?: string }) => useTrustForAddress(address),
+      { initialProps: { address: undefined } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.reputation).toBe(15);
+      expect(result.current.isVerified).toBe(false);
+    });
+
+    rerender({ address: "0xdef" });
+
+    await waitFor(() => {
+      const expectedReputation = Array.from("0xdef").reduce(
+        (sum, character) => sum + character.charCodeAt(0),
+        0,
+      ) % 101;
+
+      expect(result.current.reputation).toBe(expectedReputation);
+      expect(result.current.isVerified).toBe(true);
     });
   });
 });

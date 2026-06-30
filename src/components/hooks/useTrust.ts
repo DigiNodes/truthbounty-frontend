@@ -78,6 +78,8 @@ export function useTrustForAddress(address?: string): TrustInfo {
   useEffect(() => {
     if (!address) {
       setOverrideInfo(parseTrustInfoFromStorage());
+    } else {
+      setOverrideInfo(null);
     }
   }, [address]);
 
