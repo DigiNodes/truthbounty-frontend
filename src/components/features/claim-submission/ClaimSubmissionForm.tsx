@@ -210,7 +210,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               name={field}
               type="text"
               className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
-              placeholder={capitalize(field)}
+              placeholder={field === "source" ? "https://example.com" : capitalize(field)}
               value={
                 { title, category, impact, source }[
                   field as keyof ClaimFormData
@@ -260,6 +260,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           </button>
           <button
             type="submit"
+            data-testid="submit-claim-button"
             disabled={isLoading || !isWalletConnected}
             className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
           >

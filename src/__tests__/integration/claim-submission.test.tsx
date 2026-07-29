@@ -205,7 +205,7 @@ describe('Claim Submission Integration Tests', () => {
       const titleInput = screen.getByPlaceholderText('Title')
       const categoryInput = screen.getByPlaceholderText('Category')
       const impactInput = screen.getByPlaceholderText('Impact')
-      const sourceInput = screen.getByPlaceholderText('Source')
+      const sourceInput = screen.getByPlaceholderText('https://example.com')
       const descriptionInput = screen.getByPlaceholderText('Description')
 
       await user.type(titleInput, 'Enter Key Claim')
@@ -531,7 +531,7 @@ describe('Claim Submission Integration Tests', () => {
       expect(screen.getByPlaceholderText('Impact (e.g. High Impact)')).toHaveFocus()
 
       await user.tab()
-      expect(screen.getByPlaceholderText('Source')).toHaveFocus()
+      expect(screen.getByPlaceholderText('https://example.com')).toHaveFocus()
 
       await user.tab()
       expect(screen.getByPlaceholderText('Description')).toHaveFocus()
