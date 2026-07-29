@@ -31,6 +31,7 @@ const StatsCards = memo(function StatsCards({ isLoading = false }: StatsCardsPro
         <div
           key={stat.label}
           className="bg-[#18181b] rounded-xl p-6 flex flex-col items-center justify-center border border-[#232329]"
+          aria-label={`${stat.label}: ${stat.value}`}
         >
           <div className="text-2xl font-bold text-white flex items-center">
             {stat.value}

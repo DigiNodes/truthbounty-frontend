@@ -72,7 +72,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
           href="#"
           className="flex items-center hover:text-gray-200 transition-colors"
         >
-          {data.source} <ExternalLink size={14} className="ml-1" />
+          {data.source} <ExternalLink size={14} className="ml-1" aria-hidden="true" />
         </a>
         <span className="flex items-center">
           <Clock size={14} className="mr-1" /> {data.timeAgo}
@@ -86,12 +86,12 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
           </h3>
           <div className="flex justify-between text-sm mb-2">
             <span className="text-green-600 flex items-center">
-              <ThumbsUp size={14} className="mr-1" /> For:{" "}
+              <ThumbsUp size={14} className="mr-1" aria-hidden="true" /> For:{" "}
               {data.votesFor.toLocaleString()}
             </span>
             <span className="text-red-500 flex items-center">
               Against: {data.votesAgainst}{" "}
-              <ThumbsDown size={14} className="ml-1" />
+              <ThumbsDown size={14} className="ml-1" aria-hidden="true" />
             </span>
           </div>
           <div className="flex h-2.5 rounded-full overflow-hidden mb-2">
@@ -129,8 +129,8 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
 
         <div className="flex space-x-3 sm:space-x-4 pt-4">
           {!dispute && (
-            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base">
-              <ThumbsUp size={18} className="mr-2 flex-shrink-0" /> <span className="truncate">Verify (Stake + Vote)</span>
+            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base" aria-label="Verify claim - stake and vote">
+              <ThumbsUp size={18} className="mr-2 flex-shrink-0" aria-hidden="true" /> <span className="truncate">Verify (Stake + Vote)</span>
             </button>
           )}
 
@@ -139,7 +139,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
             onClick={() => setDisputeModalOpen(true)}
             aria-label="Open a dispute for this claim"
           >
-            <Shield size={18} className="mr-2 flex-shrink-0" /> <span className="truncate">Dispute</span>
+            <Shield size={18} className="mr-2 flex-shrink-0" aria-hidden="true" /> <span className="truncate">Dispute</span>
           </button>
         </div>
       </div>

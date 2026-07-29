@@ -29,11 +29,14 @@ export function StakeForm({
     <div className="card p-4 sm:p-6">
       <h3 className="font-semibold mb-3 text-base sm:text-lg">Stake Tokens</h3>
 
+      <label htmlFor="stake-amount" className="sr-only">Stake amount</label>
       <input
+        id="stake-amount"
         type="number"
         value={stake}
         onChange={(e) => handleStakeChange(e.target.value)}
         placeholder="Enter stake amount"
+        aria-label="Stake amount"
         className="input w-full p-3 sm:p-3 text-base min-h-[44px] touch-manipulation"
       />
 
@@ -42,7 +45,7 @@ export function StakeForm({
       </p>
 
       {Number(stake) > balance && (
-        <p className="text-red-500 text-sm mt-2">
+        <p className="text-red-500 text-sm mt-2" role="alert">
           Insufficient balance
         </p>
       )}

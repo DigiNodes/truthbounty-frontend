@@ -40,12 +40,7 @@ export default function RootLayout({
     </a>
 
     <Providers>
-      {/* Optional: wrap nav inside Providers if it depends on context */}
-      <nav aria-label="Main navigation">
-        {/* your existing navigation component */}
-      </nav>
-
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} role="main">
         {children}
       </main>
     </Providers>

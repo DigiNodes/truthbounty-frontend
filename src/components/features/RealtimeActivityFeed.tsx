@@ -149,7 +149,7 @@ export function RealtimeActivityFeed() {
               />
               <div className="flex-1">
                 <p className="text-gray-300">{activity.message}</p>
-                <p className="text-gray-500 text-xs">{formatTime(activity.timestamp)}</p>
+                <p className="text-gray-400 text-xs">{formatTime(activity.timestamp)}</p>
               </div>
             </div>
           ))

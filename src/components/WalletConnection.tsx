@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useAccount, useDisconnect } from '@/hooks/useAccount'
 import { useIsMounted } from '@/hooks/useIsMounted'
 import { ConnectButton } from '@/components/ui/ConnectButton'
@@ -15,10 +16,13 @@ export function WalletConnection() {
     await disconnect()
   }
 
+  const [copyStatus, setCopyStatus] = useState('')
+
   const handleCopyAddress = () => {
     if (account?.address) {
       navigator.clipboard.writeText(account.address)
-      alert('Address copied to clipboard')
+      setCopyStatus('Address copied to clipboard')
+      setTimeout(() => setCopyStatus(''), 3000)
     }
   }
 
@@ -36,14 +40,15 @@ export function WalletConnection() {
             {account.displayName}
           </button>
 
-          {/* Screen-reader feedback (instead of alert) */}
-          <span className="sr-only" aria-live="polite" id="copy-status" />
+          {/* Screen-reader feedback for copy status */}
+          <span className="sr-only" aria-live="polite" aria-atomic="true">{copyStatus}</span>
 
-          {/* Disconnect button (already good, just improve semantics) */}
+          {/* Disconnect button */}
           <button
             type="button"
             className={styles.disconnectButton}
             onClick={handleDisconnect}
+            aria-label="Disconnect wallet"
           >
             Disconnect
           </button>
