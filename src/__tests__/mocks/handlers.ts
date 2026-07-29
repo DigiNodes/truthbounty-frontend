@@ -76,9 +76,33 @@ export const handlers = [
   // GET /api/leaderboard
   http.get('/api/leaderboard', () => {
     return HttpResponse.json([
-      { address: '0x123...', reputation: 100, verifications: 10 },
-      { address: '0x456...', reputation: 80, verifications: 8 },
-      { address: '0x789...', reputation: 60, verifications: 6 },
+      {
+        rank: 1,
+        userId: 'user-1',
+        username: 'Academic Consortium',
+        totalVerifications: 10,
+        accuracy: 98.2,
+        totalStaked: 12400,
+        totalEarned: 850,
+      },
+      {
+        rank: 2,
+        userId: 'user-2',
+        username: 'News Alliance',
+        totalVerifications: 8,
+        accuracy: 96.8,
+        totalStaked: 8200,
+        totalEarned: 620,
+      },
+      {
+        rank: 3,
+        userId: 'user-3',
+        username: 'Data Science Labs',
+        totalVerifications: 6,
+        accuracy: 97.5,
+        totalStaked: 6100,
+        totalEarned: 480,
+      },
     ], { status: 200 })
   }),
 
