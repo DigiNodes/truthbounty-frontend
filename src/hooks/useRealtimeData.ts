@@ -15,6 +15,7 @@ import type {
   DisputeResolvedEvent,
   LeaderboardUpdatedEvent,
 } from '@/app/types/websocket';
+import { sortAndNormalizeLeaderboard } from '@/lib/leaderboard';
 
 /**
  * Hook that integrates WebSocket events with TanStack Query cache
@@ -147,8 +148,12 @@ export function useRealtimeData() {
   // Handle leaderboard updated events
   const handleLeaderboardUpdated = useCallback(
     (payload: LeaderboardUpdatedEvent) => {
-      // Directly update leaderboard cache
-      queryClient.setQueryData(queryKeys.leaderboard, payload.rankings);
+      // Normalize real-time rankings (sort by server rank + dense ranks)
+      // before writing to the cache so protocol invariants always hold.
+      queryClient.setQueryData(
+        queryKeys.leaderboard,
+        sortAndNormalizeLeaderboard(payload.rankings)
+      );
     },
     [queryClient]
   );
@@ -196,7 +201,10 @@ export function useRealtimeLeaderboard() {
     if (!isConnected) return;
 
     const unsubscribe = subscribe('LEADERBOARD_UPDATED', (payload) => {
-      queryClient.setQueryData(queryKeys.leaderboard, payload.rankings);
+      queryClient.setQueryData(
+        queryKeys.leaderboard,
+        sortAndNormalizeLeaderboard(payload.rankings)
+      );
     });
 
     return () => unsubscribe?.();
