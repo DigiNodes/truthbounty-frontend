@@ -52,7 +52,7 @@ function fillValidForm() {
   fireEvent.change(screen.getByPlaceholderText('Impact'), {
     target: { value: 'High' },
   });
-  fireEvent.change(screen.getByPlaceholderText('Source'), {
+  fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
     target: { value: 'https://example.com/source' },
   });
   fireEvent.change(screen.getByPlaceholderText('Description'), {
@@ -88,7 +88,7 @@ describe('ClaimSubmissionForm - wallet gate', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const submit = screen.getByTestId('submit-claim-button');
     expect(submit).toBeDisabled();
-    expect(submit).toHaveTextContent(/connect wallet to submit/i);
+    expect(submit).toHaveTextContent(/connect your wallet to submit/i);
   });
 
   it('enables the submit button once a wallet is connected', () => {
@@ -96,7 +96,7 @@ describe('ClaimSubmissionForm - wallet gate', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const submit = screen.getByTestId('submit-claim-button');
     expect(submit).not.toBeDisabled();
-    expect(submit).toHaveTextContent(/^submit$/i);
+    expect(submit).toHaveTextContent(/^submit claim$/i);
   });
 
   it('triggers Freighter setAllowed when the Connect Wallet button is clicked', () => {
@@ -149,6 +149,41 @@ describe('ClaimSubmissionForm - submit guard', () => {
     });
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ClaimSubmissionForm - source URL placeholder', () => {
+  it('shows an example URL as the source field placeholder', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+    expect(sourceInput).toBeInTheDocument();
+    expect(sourceInput).toHaveAttribute('name', 'source');
+  });
+
+  it('shows validation error when source URL is not a valid URL', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+    fireEvent.change(sourceInput, { target: { value: 'not-a-url' } });
+    fireEvent.blur(sourceInput);
+    expect(
+      screen.getByText(/enter a valid url/i)
+    ).toBeInTheDocument();
+  });
+
+  it('clears source URL validation error when a valid URL is entered', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+
+    fireEvent.change(sourceInput, { target: { value: 'not-a-url' } });
+    fireEvent.blur(sourceInput);
+    expect(screen.getByText(/enter a valid url/i)).toBeInTheDocument();
+
+    fireEvent.change(sourceInput, { target: { value: 'https://valid.example.com' } });
+    fireEvent.blur(sourceInput);
+    expect(screen.queryByText(/enter a valid url/i)).not.toBeInTheDocument();
   });
 });
 
