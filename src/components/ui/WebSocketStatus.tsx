@@ -11,13 +11,22 @@ interface WebSocketStatusProps {
 }
 
 export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketStatusProps) {
-  const { isConnected, connectionState } = useWebSocketStatus();
+  const { isConnected, connectionState, reconnectAttempts } = useWebSocketStatus();
 
-  if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+  if (connectionState === 'connecting') {
     return (
       <div className={`flex items-center gap-2 text-amber-500 ${className}`}>
         <Loader2 className="w-4 h-4 animate-spin" />
         {showLabel && <span className="text-sm">Connecting...</span>}
+      </div>
+    );
+  }
+
+  if (connectionState === 'reconnecting') {
+    return (
+      <div className={`flex items-center gap-2 text-amber-500 ${className}`}>
+        <Loader2 className="w-4 h-4 animate-spin" />
+        {showLabel && <span className="text-sm">Reconnecting... (Attempt {reconnectAttempts})</span>}
       </div>
     );
   }

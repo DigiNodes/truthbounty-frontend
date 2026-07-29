@@ -63,6 +63,6 @@ export function useWebSocketContext(): WebSocketContextValue {
  * Hook to check if WebSocket is connected
  */
 export function useWebSocketStatus() {
-  const { isConnected, connectionState } = useWebSocketContext();
-  return { isConnected, connectionState };
+  const { isConnected, connectionState, reconnectAttempts } = useWebSocketContext();
+  return { isConnected, connectionState, reconnectAttempts };
 }
