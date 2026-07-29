@@ -12,15 +12,17 @@ import type {
   WebSocketEventPayloadMap,
 } from '@/app/types/websocket';
 
-const DEFAULT_RECONNECT_ATTEMPTS = 5;
-const DEFAULT_RECONNECT_INTERVAL = 3000;
+const DEFAULT_RECONNECT_ATTEMPTS = 10;
+const DEFAULT_INITIAL_RECONNECT_INTERVAL = 1000; // 1 second initial delay
+const DEFAULT_MAX_RECONNECT_INTERVAL = 30000; // 30 seconds max delay
 const DEFAULT_HEARTBEAT_INTERVAL = 30000;
+const DEFAULT_BACKOFF_MULTIPLIER = 2; // Exponential backoff multiplier
 
 type TimeoutId = ReturnType<typeof setTimeout>;
 type IntervalId = ReturnType<typeof setInterval>;
 
 /**
- * Custom hook for managing WebSocket connection and events
+ * Custom hook for managing WebSocket connection and events with exponential backoff
  */
 export function useWebSocket(config?: WebSocketConfig) {
   const socketRef = useRef<WebSocket | null>(null);
@@ -30,6 +32,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   const listenersRef = useRef<
     Map<WebSocketEventType, Set<WebSocketEventHandler<any>>>
   >(new Map());
+  const isMountedRef = useRef(true);
 
   const [connectionState, setConnectionState] = useState<WebSocketConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketEvent | null>(null);
@@ -38,16 +41,51 @@ export function useWebSocket(config?: WebSocketConfig) {
   const {
     url,
     reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS,
-    reconnectInterval = DEFAULT_RECONNECT_INTERVAL,
+    reconnectInterval, // Deprecated
+    initialReconnectInterval: initialInterval,
+    maxReconnectInterval = DEFAULT_MAX_RECONNECT_INTERVAL,
     heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL,
+    backoffMultiplier = DEFAULT_BACKOFF_MULTIPLIER,
     onConnect,
     onDisconnect,
     onError,
   } = config || {};
 
+  // Use deprecated reconnectInterval if provided for backward compatibility, otherwise use default
+  const initialReconnectInterval = initialInterval ?? reconnectInterval ?? DEFAULT_INITIAL_RECONNECT_INTERVAL;
+
+  // Calculate exponential backoff delay
+  const getBackoffDelay = useCallback((attempt: number) => {
+    const delay = Math.min(
+      initialReconnectInterval * Math.pow(backoffMultiplier, attempt),
+      maxReconnectInterval
+    );
+    // Add jitter to prevent thundering herd
+    return delay + Math.random() * 1000;
+  }, [initialReconnectInterval, maxReconnectInterval, backoffMultiplier]);
+
+  // Clear all timers and intervals
+  const clearAllTimers = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+  }, []);
+
   // Connect to WebSocket server
   const connect = useCallback(() => {
-    if (!url) return;
+    if (!url || !isMountedRef.current) return;
+
+    // Clear any existing connections or timers before creating new one
+    if (socketRef.current) {
+      socketRef.current.close(1000, 'Creating new connection');
+      socketRef.current = null;
+    }
+    clearAllTimers();
 
     setConnectionState('connecting');
     setError(null);
@@ -57,19 +95,23 @@ export function useWebSocket(config?: WebSocketConfig) {
       socketRef.current = socket;
 
       socket.onopen = () => {
+        if (!isMountedRef.current) return;
+        
         setConnectionState('connected');
         reconnectAttemptsRef.current = 0;
         onConnect?.();
 
         // Start heartbeat
         heartbeatIntervalRef.current = setInterval(() => {
-          if (socket.readyState === WebSocket.OPEN) {
+          if (socket.readyState === WebSocket.OPEN && isMountedRef.current) {
             socket.send(JSON.stringify({ type: 'PING' }));
           }
         }, heartbeatInterval);
       };
 
       socket.onmessage = (event) => {
+        if (!isMountedRef.current) return;
+        
         try {
           const data: WebSocketEvent = JSON.parse(event.data);
           setLastMessage(data);
@@ -78,7 +120,9 @@ export function useWebSocket(config?: WebSocketConfig) {
           const listeners = listenersRef.current.get(data.type);
           if (listeners) {
             listeners.forEach((handler: WebSocketEventHandler<any>) => {
-              handler(data.payload);
+              if (isMountedRef.current) {
+                handler(data.payload);
+              }
             });
           }
         } catch (err) {
@@ -87,25 +131,37 @@ export function useWebSocket(config?: WebSocketConfig) {
       };
 
       socket.onclose = (event) => {
+        if (!isMountedRef.current) return;
+        
         setConnectionState('disconnected');
         onDisconnect?.();
 
         // Clear heartbeat
-        if (heartbeatIntervalRef.current) {
-          clearInterval(heartbeatIntervalRef.current);
-        }
+        clearAllTimers();
 
-        // Attempt reconnection if not a clean close
-        if (!event.wasClean && reconnectAttemptsRef.current < reconnectAttempts) {
+        // Attempt reconnection if not a clean close and still mounted
+        if (!event.wasClean && reconnectAttemptsRef.current < reconnectAttempts && isMountedRef.current) {
           setConnectionState('reconnecting');
+          const attempt = reconnectAttemptsRef.current;
           reconnectAttemptsRef.current += 1;
+          
+          const delay = getBackoffDelay(attempt);
+          console.log(`WebSocket disconnected. Attempting reconnection ${reconnectAttemptsRef.current}/${reconnectAttempts} in ${Math.round(delay)}ms`);
+          
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, reconnectInterval);
+            if (isMountedRef.current) {
+              connect();
+            }
+          }, delay);
+        } else if (reconnectAttemptsRef.current >= reconnectAttempts) {
+          console.error('Max WebSocket reconnection attempts reached. Giving up.');
+          setConnectionState('error');
         }
       };
 
       socket.onerror = (event) => {
+        if (!isMountedRef.current) return;
+        
         const errorEvent = new Error('WebSocket error');
         setError(errorEvent);
         onError?.({
@@ -115,25 +171,22 @@ export function useWebSocket(config?: WebSocketConfig) {
         });
       };
     } catch (err) {
+      if (!isMountedRef.current) return;
+      
       setConnectionState('error');
       setError(err as Error);
     }
-  }, [url, reconnectAttempts, reconnectInterval, heartbeatInterval, onConnect, onDisconnect, onError]);
+  }, [url, reconnectAttempts, heartbeatInterval, getBackoffDelay, clearAllTimers, onConnect, onDisconnect, onError]);
 
   // Disconnect from WebSocket server
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
+    clearAllTimers();
     if (socketRef.current) {
       socketRef.current.close(1000, 'Client disconnect');
       socketRef.current = null;
     }
     setConnectionState('disconnected');
-  }, []);
+  }, [clearAllTimers]);
 
   // Subscribe to specific event type
   const subscribe = useCallback(<T extends WebSocketEventType>(
@@ -157,18 +210,26 @@ export function useWebSocket(config?: WebSocketConfig) {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not connected');
+      console.warn('WebSocket is not connected. Could not send message.');
     }
   }, []);
 
   // Auto-connect on mount if URL provided
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (url) {
       connect();
     }
 
     return () => {
+      // Mark as unmounted to prevent any state updates after cleanup
+      isMountedRef.current = false;
+      // Clean up all resources
       disconnect();
+      // Clear all listeners to prevent memory leaks
+      listenersRef.current.forEach((listeners) => listeners.clear());
+      listenersRef.current.clear();
     };
   }, [url, connect, disconnect]);
 
@@ -179,6 +240,7 @@ export function useWebSocket(config?: WebSocketConfig) {
       isConnected: connectionState === 'connected',
       lastMessage,
       error,
+      reconnectAttempts: reconnectAttemptsRef.current,
       connect,
       disconnect,
       subscribe,
