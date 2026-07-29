@@ -10,6 +10,7 @@ export interface WebSocketContextValue {
   isConnected: boolean;
   connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
   lastMessage: WebSocketEvent | null;
+  reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
   subscribe: <T extends string>(
@@ -34,6 +35,7 @@ export function WebSocketProvider({ children, config }: WebSocketProviderProps) 
       isConnected: websocket.isConnected,
       connectionState: websocket.connectionState,
       lastMessage: websocket.lastMessage,
+      reconnectAttempts: websocket.reconnectAttempts,
       connect: websocket.connect,
       disconnect: websocket.disconnect,
       subscribe: websocket.subscribe,
