@@ -177,7 +177,10 @@ export type WebSocketEventHandler<T extends WebSocketEventType> = (
 export interface WebSocketConfig {
   url: string;
   reconnectAttempts?: number;
-  reconnectInterval?: number;
+  reconnectInterval?: number; // Deprecated, use initialReconnectInterval instead
+  initialReconnectInterval?: number;
+  maxReconnectInterval?: number;
+  backoffMultiplier?: number;
   heartbeatInterval?: number;
   onConnect?: () => void;
   onDisconnect?: () => void;
