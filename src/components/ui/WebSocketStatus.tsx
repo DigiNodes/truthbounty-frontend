@@ -13,28 +13,33 @@ interface WebSocketStatusProps {
 export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketStatusProps) {
   const { isConnected, connectionState } = useWebSocketStatus();
 
-  if (connectionState === 'connecting' || connectionState === 'reconnecting') {
-    return (
-      <div className={`flex items-center gap-2 text-amber-500 ${className}`}>
-        <Loader2 className="w-4 h-4 animate-spin" />
-        {showLabel && <span className="text-sm">Connecting...</span>}
-      </div>
-    );
-  }
-
-  if (isConnected) {
-    return (
-      <div className={`flex items-center gap-2 text-green-500 ${className}`}>
-        <Wifi className="w-4 h-4" />
-        {showLabel && <span className="text-sm">Live</span>}
-      </div>
-    );
-  }
+  const statusText = connectionState === 'connecting' || connectionState === 'reconnecting'
+    ? 'Connecting...'
+    : isConnected
+      ? 'Live'
+      : 'Offline';
 
   return (
-    <div className={`flex items-center gap-2 text-gray-400 ${className}`}>
-      <WifiOff className="w-4 h-4" />
-      {showLabel && <span className="text-sm">Offline</span>}
+    <div
+      className={`flex items-center gap-2 ${
+        connectionState === 'connecting' || connectionState === 'reconnecting'
+          ? 'text-amber-500'
+          : isConnected
+            ? 'text-green-500'
+            : 'text-gray-400'
+      } ${className}`}
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label={`WebSocket status: ${statusText}`}
+    >
+      {connectionState === 'connecting' || connectionState === 'reconnecting' ? (
+        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+      ) : isConnected ? (
+        <Wifi className="w-4 h-4" aria-hidden="true" />
+      ) : (
+        <WifiOff className="w-4 h-4" aria-hidden="true" />
+      )}
+      {showLabel && <span className="text-sm">{statusText}</span>}
     </div>
   );
 }
@@ -52,10 +57,19 @@ export function WebSocketIndicator({ className = '' }: { className?: string }) {
         ? 'bg-amber-500 animate-pulse'
         : 'bg-gray-400';
 
+  const statusLabel =
+    connectionState === 'connected'
+      ? 'Real-time'
+      : connectionState === 'reconnecting'
+        ? 'Reconnecting...'
+        : connectionState === 'connecting'
+          ? 'Connecting...'
+          : 'Offline';
+
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div className={`w-2 h-2 rounded-full ${color}`} />
-      {isConnected && <span className="text-xs text-gray-500">Real-time</span>}
+    <div className={`flex items-center gap-2 ${className}`} aria-live="polite" aria-atomic="true" aria-label={`WebSocket status: ${statusLabel}`}>
+      <div className={`w-2 h-2 rounded-full ${color}`} aria-hidden="true" />
+      <span className="text-xs text-gray-400">{statusLabel}</span>
     </div>
   );
 }

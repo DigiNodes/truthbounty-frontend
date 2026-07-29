@@ -13,6 +13,7 @@ export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
       className={styles.button}
       style={{ height: isHigher ? 50 : 38 }}
       onClick={setAllowed}
+      aria-label={label}
     >
       {label}
     </button>

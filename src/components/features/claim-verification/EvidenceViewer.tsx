@@ -19,38 +19,35 @@ export function EvidenceViewer({ claimId }: { claimId: string }) {
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-controls="evidence-content"
-        className="flex items-center justify-between w-full font-semibold mb-3 text-base sm:text-lg text-left"
+        className="flex items-center justify-between w-full font-semibold mb-3 text-base sm:text-lg text-left focus-visible:outline-2 focus-visible:outline-[#5b5bf6] focus-visible:outline-offset-2 rounded"
       >
         <span>Evidence</span>
         <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
       </button>
 
-      {expanded && (
-        <div
-          id="evidence-content"
-          data-testid="evidence-scroll-container"
-          className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
-          // Scroll lock: bound the panel height and contain scroll within it
-          // so scrolling does not chain to the page (prevents double scrollbars).
-          style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}
-        >
-          {evidence.map((e, idx) => {
-            if (e.type === 'link') {
-              return (
-                <a key={idx} href={e.value} target="_blank" className="text-blue-600 underline text-sm sm:text-base break-all block py-1">
-                  {e.value}
-                </a>
-              );
-            }
+      <div
+        id="evidence-content"
+        data-testid="evidence-scroll-container"
+        className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
+        style={expanded ? { maxHeight: '60vh', overscrollBehavior: 'contain' } : undefined}
+        hidden={!expanded}
+      >
+        {evidence.map((e, idx) => {
+          if (e.type === 'link') {
+            return (
+              <a key={idx} href={e.value} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm sm:text-base break-all block py-1" aria-label={`Evidence link: ${e.value} (opens in new tab)`}>
+                {e.value}
+              </a>
+            );
+          }
 
-            if (e.type === 'image') {
-              return <img key={idx} src={e.value} className="rounded-lg max-h-40 sm:max-h-60 w-full object-cover" />;
-            }
+          if (e.type === 'image') {
+            return <img key={idx} src={e.value} alt="Evidence image" className="rounded-lg max-h-40 sm:max-h-60 w-full object-cover" />;
+          }
 
-            return <p key={idx} className="text-sm sm:text-base leading-relaxed">{e.value}</p>;
-          })}
-        </div>
-      )}
+          return <p key={idx} className="text-sm sm:text-base leading-relaxed">{e.value}</p>;
+        })}
+      </div>
     </div>
   );
 }

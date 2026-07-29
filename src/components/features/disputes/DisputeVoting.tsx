@@ -32,11 +32,14 @@ export const DisputeVoting = ({ disputeId, currentStaked, onVote }: DisputeVotin
       </div>
 
       <div className="mb-3 sm:mb-4">
+        <label htmlFor="dispute-stake-amount" className="sr-only">Enter stake amount</label>
         <input
+          id="dispute-stake-amount"
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Enter stake amount"
+          aria-label="Enter stake amount"
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2.5 sm:p-3 text-white focus:border-red-500 outline-none text-base"
         />
       </div>

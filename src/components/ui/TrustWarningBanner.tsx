@@ -27,7 +27,7 @@ export default function TrustWarningBanner() {
 
   return (
     <>
-      <div className="bg-yellow-500 text-black px-4 sm:px-8 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="bg-yellow-500 text-black px-4 sm:px-8 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="status" aria-live="polite">
         <div className="flex flex-col">
           <div className="font-semibold flex items-center gap-1">
             ⚠️ Low trust account <TrustScoreTooltip />

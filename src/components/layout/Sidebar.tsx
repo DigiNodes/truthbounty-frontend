@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from 'next/link';
 import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
 import { FaGithub, FaDiscord, FaCog, FaBug } from "react-icons/fa";
@@ -33,9 +33,24 @@ const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransactionEntry[]>(() => getPendingTransactions());
   const { isEnabled } = useFeatureFlags();
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const firstNavItemRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     return subscribeToPendingTransactions(setPendingTransactions);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      firstNavItemRef.current?.focus();
+    }
+  }, [isMobileMenuOpen]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setIsMobileMenuOpen(false);
+      hamburgerRef.current?.focus();
+    }
   }, []);
 
   const navItems = useMemo(() => {
@@ -70,6 +85,7 @@ const Sidebar = () => {
   return (
     <>
       <button
+        ref={hamburgerRef}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#18181b] rounded-lg border border-[#232329] text-white"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         aria-label="Toggle navigation menu"
@@ -88,8 +104,11 @@ const Sidebar = () => {
       {isMobileMenuOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileMenuOpen(false)}
-          aria-hidden="true"
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            hamburgerRef.current?.focus();
+          }}
+          role="presentation"
         />
       )}
 
@@ -101,7 +120,8 @@ const Sidebar = () => {
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
-        aria-label="Main navigation"
+        aria-label="Sidebar navigation"
+        onKeyDown={handleKeyDown}
       >
         <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-border">
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2" aria-hidden="true">
@@ -110,11 +130,12 @@ const Sidebar = () => {
           TruthBounty
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto" role="navigation">
-          <ul className="space-y-2" role="list">
-            {navItems.map((item) => (
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          <ul className="space-y-2">
+            {navItems.map((item, index) => (
               <li key={item.label}>
                 <button
+                  ref={index === 0 ? firstNavItemRef : undefined}
                   className="w-full flex items-center px-3 py-3 rounded-lg hover:bg-accent text-sm font-medium text-left transition-colors"
                   onClick={() => handleNavClick(item.label)}
                   onKeyDown={(e) => handleNavKeyDown(e, item.label)}
@@ -136,7 +157,7 @@ const Sidebar = () => {
                 No transactions are waiting for confirmation right now.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2" role="list">
+              <ul className="mt-3 space-y-2">
                 {pendingTransactions.slice(0, 3).map((transaction) => (
                   <li key={transaction.id} className="rounded-lg border border-amber-400/20 bg-black/10 px-3 py-2">
                     <p className="text-sm text-white">{transaction.title}</p>
@@ -147,7 +168,7 @@ const Sidebar = () => {
             )}
           </div>
 
-          <ul className="mt-8 space-y-2" role="list">
+          <ul className="mt-8 space-y-2">
             <li>
               <Link href="/how-it-works" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-accent text-sm font-medium text-left transition-colors">
                 <HiOutlineQuestionMarkCircle className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
@@ -155,25 +176,25 @@ const Sidebar = () => {
               </Link>
             </li>
             <li>
-              <Link href={RESOURCE_LINKS.docs} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <Link href={RESOURCE_LINKS.docs} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors" aria-label="Documentation (opens in new tab)">
                 <HiOutlineDocumentText className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">Documentation</span>
               </Link>
             </li>
             <li>
-              <a href={RESOURCE_LINKS.github} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <a href={RESOURCE_LINKS.github} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors" aria-label="GitHub (opens in new tab)">
                 <FaGithub className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">GitHub</span>
               </a>
             </li>
             <li>
-              <a href={RESOURCE_LINKS.discord} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <a href={RESOURCE_LINKS.discord} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors" aria-label="Discord (opens in new tab)">
                 <FaDiscord className="w-4 h-4 text-[#a1a1aa]" aria-hidden="true" />
                 <span className="ml-3">Discord</span>
               </a>
             </li>
             <li>
-              <a href={RESOURCE_LINKS.bugReport} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors">
+              <a href={RESOURCE_LINKS.bugReport} target="_blank" rel="noopener noreferrer" className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-[#232329] text-sm font-medium text-left transition-colors" aria-label="Report Bug (opens in new tab)">
                 <FaBug className="w-4 h-4 text-[#f59e0b]" aria-hidden="true" />
                 <span className="ml-3">Report Bug</span>
               </a>

@@ -16,7 +16,8 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       {/* banner warns about Sybil/low-trust accounts */}
       <TrustWarningBanner />
         <main 
-          id="main-content" 
+          id="main-content"
+          role="main"
           className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-background"
           tabIndex={-1}
         >

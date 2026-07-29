@@ -15,7 +15,7 @@ const VerificationNodes = ({ isLoading = false }: VerificationNodesProps) => {
     <div className="bg-[#18181b] rounded-xl p-6 h-72 border border-[#232329] flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div className="text-white font-semibold">Verification Nodes</div>
-        <div className="text-xs text-[#5b5bf6] cursor-pointer hover:underline">View All</div>
+        <button className="text-xs text-[#5b5bf6] cursor-pointer hover:underline" aria-label="View all verification nodes">View All</button>
       </div>
       
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
@@ -24,14 +24,14 @@ const VerificationNodes = ({ isLoading = false }: VerificationNodesProps) => {
             <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[#232329]/50 hover:bg-[#232329] transition-colors">
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-gray-200">{node.name}</span>
-                <span className="text-xs text-gray-500">{node.location}</span>
+                <span className="text-xs text-gray-400">{node.location}</span>
               </div>
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-1.5 h-1.5 rounded-full ${node.status === 'Online' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
                   <span className={`text-xs ${node.status === 'Online' ? 'text-emerald-500' : 'text-amber-500'}`}>{node.status}</span>
                 </div>
-                <span className="text-xs text-gray-500 mt-0.5">{node.uptime}</span>
+                <span className="text-xs text-gray-400 mt-0.5">{node.uptime}</span>
               </div>
             </div>
           ))}

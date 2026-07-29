@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { setAllowed } from "@stellar/freighter-api";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
@@ -49,6 +49,48 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const newWallet = trust.accountAgeDays < 7;
   const lowTrust =
     !trust.isVerified || lowReputation || newWallet || trust.suspicious;
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    firstInputRef.current?.focus();
+    return () => {
+      previousActiveElement.current?.focus();
+    };
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+    }
+  }, [onClose]);
+
+  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+
+    const focusableElements = modalRef.current?.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+
+    if (!focusableElements || focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0] as HTMLElement;
+    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      }
+    } else if (document.activeElement === lastElement) {
+      e.preventDefault();
+      firstElement.focus();
+    }
+  }, []);
 
   const validateField = (name: string, value: string): string | undefined => {
     if (!value.trim()) return `${capitalize(name)} is required`;
@@ -158,18 +200,36 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
+  const statusMessage = isLoading
+    ? "Submitting your claim..."
+    : submitError
+      ? submitError
+      : "";
+
   return (
     <div
+      ref={modalRef}
       className="fixed inset-0 z-50 modal-shell bg-black/60"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="claim-submission-title"
       data-testid="claim-submission-modal"
+      onKeyDown={handleFocusTrap}
     >
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
+        onKeyDown={handleKeyDown}
       >
-        <h2 className="text-xl font-bold text-white">Submit a Claim</h2>
+        <h2 id="claim-submission-title" className="text-xl font-bold text-white">Submit a Claim</h2>
+
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {statusMessage}
+        </div>
 
         {!isWalletConnected && (
           <div
@@ -203,14 +263,16 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           </p>
         )}
 
-        {["title", "category", "impact", "source"].map((field) => (
+        {["title", "category", "impact", "source"].map((field, index) => (
           <div key={field}>
             <input
+              ref={index === 0 ? firstInputRef : undefined}
               id={`claim-${field}`}
               name={field}
               type="text"
               className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
               placeholder={capitalize(field)}
+              aria-label={capitalize(field)}
               value={
                 { title, category, impact, source }[
                   field as keyof ClaimFormData
@@ -229,7 +291,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               }
             />
             {errors[field as keyof FormErrors] && touched[field] && (
-              <p className="text-red-500 text-sm break-words">{errors[field as keyof FormErrors]}</p>
+              <p className="text-red-500 text-sm break-words" role="alert">{errors[field as keyof FormErrors]}</p>
             )}
           </div>
         ))}
@@ -238,6 +300,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           id="claim-description"
           name="description"
           placeholder="Description"
+          aria-label="Description"
           value={description}
           onChange={(e) =>
             handleFieldChange("description", e.target.value)
@@ -246,7 +309,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         />
 
         {errors.description && touched.description && (
-          <p className="text-red-500 text-sm break-words">{errors.description}</p>
+          <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
         )}
 
         <div className="flex gap-3 mt-4">
@@ -255,6 +318,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             onClick={onClose}
             disabled={isLoading}
             className="flex-1 bg-[#232329] text-white py-3 rounded-lg"
+            aria-label="Cancel claim submission"
           >
             Cancel
           </button>
@@ -262,6 +326,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             type="submit"
             disabled={isLoading || !isWalletConnected}
             className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
+            aria-label={isLoading ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
           >
             {isLoading
               ? "Submitting..."
