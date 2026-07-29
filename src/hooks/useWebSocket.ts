@@ -41,7 +41,8 @@ export function useWebSocket(config?: WebSocketConfig) {
   const {
     url,
     reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS,
-    initialReconnectInterval = DEFAULT_INITIAL_RECONNECT_INTERVAL,
+    reconnectInterval, // Deprecated
+    initialReconnectInterval: initialInterval,
     maxReconnectInterval = DEFAULT_MAX_RECONNECT_INTERVAL,
     heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL,
     backoffMultiplier = DEFAULT_BACKOFF_MULTIPLIER,
@@ -49,6 +50,9 @@ export function useWebSocket(config?: WebSocketConfig) {
     onDisconnect,
     onError,
   } = config || {};
+
+  // Use deprecated reconnectInterval if provided for backward compatibility, otherwise use default
+  const initialReconnectInterval = initialInterval ?? reconnectInterval ?? DEFAULT_INITIAL_RECONNECT_INTERVAL;
 
   // Calculate exponential backoff delay
   const getBackoffDelay = useCallback((attempt: number) => {
