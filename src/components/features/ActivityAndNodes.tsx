@@ -24,11 +24,13 @@ const ActivityAndNodes = ({ isLoading = false }: ActivityAndNodesProps) => {
 
   return (
     <div className="bg-[#18181b] rounded-xl p-6 h-72 flex flex-col justify-between border border-[#232329] overflow-y-auto">
-      <div className="text-white font-semibold mb-2">Verification Activity</div>
+      <h2 className="text-white font-semibold mb-2">Verification Activity</h2>
       <div className="flex-1 w-full h-full min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={activityData}
+            role="img"
+            aria-label="Verification activity chart showing verified, disputed, and false claims over time"
             margin={{
               top: 10,
               right: 10,

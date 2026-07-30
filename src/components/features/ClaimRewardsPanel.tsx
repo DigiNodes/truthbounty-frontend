@@ -172,6 +172,9 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
               ? "border-green-900/30 bg-green-900/10 text-green-400"
               : "border-red-900/30 bg-red-900/10 text-red-400"
           }`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
         >
           {isSuccess && lastTxHash ? (
             <>
@@ -181,6 +184,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono opacity-70 underline hover:opacity-100"
+                aria-label={`Transaction hash: ${lastTxHash.slice(0, 18)}…${lastTxHash.slice(-6)} (opens in new tab)`}
               >
                 {lastTxHash.slice(0, 18)}…{lastTxHash.slice(-6)}
               </a>
@@ -190,6 +194,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:opacity-100"
+                aria-label="View on Explorer (opens in new tab)"
               >
                 View on Explorer
               </a>
