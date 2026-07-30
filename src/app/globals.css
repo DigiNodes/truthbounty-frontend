@@ -262,8 +262,6 @@ html {
 @viewport {
   width: device-width;
   initial-scale: 1;
-  maximum-scale: 1;
-  user-scalable: no;
 }
 
 @supports (padding: max(0px)) {
@@ -346,6 +344,28 @@ select:focus-visible,
   outline: none;
 }
 
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-pulse,
+  .animate-spin,
+  .animate-fadeIn,
+  .animate-shimmer {
+    animation: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
 
 /* Code block font-family consistency (#190)
    Ensures all <code> and <pre> elements use the design-system mono font
