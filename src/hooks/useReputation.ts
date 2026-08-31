@@ -1,25 +1,30 @@
-import { useCallback, useState } from "react";
+/**
+ * useReputation
+ *
+ * Query-backed hook for on-chain reputation scores.
+ *
+ * Replaces the previous local-state-only implementation that allowed
+ * arbitrary client-side score mutations. Reputation is now read from
+ * the indexer API and updated only via projection-stream events.
+ */
 
-type ReputationState = {
-  score: number;
-  addPositive: () => void;
-  addNegative: () => void;
-};
+'use client';
 
-export function useReputation(_userId: string): ReputationState {
-  const [score, setScore] = useState(0);
+import { useReputationByUser } from '@/app/queries/reputation.queries';
+import type { UserReputation } from '@/app/api/user.api';
 
-  const addPositive = useCallback(() => {
-    setScore((current) => current + 1);
-  }, []);
+export interface UseReputationReturn {
+  reputation: UserReputation | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}
 
-  const addNegative = useCallback(() => {
-    setScore((current) => Math.max(0, current - 1));
-  }, []);
+export function useReputation(userId: string): UseReputationReturn {
+  const { data: reputation, isLoading, isError } = useReputationByUser(userId);
 
   return {
-    score,
-    addPositive,
-    addNegative,
+    reputation,
+    isLoading,
+    isError,
   };
 }
