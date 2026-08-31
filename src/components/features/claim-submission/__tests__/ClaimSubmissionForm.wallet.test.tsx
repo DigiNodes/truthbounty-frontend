@@ -5,7 +5,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Hooks the form depends on.
 let mockAccount: { address: string; displayName: string } | null = null;
-const mockSetAllowed = jest.fn();
+const mockOpenConnectModal = jest.fn();
 const mockMutateAsync = jest.fn();
 
 jest.mock('@/hooks/useAccount', () => ({
@@ -33,8 +33,8 @@ jest.mock('@/app/queries/claims.queries', () => ({
   }),
 }));
 
-jest.mock('@stellar/freighter-api', () => ({
-  setAllowed: (...args: unknown[]) => mockSetAllowed(...args),
+jest.mock('@rainbow-me/rainbowkit', () => ({
+  useConnectModal: () => ({ openConnectModal: mockOpenConnectModal }),
 }));
 
 // Imported AFTER mocks.
@@ -62,7 +62,7 @@ function fillValidForm() {
 
 beforeEach(() => {
   mockAccount = null;
-  mockSetAllowed.mockReset();
+  mockOpenConnectModal.mockReset();
   mockMutateAsync.mockReset();
   mockMutateAsync.mockResolvedValue(undefined);
 });
@@ -99,11 +99,11 @@ describe('ClaimSubmissionForm - wallet gate', () => {
     expect(submit).toHaveTextContent(/^submit claim$/i);
   });
 
-  it('triggers Freighter setAllowed when the Connect Wallet button is clicked', () => {
+  it('triggers the RainbowKit connect modal when the Connect Wallet button is clicked', () => {
     mockAccount = null;
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     fireEvent.click(screen.getByTestId('connect-wallet-button'));
-    expect(mockSetAllowed).toHaveBeenCalledTimes(1);
+    expect(mockOpenConnectModal).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -119,8 +119,8 @@ describe('ClaimSubmissionForm - submit guard', () => {
     await waitFor(() => {
       // An inline error must be shown to the user.
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();

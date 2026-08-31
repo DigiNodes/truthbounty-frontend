@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
-jest.mock('@stellar/freighter-api', () => ({
-  setAllowed: jest.fn(),
+jest.mock('@rainbow-me/rainbowkit', () => ({
+  useConnectModal: () => ({ openConnectModal: jest.fn() }),
 }));
 
 jest.mock('@/components/hooks/useTrust', () => ({

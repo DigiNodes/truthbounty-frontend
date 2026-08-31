@@ -1,6 +1,16 @@
 import '@testing-library/jest-dom'
 import { queryClient } from './src/app/queries/queryClient'
 
+// Polyfill Node globals that older jsdom environments omit (viem needs them).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { TextEncoder, TextDecoder } = require('util')
+if (typeof globalThis.TextEncoder === 'undefined') {
+  globalThis.TextEncoder = TextEncoder
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  globalThis.TextDecoder = TextDecoder
+}
+
 // Mock WebSocket for testing
 global.WebSocket = jest.fn(() => ({
   addEventListener: jest.fn(),

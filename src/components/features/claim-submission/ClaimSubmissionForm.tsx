@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { setAllowed } from "@stellar/freighter-api";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -42,6 +42,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const trust = useTrust();
   const account = useAccount();
   const isWalletConnected = !!account?.address;
+  const { openConnectModal } = useConnectModal();
 
   const { mutateAsync, isLoading } = useSubmitClaim();
 
@@ -186,15 +187,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleConnectWallet = async () => {
-    try {
-      await setAllowed();
-    } catch (err) {
-      console.error("Failed to request wallet connection:", err);
+  const handleConnectWallet = () => {
+    if (!openConnectModal) {
       setSubmitError(
-        "Could not open the wallet. Please install/enable Freighter and try again."
+        "Wallet connection is not available. Please use an EVM wallet (e.g. MetaMask, Coinbase Wallet) and try again."
       );
+      return;
     }
+    openConnectModal();
   };
 
   const capitalize = (str: string) =>
