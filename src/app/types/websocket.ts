@@ -19,7 +19,41 @@ export type WebSocketEventType =
   | 'LEADERBOARD_UPDATED'
   | 'USER_STATS_UPDATED'
   | 'CONNECTION_STATUS'
-  | 'ERROR';
+  | 'ERROR'
+  | 'ROLLBACK'
+  | 'REPLACEMENT'
+  | 'PONG'
+  | 'AUTHENTICATED';
+
+/**
+ * Rollback event for chain reorganizations
+ */
+export interface RollbackEvent {
+  lastValidCursor: string;
+  blockNumber: number;
+  affectedClaimIds?: string[];
+  affectedVerificationIds?: string[];
+}
+
+/**
+ * Replacement event for chain updates/replacements
+ */
+export interface ReplacementEvent {
+  claimId?: string;
+  verificationId?: string;
+  newData: unknown;
+  previousCursor: string;
+  newCursor: string;
+  blockNumber: number;
+}
+
+/**
+ * Authentication response event
+ */
+export interface AuthenticatedEvent {
+  success: boolean;
+  reason?: string;
+}
 
 /**
  * Base WebSocket event structure
