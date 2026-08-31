@@ -2,29 +2,37 @@
 
 import { useState, useEffect } from 'react';
 import { getTokenBalance } from '@/app/lib/wallet';
+import { useAccount } from '@/hooks/useAccount';
 
-export function StakeForm({ 
-  claimId: _claimId, 
-  onStakeChange 
-}: { 
+export function StakeForm({
+  claimId: _claimId,
+  onStakeChange,
+}: {
   claimId: string;
   onStakeChange?: (stake: string) => void;
 }) {
   void _claimId;
   const [stake, setStake] = useState('');
   const [balance, setBalance] = useState<number | null>(null);
+  const account = useAccount();
 
   useEffect(() => {
+    if (!account?.address) {
+      setBalance(null);
+      return;
+    }
+
     const fetchBalance = () =>
-      getTokenBalance()
-        .then(setBalance)
+      getTokenBalance(account.address)
+        .then((value) => setBalance(Number(value)))
         .catch(() => {
           setBalance(null);
         });
+
     fetchBalance();
     const interval = setInterval(fetchBalance, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [account?.address]);
 
   const handleStakeChange = (value: string) => {
     setStake(value);

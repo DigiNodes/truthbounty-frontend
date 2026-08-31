@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "events": [
+    {
+      "name": "ClaimSettled",
+      "signature": "ClaimSettled(bytes32,address,uint256)"
+    },
+    {
+      "name": "RewardsClaimed",
+      "signature": "RewardsClaimed(address,uint256)"
+    }
+  ]
+}

@@ -12,6 +12,8 @@ export interface AccountData {
   chainId?: number;
 }
 
+export type AccountInfo = AccountData;
+
 /**
  * Account hook for TruthBounty V2 EVM runtime.
  * Returns account info when connected, or null when disconnected.
@@ -34,16 +36,19 @@ export function useAccount(): AccountData | null {
 }
 
 /**
- * Disconnect hook wrapping Wagmi useDisconnect
+ * Disconnect hook wrapping Wagmi useDisconnect.
+ * Supports both callable syntax `disconnect()` and destructured syntax `{ disconnect }`.
  */
 export function useDisconnect() {
-  const { disconnectAsync } = useWagmiDisconnect();
+  const { disconnect, disconnectAsync, ...rest } = useWagmiDisconnect();
 
-  return async () => {
+  const fn = async () => {
     try {
       await disconnectAsync();
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
   };
+
+  return Object.assign(fn, { disconnect, disconnectAsync, ...rest });
 }

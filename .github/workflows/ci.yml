@@ -136,6 +136,10 @@ jobs:
           else
             npm ci
           fi
+      - name: Verify contract release artifacts
+        run: npm run verify-artifacts
+      - name: Type check
+        run: npm run type-check
       - name: Build app
         run: npm run build
 

@@ -8,14 +8,15 @@ import type {
   WebSocketConfig,
   WebSocketEvent,
   WebSocketConnectionState,
-  WebSocketEventType,
   WebSocketEventHandler,
+  WebSocketEventType,
 } from '@/app/types/websocket';
 
 export interface WebSocketContextValue {
   isConnected: boolean;
   connectionState: WebSocketConnectionState;
-  lastMessage: WebSocketEvent<unknown> | null;
+  lastMessage: WebSocketEvent | null;
+  lastCursor: string | null;
   reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
@@ -24,6 +25,7 @@ export interface WebSocketContextValue {
     handler: WebSocketEventHandler<T>
   ) => () => void;
   send: (message: unknown) => void;
+  clearPersistedCursor: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -41,11 +43,13 @@ export function WebSocketProvider({ children, config }: WebSocketProviderProps) 
       isConnected: websocket.isConnected,
       connectionState: websocket.connectionState,
       lastMessage: websocket.lastMessage,
+      lastCursor: websocket.lastCursor,
       reconnectAttempts: websocket.reconnectAttempts,
       connect: websocket.connect,
       disconnect: websocket.disconnect,
       subscribe: websocket.subscribe,
       send: websocket.send,
+      clearPersistedCursor: websocket.clearPersistedCursor,
     }),
     [websocket]
   );

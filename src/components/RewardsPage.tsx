@@ -2,70 +2,47 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { createPublicClient, http, formatUnits } from "viem";
-import { mainnet } from "viem/chains"; // change if using another chain
+import { createPublicClient, formatUnits, http } from "viem";
+import { optimismSepolia } from "viem/chains";
+import {
+  getContractAbi,
+  getContractAddress,
+  getReleaseChainId,
+} from "@/lib/contracts/registry";
+import { getTransactionExplorerUrl } from "@/lib/explorer";
 
-// 🔁 Replace with your actual contract
-const CONTRACT_ADDRESS = "0xYourContractAddress";
-
-// Minimal ABI (adjust to your contract)
-const ABI = [
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    name: "claimRewards",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [],
-    outputs: [],
-  },
-] as const;
-
-// Public client (read from chain)
 const publicClient = createPublicClient({
-  chain: mainnet, // change if needed
+  chain: optimismSepolia,
   transport: http(),
 });
 
 export default function RewardsPage() {
   const { address } = useAccount();
+  const contractAddress = getContractAddress("TruthBountyWeighted");
+  const contractAbi = getContractAbi("TruthBountyWeighted");
+  const chainId = getReleaseChainId();
 
   const [balance, setBalance] = useState<string>("0");
   const [rewards, setRewards] = useState<Array<{ amount?: number | string; id?: string; reason?: string }>>([]);
   const [loading, setLoading] = useState(false);
 
-  // Write contract (claim rewards)
-  const {
-    data: hash,
-    writeContract,
-    isPending,
-  } = useWriteContract();
-
-  const { isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const claimableAmount = useMemo(
-    () =>
-      rewards.reduce((sum, reward) => sum + Number(reward?.amount ?? 0), 0),
+    () => rewards.reduce((sum, reward) => sum + Number(reward?.amount ?? 0), 0),
     [rewards],
   );
 
   const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
 
-  // ✅ Fetch real token balance
   const fetchBalance = useCallback(async () => {
     if (!address) return;
 
     try {
       const result = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
+        address: contractAddress,
+        abi: contractAbi,
         functionName: "balanceOf",
         args: [address],
       });
@@ -74,14 +51,12 @@ export default function RewardsPage() {
     } catch (err) {
       console.error("Balance fetch error:", err);
     }
-  }, [address]);
+  }, [address, contractAddress, contractAbi]);
 
-  // ✅ Fetch rewards from backend API
   const fetchRewards = useCallback(async () => {
     if (!address) return;
 
     setLoading(true);
-
     try {
       const res = await fetch(`/api/rewards?user=${address}`);
       const data = await res.json();
@@ -94,40 +69,43 @@ export default function RewardsPage() {
     }
   }, [address]);
 
-  // ✅ Claim rewards (REAL TX)
   const handleClaim = async () => {
     if (!canClaim) return;
 
     try {
       writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
+        address: contractAddress,
+        abi: contractAbi,
         functionName: "claimRewards",
+        chainId,
       });
     } catch (err) {
       console.error("Claim error:", err);
     }
   };
 
-  // Refetch after successful tx
   useEffect(() => {
     if (isSuccess) {
-      fetchBalance();
-      fetchRewards();
+      void fetchBalance();
+      void fetchRewards();
     }
   }, [isSuccess, fetchBalance, fetchRewards]);
 
   useEffect(() => {
-    fetchBalance();
-    fetchRewards();
+    void fetchBalance();
+    void fetchRewards();
   }, [address, fetchBalance, fetchRewards]);
 
   return (
     <div style={{ padding: 20 }}>
       <h1>Rewards Dashboard</h1>
 
-      <p><strong>Wallet:</strong> {address || "Not connected"}</p>
-      <p><strong>Balance:</strong> {balance}</p>
+      <p>
+        <strong>Wallet:</strong> {address || "Not connected"}
+      </p>
+      <p>
+        <strong>Balance:</strong> {balance}
+      </p>
 
       <button onClick={handleClaim} disabled={!canClaim}>
         {isPending ? "Claiming..." : "Claim Rewards"}
@@ -136,10 +114,7 @@ export default function RewardsPage() {
       {hash && (
         <p>
           Tx Hash:{" "}
-          <a
-            href={`https://etherscan.io/tx/${hash}`}
-            target="_blank"
-          >
+          <a href={getTransactionExplorerUrl(hash, chainId)} target="_blank" rel="noreferrer">
             View on Explorer
           </a>
         </p>
