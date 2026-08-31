@@ -391,27 +391,42 @@ export function useWebSocket(config?: WebSocketConfig) {
     };
   }, [url, connect, disconnect]);
 
+  // Clear persisted cursor
+  const clearPersistedCursor = useCallback(() => {
+    try {
+      localStorage.removeItem(cursorStorageKey);
+      lastCursorRef.current = null;
+      setLastCursor(null);
+    } catch (e) {
+      console.warn('Failed to clear persisted WebSocket cursor:', e);
+    }
+  }, [cursorStorageKey]);
+
   // Return the hook interface
   return useMemo(
     () => ({
       connectionState,
       isConnected: connectionState === 'connected',
       lastMessage,
+      lastCursor,
       error,
       reconnectAttempts: reconnectAttemptsRef.current,
       connect,
       disconnect,
       subscribe,
       send,
+      clearPersistedCursor,
     }),
     [
       connectionState,
       lastMessage,
+      lastCursor,
       error,
       connect,
       disconnect,
       subscribe,
       send,
+      clearPersistedCursor,
     ]
   );
 }
