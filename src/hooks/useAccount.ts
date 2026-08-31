@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useAccount as useWagmiAccount } from "wagmi";
 
+export { useDisconnect } from "wagmi";
+
 // returning the same object identity every time avoids unnecessary re-renders
 const addressObject = {
   address: '',
