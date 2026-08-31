@@ -6,6 +6,10 @@
  * Replaces the previous local-state + mock-data implementation.
  * Reward amounts come from the indexer API; no values are fabricated locally.
  *
+ * V2-FE-009: trackPendingTransaction now requires txHash, chainId, and
+ * machineState fields (V2 schema). These are passed with sentinel values
+ * while the tx is still being prepared.
+ *
  * After a successful claim transaction, the rewards.claimable cache is
  * invalidated via the canonical query key so the UI reflects on-chain truth.
  */
@@ -35,7 +39,7 @@ export interface UseRewardsReturn {
   /** Status of the claim transaction. */
   claimStatus: ClaimStatus;
   /** tx hash of the last successful claim transaction. */
-  lastTxHash: string | null;
+  lastTxHash: `0x${string}` | null;
   /** Error message from a failed claim attempt. */
   errorMessage: string | null;
   /** Submit the claim transaction for all pending rewards. */
@@ -53,7 +57,7 @@ export function useRewards(): UseRewardsReturn {
   } = useClaimableRewards(address);
 
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>('idle');
-  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const claimAll = useCallback(async () => {
@@ -65,11 +69,17 @@ export function useRewards(): UseRewardsReturn {
 
     setClaimStatus('loading');
     setErrorMessage(null);
+
+    // Track in pending-tx registry with V2 schema fields (V2-FE-009).
+    // txHash and chainId are null until the tx is submitted on-chain.
     trackPendingTransaction({
       id: transactionId,
       kind: 'rewards',
       title: 'Rewards claim pending',
       description: `Claiming ${ids.length} reward${ids.length === 1 ? '' : 's'} from your dashboard.`,
+      txHash: null,       // not yet submitted
+      chainId: null,      // not yet known
+      machineState: 'idle',
     });
 
     try {

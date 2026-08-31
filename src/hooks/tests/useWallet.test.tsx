@@ -1,34 +1,42 @@
-import { renderHook, act } from "@testing-library/react";
-import { useWallet } from "../useWallet";
+import { renderHook } from "@testing-library/react";
 
-describe("useWallet", () => {
-  it("should start with empty balance", () => {
-    const { result } = renderHook(() => useWallet());
-    expect(result.current.balance).toBe(0);
+describe("useWallet (EVM/Wagmi)", () => {
+  beforeEach(() => {
+    jest.resetModules();
   });
 
-  it("should deposit funds", () => {
-    const { result } = renderHook(() => useWallet());
-    act(() => {
-      result.current.deposit(100);
-    });
-    expect(result.current.balance).toBe(100);
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("should withdraw funds safely", () => {
+  it("should return disconnected state when not connected", async () => {
+    jest.doMock("wagmi", () => ({
+      useAccount: () => ({ address: undefined, isConnected: false }),
+      useChainId: () => 10,
+    }));
+
+    const { useWallet } = await import("../useWallet");
     const { result } = renderHook(() => useWallet());
-    act(() => {
-      result.current.deposit(100);
-      result.current.withdraw(50);
-    });
-    expect(result.current.balance).toBe(50);
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.address).toBeUndefined();
+    expect(result.current.chainId).toBe(10);
   });
 
-  it("should prevent overdraft", () => {
+  it("should return connected state with address and chainId", async () => {
+    jest.doMock("wagmi", () => ({
+      useAccount: () => ({
+        address: "0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E" as `0x${string}`,
+        isConnected: true,
+      }),
+      useChainId: () => 10,
+    }));
+
+    const { useWallet } = await import("../useWallet");
     const { result } = renderHook(() => useWallet());
-    act(() => {
-      result.current.withdraw(50);
-    });
-    expect(result.current.balance).toBe(0);
+
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.address).toBe("0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E");
+    expect(result.current.chainId).toBe(10);
   });
 });
