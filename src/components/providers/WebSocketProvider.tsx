@@ -37,11 +37,13 @@ export function WebSocketProvider({ children, config }: WebSocketProviderProps) 
       isConnected: websocket.isConnected,
       connectionState: websocket.connectionState,
       lastMessage: websocket.lastMessage,
+      lastCursor: websocket.lastCursor,
       reconnectAttempts: websocket.reconnectAttempts,
       connect: websocket.connect,
       disconnect: websocket.disconnect,
       subscribe: websocket.subscribe,
       send: websocket.send,
+      clearPersistedCursor: websocket.clearPersistedCursor,
     }),
     [websocket]
   );
