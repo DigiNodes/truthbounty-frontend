@@ -1,19 +1,27 @@
 /**
- * Hook for reconciling settlement/finalization state after transaction finality
- * Ensures outcomes are confirmed and prevents stale state issues
+ * Hook for reconciling claim creation transaction state after finality
+ * Ensures claim creation is confirmed, prevents stale state, and returns typed protocol errors.
  */
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import {
-  SettlementSubmission,
+  ClaimSubmission,
   ReconciliationResult,
-} from '@/app/types/settlement';
+} from '@/app/types/claim';
+
+export class ProtocolError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'ProtocolError';
+    this.code = code;
+  }
+}
 
 interface UseStateReconciliationConfig {
-  transactionHash?: string;
   pollInterval?: number; // ms between polls
   confirmationBlocks?: number; // blocks to wait for confirmation
   timeout?: number; // ms timeout for waiting
@@ -25,6 +33,8 @@ interface StateReconciliationResult {
   lastResult: ReconciliationResult | null;
   error: string | null;
 }
+
+const SUPPORTED_CHAIN_IDS = [10, 11155420]; // Optimism mainnet and Sepolia
 
 const DEFAULT_POLL_INTERVAL = 2000; // 2 seconds
 const DEFAULT_CONFIRMATION_BLOCKS = 1; // 1 block for Optimism (fast finality)
@@ -38,7 +48,6 @@ export function useStateReconciliation(
   config: UseStateReconciliationConfig = {}
 ): StateReconciliationResult {
   const {
-    transactionHash,
     pollInterval = DEFAULT_POLL_INTERVAL,
     confirmationBlocks = DEFAULT_CONFIRMATION_BLOCKS,
     timeout = DEFAULT_TIMEOUT,
@@ -55,7 +64,13 @@ export function useStateReconciliation(
   const waitForConfirmation = useCallback(
     async (txHash: string): Promise<{ receipt: any; confirmations: number }> => {
       if (!publicClient) {
-        throw new Error('Public client not available');
+        throw new ProtocolError('PUBLIC_CLIENT_UNAVAILABLE', 'Public client not available');
+      }
+
+      // Validate chain
+      const chainId = publicClient.chain?.id;
+      if (chainId && !SUPPORTED_CHAIN_IDS.includes(chainId)) {
+        throw new ProtocolError('UNSUPPORTED_CHAIN', `Unsupported chain ${chainId}`);
       }
 
       const startTime = Date.now();
@@ -85,12 +100,16 @@ export function useStateReconciliation(
           // Wait for more confirmations
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
         } catch (err) {
+          // Rethrow protocol errors, otherwise continue polling
+          if (err instanceof ProtocolError) {
+            throw err;
+          }
           console.error('Error checking receipt:', err);
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
         }
       }
 
-      throw new Error(`Transaction ${txHash} not confirmed within ${timeout}ms`);
+      throw new ProtocolError('TIMEOUT', `Transaction ${txHash} not confirmed within ${timeout}ms`);
     },
     [publicClient, pollInterval, confirmationBlocks, timeout]
   );
@@ -98,40 +117,21 @@ export function useStateReconciliation(
   /**
    * Determine settlement state from transaction and receipt
    */
-  const determineSettlementState = useCallback(
+  const determineClaimState = useCallback(
     (receipt: any): string => {
       // Transaction success/failure is determined by status
       if (receipt.status === '0x1' || receipt.status === 1) {
         // Successfully executed
-        return 'SETTLED';
+        return 'CLAIM_CREATED';
       } else {
         // Reverted
-        return 'PENDING_SETTLEMENT';
+        return 'CLAIM_CREATION_REVERTED';
       }
     },
     []
   );
 
-  /**
-   * Extract rewards from transaction logs (in production)
-   */
-  const extractRewards = useCallback((receipt: any): { address: string; amount: string } | undefined => {
-    // In production, this would:
-    // 1. Decode logs using ABI
-    // 2. Look for Reward or Transfer events
-    // 3. Extract amount and recipient
-    // 4. Validate amounts against contract state
-    
-    // Mock reward extraction
-    if (receipt.logs && receipt.logs.length > 0) {
-      return {
-        address: receipt.from,
-        amount: '0',
-      };
-    }
 
-    return undefined;
-  }, []);
 
   /**
    * Reconcile transaction state after finality
@@ -144,74 +144,56 @@ export function useStateReconciliation(
       try {
         // Validate submission
         if (!submission.transactionHash) {
-          throw new Error('Invalid transaction hash');
+          throw new ProtocolError('INVALID_HASH', 'Invalid transaction hash');
         }
 
         if (!submission.transactionHash.match(/^0x[a-fA-F0-9]{64}$/)) {
-          throw new Error('Invalid transaction hash format');
+          throw new ProtocolError('INVALID_HASH_FORMAT', 'Invalid transaction hash format');
         }
 
         // Wait for confirmation
-        const { receipt, confirmations } = await waitForConfirmation(
+        const { receipt } = await waitForConfirmation(
           submission.transactionHash
         );
 
         // Determine final state
-        const finalState = determineSettlementState(receipt);
-
-        // Extract rewards
-        const rewards = extractRewards(receipt);
+        const finalState = determineClaimState(receipt);
 
         // Build result
         const result: ReconciliationResult = {
           transactionHash: submission.transactionHash,
           status: receipt.status === '0x1' || receipt.status === 1 ? 'confirmed' : 'reverted',
           finalState: finalState as any,
-          rewards,
         };
 
         setLastResult(result);
         return result;
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Reconciliation failed';
-        setError(errorMsg);
+        const error = err instanceof ProtocolError
+          ? err
+          : new ProtocolError(
+              'RECONCILIATION_FAILED',
+              err instanceof Error ? err.message : 'Reconciliation failed'
+            );
+        setError(error.message);
 
         const result: ReconciliationResult = {
           transactionHash: submission.transactionHash,
-          status: 'timeout',
-          finalState: 'PENDING_SETTLEMENT',
-          error: errorMsg,
+          status: 'error',
+          finalState: 'CLAIM_CREATION_UNKNOWN',
+          error: error.message,
         };
 
         setLastResult(result);
-        throw err;
+        throw error;
       } finally {
         setIsReconciling(false);
       }
     },
-    [waitForConfirmation, determineSettlementState, extractRewards]
+    [waitForConfirmation, determineClaimState]
   );
 
-  /**
-   * Auto-reconcile if transactionHash is provided
-   */
-  useEffect(() => {
-    if (!transactionHash || !publicClient) return;
 
-    const mockSubmission: SettlementSubmission = {
-      transactionHash,
-      from: '',
-      to: '',
-      status: 'pending',
-      type: 'SETTLE_PROVISIONAL',
-      claimId: '',
-      timestamp: new Date().toISOString(),
-    };
-
-    reconcile(mockSubmission).catch((err) => {
-      console.error('Auto-reconciliation failed:', err);
-    });
-  }, [transactionHash, publicClient, reconcile]);
 
   return {
     reconcile,
