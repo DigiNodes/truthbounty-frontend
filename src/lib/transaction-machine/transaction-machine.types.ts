@@ -392,7 +392,61 @@ export function isValidChain(
 }
 
 // ---------------------------------------------------------------------------
-// Factory helpers
+// Facto
+
+// ---------------------------------------------------------------------------
+// Claim Creation (V2-FE-011)
+// ---------------------------------------------------------------------------
+
+/** Parameters for the canonical claim creation call. */
+export interface ClaimCreationParams {
+  /** 32-byte content digest of the evidence (e.g. keccak256 of content). */
+  readonly contentDigest: `0x${string}`;
+  /** ERC-20 token address used for the bounty. */
+  readonly bountyAsset: `0x${string}`;
+  /** Exact integer amount of the bounty asset to claim. */
+  readonly bountyAmount: bigint;
+  /** ABI-encoded frozen configuration expected by the bounty contract. */
+  readonly frozenConfig: `0x${string}`;
+}
+
+/** Protocol-level errors surfaced by claim creation. */
+export type ClaimCreationErrorReason =
+  | 'INVALID_CONTENT_DIGEST'
+  | 'INVALID_BOUNTY_ASSET'
+  | 'INVALID_AMOUNT'
+  | 'INSUFFICIENT_ALLOWANCE'
+  | 'SIMULATION_REVERTED'
+  | 'CLAIM_ALREADY_EXISTS'
+  | 'CLAIM_NOT_ELIGIBLE'
+  | 'CLAIM_WINDOW_CLOSED';
+
+/** Typed error for claim creation failures. Never carries a fabricated claim. */
+export class ClaimCreationError extends Error {
+  readonly reason: ClaimCreationErrorReason;
+
+  constructor(reason: ClaimCreationErrorReason, detail?: string) {
+    super(`[ClaimCreation] ${reason}${detail ? `: ${detail}` : ''}`);
+    this.name = 'ClaimCreationError';
+    this.reason = reason;
+  }
+}
+
+/** Encoded claim creation transaction payload. */
+export interface ClaimCreationCall {
+  readonly to: `0x${string}`;
+  readonly data: `0x${string}`;
+  readonly value: bigint;
+}
+
+/** Fully-validated request used to drive allowance/simulation/submission. */
+export interface ClaimCreationRequest {
+  readonly params: ClaimCreationParams;
+  readonly chainId: number;
+  readonly account: `0x${string}`;
+  readonly contractAddress: `0x${string}`;
+}
+ry helpers
 // ---------------------------------------------------------------------------
 
 /** Return the canonical idle state. */
