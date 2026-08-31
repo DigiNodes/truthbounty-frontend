@@ -11,6 +11,7 @@ import {
   FeatureFlagProvider,
   FeatureFlagPanel,
 } from '@/components/providers';
+import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -22,11 +23,13 @@ export function Providers({ children }: ProvidersProps) {
       <Web3Provider>
         <QueryProvider>
           <RainbowKitThemedProvider>
-            <FeatureFlagProvider enablePersistence={true}>
-              {children}
-              {/* Feature flag panel for development debugging */}
-              <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-            </FeatureFlagProvider>
+            <SiweAuthProvider>
+              <FeatureFlagProvider enablePersistence={true}>
+                {children}
+                {/* Feature flag panel for development debugging */}
+                <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+              </FeatureFlagProvider>
+            </SiweAuthProvider>
           </RainbowKitThemedProvider>
         </QueryProvider>
       </Web3Provider>
