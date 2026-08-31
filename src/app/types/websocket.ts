@@ -62,6 +62,30 @@ export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
   payload: T;
   timestamp: string;
+  cursor?: string; // Sequence cursor for resumable connections
+  blockNumber?: number; // Associated block number for chain events
+}
+
+/**
+ * WebSocket configuration options
+ */
+export interface WebSocketConfig {
+  url: string;
+  authToken?: string; // Authentication token for protected subscriptions
+  reconnectAttempts?: number;
+  initialReconnectInterval?: number;
+  maxReconnectInterval?: number;
+  heartbeatInterval?: number;
+  backoffMultiplier?: number;
+  messageCacheSize?: number; // Max messages to keep for deduplication
+  cursorStorageKey?: string; // localStorage key for persisting cursor
+  httpCatchupUrl?: string; // URL to fetch missed messages via HTTP
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: { code: string; message: string; details?: unknown }) => void;
+  onMessage?: (event: WebSocketEvent) => void;
+  onRollback?: (payload: RollbackEvent) => void;
+  onReplacement?: (payload: ReplacementEvent) => void;
 }
 
 /**
