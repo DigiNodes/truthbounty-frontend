@@ -1,21 +1,33 @@
-import React from 'react'
-import { setAllowed } from '@stellar/freighter-api'
-import styles from './style.module.css'
+'use client';
+
+import React from 'react';
+import { ConnectButton as RainbowConnectButton } from '@rainbow-me/rainbowkit';
+import styles from './style.module.css';
 
 export interface ConnectButtonProps {
-  label: string
-  isHigher?: boolean
+  label?: string;
+  isHigher?: boolean;
+  onClick?: () => void;
 }
 
-export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
+export function ConnectButton({ label = 'Connect Wallet', isHigher, onClick }: ConnectButtonProps) {
   return (
-    <button
-      className={styles.button}
-      style={{ height: isHigher ? 50 : 38 }}
-      onClick={setAllowed}
-      aria-label={label}
-    >
-      {label}
-    </button>
-  )
+    <RainbowConnectButton.Custom>
+      {({ openConnectModal }) => {
+        return (
+          <button
+            type="button"
+            className={styles.button}
+            style={{ height: isHigher ? 50 : 38 }}
+            onClick={onClick || openConnectModal}
+            aria-label={label}
+          >
+            {label}
+          </button>
+        );
+      }}
+    </RainbowConnectButton.Custom>
+  );
 }
+
+export default ConnectButton;

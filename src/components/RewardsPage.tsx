@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { createPublicClient, http, formatUnits } from "viem";
 import { mainnet } from "viem/chains"; // change if using another chain
@@ -24,7 +24,7 @@ const ABI = [
     inputs: [],
     outputs: [],
   },
-];
+] as const;
 
 // Public client (read from chain)
 const publicClient = createPublicClient({
@@ -36,7 +36,7 @@ export default function RewardsPage() {
   const { address } = useAccount();
 
   const [balance, setBalance] = useState<string>("0");
-  const [rewards, setRewards] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<Array<{ amount?: number | string; id?: string; reason?: string }>>([]);
   const [loading, setLoading] = useState(false);
 
   // Write contract (claim rewards)
@@ -59,7 +59,7 @@ export default function RewardsPage() {
   const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
 
   // ✅ Fetch real token balance
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     if (!address) return;
 
     try {
@@ -74,10 +74,10 @@ export default function RewardsPage() {
     } catch (err) {
       console.error("Balance fetch error:", err);
     }
-  };
+  }, [address]);
 
   // ✅ Fetch rewards from backend API
-  const fetchRewards = async () => {
+  const fetchRewards = useCallback(async () => {
     if (!address) return;
 
     setLoading(true);
@@ -92,7 +92,7 @@ export default function RewardsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [address]);
 
   // ✅ Claim rewards (REAL TX)
   const handleClaim = async () => {
@@ -115,12 +115,12 @@ export default function RewardsPage() {
       fetchBalance();
       fetchRewards();
     }
-  }, [isSuccess]);
+  }, [isSuccess, fetchBalance, fetchRewards]);
 
   useEffect(() => {
     fetchBalance();
     fetchRewards();
-  }, [address]);
+  }, [address, fetchBalance, fetchRewards]);
 
   return (
     <div style={{ padding: 20 }}>

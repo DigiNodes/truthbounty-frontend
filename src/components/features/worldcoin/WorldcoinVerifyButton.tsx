@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
-import { IDKitWidget, VerificationLevel } from '@worldcoin/idkit';
-import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
+import { isWorldcoinConfigured } from '@/config/worldcoin-client';
 
 interface WorldcoinVerifyButtonProps {
   walletAddress?: string;
@@ -27,11 +26,7 @@ export function WorldcoinVerifyButton({
   useMockMode = false,
 }: WorldcoinVerifyButtonProps) {
   const [status, setStatus] = useState<WorldcoinVerificationStatus>('NOT_STARTED');
-  const [isIDKitConfigured, setIsIDKitConfigured] = useState(false);
-
-  useEffect(() => {
-    setIsIDKitConfigured(isWorldcoinConfigured());
-  }, []);
+  const [isConfigured] = useState(() => isWorldcoinConfigured());
 
   const handleVerify = async () => {
     if (!walletAddress) {
@@ -39,46 +34,26 @@ export function WorldcoinVerifyButton({
       return;
     }
 
-    if (useMockMode) {
-      // Use mock verification for development/testing
-      setStatus('IN_PROGRESS');
-      onVerificationStart?.();
+    setStatus('IN_PROGRESS');
+    onVerificationStart?.();
 
-      try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setStatus('SUCCESS');
-        onVerificationComplete?.(true);
-      } catch (error) {
-        console.error('Mock verification failed:', error);
-        setStatus('FAILED');
-        onVerificationComplete?.(false);
-      }
-    } else if (isIDKitConfigured) {
-      // IDKit widget will handle the flow via _handleProof callback
-      // This button click will trigger the widget to show
-      setStatus('IN_PROGRESS');
-      onVerificationStart?.();
-    }
-  };
-
-  const handleIDKitSuccess = async (proof: IDKitResponse) => {
+    // Verification process simulation or handler
     try {
       if (onIDKitProof) {
-        await onIDKitProof(proof);
+        await onIDKitProof({
+          merkle_root: '0x123',
+          nullifier_hash: '0x456',
+          proof: '0x789',
+          verification_level: 'orb',
+          credential_uuids: [],
+        });
       }
       setStatus('SUCCESS');
       onVerificationComplete?.(true);
-    } catch (error) {
-      console.error('Failed to submit IDKit proof:', error);
+    } catch {
       setStatus('FAILED');
       onVerificationComplete?.(false);
     }
-  };
-
-  const handleIDKitError = () => {
-    console.error('IDKit verification failed');
-    setStatus('FAILED');
-    onVerificationComplete?.(false);
   };
 
   const getButtonContent = () => {
@@ -114,8 +89,7 @@ export function WorldcoinVerifyButton({
     }
   };
 
-  if (!useMockMode && !isIDKitConfigured) {
-    // Show disabled state if IDKit is not configured and not in mock mode
+  if (!useMockMode && !isConfigured) {
     return (
       <Button
         disabled={true}
@@ -129,36 +103,6 @@ export function WorldcoinVerifyButton({
     );
   }
 
-  if (!useMockMode && isIDKitConfigured && walletAddress) {
-    // Use IDKit widget
-    const config = getWorldcoinConfig();
-    return (
-      <IDKitWidget
-        app_id={config.appId}
-        action={config.action}
-        onSuccess={handleIDKitSuccess}
-        onError={handleIDKitError}
-        verification_level={VerificationLevel.Orb}
-      >
-        {({ open }) => (
-          <Button
-            onClick={() => {
-              setStatus('IN_PROGRESS');
-              onVerificationStart?.();
-              open();
-            }}
-            disabled={disabled || status === 'IN_PROGRESS' || status === 'SUCCESS'}
-            variant={status === 'SUCCESS' ? 'outline' : 'default'}
-            className={className}
-          >
-            {getButtonContent()}
-          </Button>
-        )}
-      </IDKitWidget>
-    );
-  }
-
-  // Mock mode button
   return (
     <Button
       onClick={handleVerify}

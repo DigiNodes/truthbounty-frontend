@@ -14,7 +14,7 @@ type AuthState = {
 export function useAuth(): AuthState {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = useCallback((username: string, _password: string) => {
+  const login = useCallback((username: string) => {
     setUser({ username });
   }, []);
 

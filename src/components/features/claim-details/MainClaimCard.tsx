@@ -31,7 +31,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
   const forPercentage = (data.votesFor / totalVotes) * 100;
   const againstPercentage = (data.votesAgainst / totalVotes) * 100;
 
-  const handleOpenDispute = async (payload: any) => {
+  const handleOpenDispute = async (payload: { reason: string; initialStake: number }) => {
     console.log("Opening dispute:", payload);
 
     setDispute({

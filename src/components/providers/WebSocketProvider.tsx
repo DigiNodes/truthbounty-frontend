@@ -4,18 +4,24 @@
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { WebSocketConfig, WebSocketEvent } from '@/app/types/websocket';
+import type {
+  WebSocketConfig,
+  WebSocketEvent,
+  WebSocketConnectionState,
+  WebSocketEventType,
+  WebSocketEventHandler,
+} from '@/app/types/websocket';
 
 export interface WebSocketContextValue {
   isConnected: boolean;
-  connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
-  lastMessage: WebSocketEvent | null;
+  connectionState: WebSocketConnectionState;
+  lastMessage: WebSocketEvent<unknown> | null;
   reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
-  subscribe: <T extends string>(
+  subscribe: <T extends WebSocketEventType>(
     eventType: T,
-    handler: (payload: any) => void
+    handler: WebSocketEventHandler<T>
   ) => () => void;
   send: (message: unknown) => void;
 }
@@ -30,7 +36,7 @@ interface WebSocketProviderProps {
 export function WebSocketProvider({ children, config }: WebSocketProviderProps) {
   const websocket = useWebSocket(config);
 
-  const contextValue = useMemo(
+  const contextValue = useMemo<WebSocketContextValue>(
     () => ({
       isConnected: websocket.isConnected,
       connectionState: websocket.connectionState,
@@ -59,9 +65,6 @@ export function useWebSocketContext(): WebSocketContextValue {
   return context;
 }
 
-/**
- * Hook to check if WebSocket is connected
- */
 export function useWebSocketStatus() {
   const { isConnected, connectionState, reconnectAttempts } = useWebSocketContext();
   return { isConnected, connectionState, reconnectAttempts };

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { TrustIndicator } from './TrustIndicator';
+import TrustIndicator from './TrustIndicator';
 
 const meta: Meta<typeof TrustIndicator> = {
   title: 'UI/TrustIndicator',
@@ -22,12 +22,6 @@ type Story = StoryObj<typeof TrustIndicator>;
 
 export const Default: Story = {
   args: {},
-  parameters: {
-    // Mock the useTrust hook
-    onMount: (ctx) => {
-      // This will be handled by the mock provider in the preview
-    },
-  },
 };
 
 export const HighReputation: Story = {

@@ -1,16 +1,18 @@
 // src/hooks/useUser.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../app/queries/queryKeys';
 import { fetchUserProfile, fetchUserReputation } from '../app/api/user.api';
 
 export const useUser = (userId: string) => {
-  const queryClient = useQueryClient();
+  const profile = useQuery({
+    queryKey: queryKeys.user.profile(userId),
+    queryFn: () => fetchUserProfile(userId),
+  });
 
-  const profile = useQuery(queryKeys.user.profile(userId), () => fetchUserProfile(userId));
-
-  const reputation = useQuery(queryKeys.user.reputation(userId), () =>
-    fetchUserReputation(userId)
-  );
+  const reputation = useQuery({
+    queryKey: queryKeys.user.reputation(userId),
+    queryFn: () => fetchUserReputation(userId),
+  });
 
   return { profile, reputation };
 };

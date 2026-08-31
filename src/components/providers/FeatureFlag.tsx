@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { useFeatureFlags } from './FeatureFlagProvider';
+import { useFeatureFlags, useFeatureFlag } from './FeatureFlagProvider';
 import { FeatureFlag } from '@/config/feature-flags';
 
 interface FeatureFlagGateProps {
@@ -50,10 +50,7 @@ export function FeatureFlagGate({
 }: FeatureFlagGateProps) {
   const { isEnabled } = useFeatureFlags();
   
-  // Check primary flag
-  const primaryEnabled = isEnabled(flag);
-  
-  // Check additional flags
+  // Check flags
   const allFlags = [flag, ...flags];
   
   let shouldRender: boolean;

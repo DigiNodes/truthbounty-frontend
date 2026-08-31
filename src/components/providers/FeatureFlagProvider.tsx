@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import {
   FeatureFlag,
   getInitialFlags,
@@ -83,7 +83,15 @@ export function FeatureFlagProvider({
   });
 
   // Track if there are any overrides
-  const [hasOverrides, setHasOverrides] = useState(false);
+  const hasOverrides = useMemo(() => {
+    const defaultFlags = getInitialFlags();
+    for (const key of Object.keys(flags) as FeatureFlag[]) {
+      if (flags[key] !== defaultFlags[key]) {
+        return true;
+      }
+    }
+    return false;
+  }, [flags]);
 
   // Persist to localStorage when flags change (dev only)
   useEffect(() => {
@@ -98,8 +106,6 @@ export function FeatureFlagProvider({
             overrides[key] = flags[key];
           }
         }
-        
-        setHasOverrides(Object.keys(overrides).length > 0);
         
         if (Object.keys(overrides).length > 0) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
