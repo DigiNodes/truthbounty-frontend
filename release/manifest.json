@@ -1,0 +1,17 @@
+{
+  "protocolVersion": "2.0.0",
+  "releaseId": "v2.0.0-sepolia",
+  "gitCommit": "0000000000000000000000000000000000000000",
+  "compilerVersion": "foundry-0.2.0",
+  "chainId": 11155420,
+  "deploymentBlock": 0,
+  "abiVersion": "2.0.0",
+  "eventSchemaVersion": "2.0.0",
+  "parameterSetVersion": "2.0.0",
+  "contracts": {
+    "TruthBountyWeighted": {
+      "proxy": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "implementation": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    }
+  }
+}

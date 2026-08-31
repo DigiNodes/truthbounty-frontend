@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { TrustIndicator } from './TrustIndicator';
+import TrustIndicator from './TrustIndicator';
 
 const meta: Meta<typeof TrustIndicator> = {
   title: 'UI/TrustIndicator',
