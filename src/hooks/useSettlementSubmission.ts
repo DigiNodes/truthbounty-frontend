@@ -1,22 +1,31 @@
-/**
- * Hook for simulating and submitting settlement transactions
- * Handles transaction building, simulation, and submission via Wagmi
- */
-
 'use client';
 
 import { useCallback, useState } from 'react';
 import { useAccount } from 'wagmi';
+import { encodeFunctionData } from 'viem';
 import {
   SettlementAction,
   SimulationResult,
   SettlementSubmission,
 } from '@/app/types/settlement';
+import {
+  getContractAbi,
+  getContractAddress,
+  getProtocolVersion,
+} from '@/lib/contracts/registry';
 
 interface UseSettlementSubmissionConfig {
-  contractAddress: string;
-  abi?: any[]; // Contract ABI for encoding
+  contractAddress?: string;
+  abi?: readonly unknown[];
 }
+
+const SETTLEMENT_FUNCTIONS: Record<string, 'settleProvisional' | 'settleAppeal' | 'finalize'> = {
+  SETTLE_PROVISIONAL: 'settleProvisional',
+  SETTLE_APPEAL: 'settleAppeal',
+  FINALIZE: 'finalize',
+  CLAIM_SETTLEMENT: 'settleProvisional',
+  CLAIM_APPEAL: 'settleAppeal',
+};
 
 interface SettlementSubmissionResult {
   simulateSettlement: (action: SettlementAction) => Promise<SimulationResult>;
@@ -25,15 +34,15 @@ interface SettlementSubmissionResult {
   isSubmitting: boolean;
   error: string | null;
   lastSubmission: SettlementSubmission | null;
+  artifactVersion: string;
 }
 
-/**
- * Hook for simulating and submitting settlement transactions
- */
 export function useSettlementSubmission(
-  config: UseSettlementSubmissionConfig
+  config: UseSettlementSubmissionConfig = {},
 ): SettlementSubmissionResult {
-  const { contractAddress, abi } = config;
+  const contractAddress = config.contractAddress ?? getContractAddress('TruthBountyWeighted');
+  const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
+  const artifactVersion = getProtocolVersion();
   const { address: userAddress } = useAccount();
 
   const [isSimulating, setIsSimulating] = useState(false);
@@ -46,28 +55,22 @@ export function useSettlementSubmission(
    */
   const encodeSettlementCall = useCallback(
     (action: SettlementAction): string => {
-      // In production, this would use ethers.Interface or Viem to encode
-      // based on the contract ABI and action type
-      
-      // Example function selectors (4 bytes)
-      const functionSelectors: Record<string, string> = {
-        SETTLE_PROVISIONAL: '0x12345678',
-        SETTLE_APPEAL: '0x23456789',
-        FINALIZE: '0x34567890',
-        CLAIM_SETTLEMENT: '0x45678901',
-        CLAIM_APPEAL: '0x56789012',
-      };
+      const functionName = SETTLEMENT_FUNCTIONS[action.type];
+      if (!functionName) {
+        throw new Error(`Unsupported settlement action: ${action.type}`);
+      }
 
-      // Mock encoding - in production would be:
-      // const iface = new ethers.Interface(abi);
-      // return iface.encodeFunctionData(functionName, params);
-      
-      const selector = functionSelectors[action.type] || '0x';
-      const encodedClaimId = action.claimId.padStart(64, '0');
-      
-      return selector + encodedClaimId;
+      const claimId = action.claimId.startsWith('0x')
+        ? (action.claimId as `0x${string}`)
+        : (`0x${action.claimId.padStart(64, '0')}` as `0x${string}`);
+
+      return encodeFunctionData({
+        abi,
+        functionName,
+        args: [claimId],
+      });
     },
-    [abi]
+    [abi],
   );
 
   /**
@@ -119,14 +122,14 @@ export function useSettlementSubmission(
         // 2. Use staticCall to estimate gas and validate logic
         // 3. Check for reverts and return error messages
         
-        // Mock simulation
         const gasEstimate = '250000'; // Mock gas estimate
-        
+        const fromAddress = userAddress as string;
+
         return {
           success: true,
           gasEstimate,
           data: {
-            from: userAddress,
+            from: fromAddress,
             to: contractAddress,
             calldata,
           },
@@ -166,29 +169,10 @@ export function useSettlementSubmission(
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        // In production, this would:
-        // 1. Use Wagmi's useSendTransaction or useContractWrite
-        // 2. Build the transaction with encoded call data
-        // 3. Send via the user's wallet (MetaMask, etc.)
-        // 4. Return the transaction hash immediately
-        // 5. Not wait for confirmation (async)
-        
-        // Mock submission
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
-        
-        const submission: SettlementSubmission = {
-          transactionHash: mockTxHash,
-          from: userAddress!,
-          to: contractAddress,
-          status: 'pending',
-          type: action.type,
-          claimId: action.claimId,
-          disputeId: action.disputeId,
-          timestamp: new Date().toISOString(),
-        };
-
-        setLastSubmission(submission);
-        return submission;
+        // Submission requires a wallet writeContract call; do not fabricate hashes.
+        throw new Error(
+          'Settlement submission requires wallet writeContract integration; no synthetic transaction hash is emitted.',
+        );
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Submission failed';
         setError(errorMsg);
@@ -207,5 +191,6 @@ export function useSettlementSubmission(
     isSubmitting,
     error,
     lastSubmission,
+    artifactVersion,
   };
 }
