@@ -15,12 +15,10 @@
 
 import { useReducer, useEffect, useRef, useCallback } from 'react';
 import {
-  TransactionState,
-  TransactionEvent,
-  TransactionContext,
+  type TransactionState,
+  type TransactionEvent,
+  type TransactionContext,
   TransactionMachineError,
-  isTerminalSuccess,
-  isTerminalFailure,
   createIdleState,
 } from '@/lib/transaction-machine/transaction-machine.types';
 import { transitionTxState } from '@/lib/transaction-machine/transaction-machine';
@@ -126,7 +124,7 @@ export function useTransactionMachine(
     onFinalizedRef.current = opts.onFinalized;
     onRevertedRef.current = opts.onReverted;
     onDroppedRef.current = opts.onDropped;
-  });
+  }, [opts.onFinalized, opts.onReverted, opts.onDropped]);
 
   // Track whether terminal callbacks have fired for this lifecycle
   const callbackFiredRef = useRef<Set<string>>(new Set());
@@ -206,4 +204,4 @@ export type {
   TransactionContext,
   TransactionMachineError,
 };
-export { isTerminalSuccess, isTerminalFailure };
+export { isTerminalSuccess, isTerminalFailure } from '@/lib/transaction-machine/transaction-machine.types';

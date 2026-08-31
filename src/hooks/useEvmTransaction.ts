@@ -13,7 +13,7 @@
  *  - contract ABIs throw NotImplemented until V2-FE-003/005 are merged
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   useAccount,
   useChainId,
@@ -119,7 +119,8 @@ export function useEvmTransaction(
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
 
-  const isCorrectNetwork = isValidChain(chainId, allowLocalDev) &&
+  const isCorrectNetwork =
+    isValidChain(chainId, allowLocalDev) &&
     (chainId === expectedChainId || allowLocalDev);
 
   // Wagmi write/send hooks
@@ -127,13 +128,10 @@ export function useEvmTransaction(
   const { sendTransactionAsync } = useSendTransaction();
 
   // Machine
-  const { state, send, context, reset, lastError } = useTransactionMachine({
+  const { state, send, reset, lastError } = useTransactionMachine({
     ...machineOpts,
     allowLocalDev,
   });
-
-  // Track the in-flight hash so the receipt watcher can pick it up
-  const pendingHashRef = useRef<`0x${string}` | null>(null);
 
   // Watch receipt for the current submitted/confirming hash
   const submittedHash =
@@ -144,8 +142,6 @@ export function useEvmTransaction(
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: submittedHash,
-    // confirmations: safeConfirmations — wagmi v2 does not expose this directly,
-    // we manage the confirmation threshold ourselves below
   });
 
   // React to receipt changes
@@ -153,7 +149,7 @@ export function useEvmTransaction(
     if (!receipt) return;
     if (state.status !== 'submitted' && state.status !== 'confirming') return;
 
-    const receiptStatus = receipt.status; // '0x1' (success) or '0x0' (revert)
+    const receiptStatus = receipt.status;
 
     if (receiptStatus === 'reverted') {
       send({ type: 'REVERT' });
@@ -165,20 +161,17 @@ export function useEvmTransaction(
       send({
         type: 'CONFIRM',
         blockNumber: receipt.blockNumber,
-        confirmations: 1, // Wagmi receipt = at least 1 confirmation
+        confirmations: 1,
         receiptChainId: Number(receipt.chainId ?? chainId),
       });
     }
 
-    // Check if we have enough confirmations to mark safe
-    // (receipt.confirmations may be undefined in some Wagmi versions — default to 1)
     const confirmations = 1;
     if (state.status === 'confirming' && confirmations >= safeConfirmations) {
       send({ type: 'MARK_SAFE' });
 
       if (enableIndexing) {
         send({ type: 'INDEXING' });
-        // Caller must send FINALIZE once indexer acknowledges
       } else {
         send({ type: 'FINALIZE' });
       }
@@ -224,7 +217,6 @@ export function useEvmTransaction(
 
         // Drive: signature-requested → submitted
         send({ type: 'SUBMIT', txHash });
-        pendingHashRef.current = txHash;
       } catch (err: unknown) {
         const isUserRejection =
           err instanceof Error &&
@@ -235,7 +227,6 @@ export function useEvmTransaction(
         if (isUserRejection) {
           send({ type: 'USER_REJECTED' });
         } else {
-          // Re-throw non-rejection errors; caller can inspect lastError
           send({ type: 'RESET' });
           throw err;
         }
@@ -284,7 +275,6 @@ export function useEvmTransaction(
         });
 
         send({ type: 'SUBMIT', txHash });
-        pendingHashRef.current = txHash;
       } catch (err: unknown) {
         const isUserRejection =
           err instanceof Error &&
