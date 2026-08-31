@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { setAllowed } from "@stellar/freighter-api";
+import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -44,6 +44,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const isWalletConnected = !!account?.address;
 
   const { mutateAsync, isPending } = useSubmitClaim();
+
+  // EVM connector list for the "Connect Wallet" flow.
+  const connectors = useConnectors();
+  const { connect } = useConnect();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -188,11 +192,17 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const handleConnectWallet = async () => {
     try {
-      await setAllowed();
+      // Use the first available EVM connector (injected / WalletConnect / etc.).
+      const connector = connectors[0];
+      if (!connector) {
+        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
+        return;
+      }
+      connect({ connector });
     } catch (err) {
-      console.error("Failed to request wallet connection:", err);
+      console.error("Failed to open wallet connector:", err);
       setSubmitError(
-        "Could not open the wallet. Please install/enable Freighter and try again."
+        "Could not open the wallet. Please install a browser wallet and try again."
       );
     }
   };
