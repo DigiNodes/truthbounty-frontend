@@ -46,7 +46,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const account = useAccount();
   const isWalletConnected = !!account?.address;
 
-  const { mutateAsync, isLoading } = useSubmitClaim();
+  const { mutateAsync, isPending } = useSubmitClaim();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -137,10 +137,6 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleConnectWallet = () => {
-    openConnectModal?.();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
@@ -205,10 +201,20 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
+  const handleConnectWallet = () => {
+    if (openConnectModal) {
+      openConnectModal();
+    } else {
+      setSubmitError(
+        "Wallet connection is not available. Please refresh the page and try again."
+      );
+    }
+  };
+
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  const statusMessage = isLoading
+  const statusMessage = isPending
     ? "Submitting your claim..."
     : submitError
       ? submitError
@@ -321,19 +327,21 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         <div className="flex gap-2 justify-end">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary flex-1"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isPending}
+            aria-label="Cancel"
           >
             Cancel
           </button>
           <button
             type="submit"
             data-testid="submit-claim-button"
-            className="btn btn-primary"
-            disabled={isLoading || !isWalletConnected}
+            className="btn btn-primary flex-1 disabled:opacity-50"
+            disabled={isPending || !isWalletConnected}
+            aria-label={isPending ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
           >
-            {isLoading
+            {isPending
               ? "Submitting..."
               : !isWalletConnected
                 ? "Connect your wallet to submit"

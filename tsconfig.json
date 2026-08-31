@@ -36,8 +36,8 @@
     ".next",
     "out",
     "build",
-    "src/config/config.module.ts",
-    "src/config/env.validation.ts",
-    "src/config/tests/**"
+    "**/*.stories.tsx",
+    "**/*.stories.ts",
+    "**/*.docs.tsx"
   ]
 }

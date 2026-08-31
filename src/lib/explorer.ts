@@ -27,6 +27,7 @@ export const OPTIMISM_EXPLORERS: Record<number, ExplorerConfig> = {
   },
 };
 
+export const EVM_EXPLORERS = OPTIMISM_EXPLORERS;
 export const DEFAULT_CHAIN_ID = 10;
 
 /**
@@ -58,6 +59,18 @@ export function getAccountExplorerUrl(address: string, chainId: number = DEFAULT
  */
 export function openTransactionInExplorer(txHash: string, chainId?: number): void {
   const url = getTransactionExplorerUrl(txHash, chainId);
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+/**
+ * Opens an account in a new browser tab
+ * @param address - Account address
+ * @param chainId - Chain ID (optional)
+ */
+export function openAccountInExplorer(address: string, chainId?: number): void {
+  const url = getAccountExplorerUrl(address, chainId ?? DEFAULT_CHAIN_ID);
   if (typeof window !== 'undefined') {
     window.open(url, '_blank', 'noopener,noreferrer');
   }

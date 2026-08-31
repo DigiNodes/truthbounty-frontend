@@ -77,6 +77,10 @@ jest.mock('@rainbow-me/rainbowkit', () => ({
   }),
 }));
 
+import { TextEncoder, TextDecoder } from 'util';
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock Wagmi
 jest.mock('wagmi', () => ({
   useAccount: () => ({
@@ -97,6 +101,11 @@ jest.mock('wagmi', () => ({
   }),
   usePublicClient: () => ({}),
   useWalletClient: () => ({}),
+  useBlockNumber: jest.fn(() => ({ data: 100n })),
+  useReadContract: jest.fn(() => ({ data: undefined, isLoading: false })),
+  useWriteContract: jest.fn(() => ({ writeContractAsync: jest.fn().mockResolvedValue('0x' + '1'.repeat(64)) })),
+  useWaitForTransactionReceipt: jest.fn(() => ({ data: null, isLoading: false })),
+  useBalance: jest.fn(() => ({ data: { value: 1000000000000000000n, formatted: '1.0' }, isLoading: false })),
   WagmiProvider: ({ children }) => children,
   createStorage: jest.fn(() => ({})),
   cookieStorage: {},
