@@ -1,0 +1,6 @@
+{
+  "chainId": 11155420,
+  "minBondAmount": "1000000000000000000",
+  "appealWindowSeconds": 604800,
+  "protocolFeeBps": 100
+}

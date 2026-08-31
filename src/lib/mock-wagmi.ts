@@ -317,15 +317,3 @@ export function createMockUseSendTransaction() {
     return { sendTransaction, isPending };
   };
 }
-
-// Re-export types for convenience
-// These will work once dependencies are installed
-export type MockChain = {
-  id: number;
-  name: string;
-  nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-};

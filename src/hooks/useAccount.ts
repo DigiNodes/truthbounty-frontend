@@ -60,6 +60,23 @@ export function useAccount() {
       } catch (error) {
         console.error('Failed to clear wallet connection:', error);
       }
+import { useMemo } from "react";
+import { useAccount as useWagmiAccount } from "wagmi";
+
+export { useDisconnect } from "wagmi";
+
+// returning the same object identity every time avoids unnecessary re-renders
+const addressObject = {
+  address: '',
+  displayName: '',
+};
+
+export function useAccount(): typeof addressObject | null {
+  const { address, isConnected } = useWagmiAccount();
+
+  return useMemo(() => {
+    if (!isConnected || !address) {
+      return null;
     }
   }, [wagmiAccount.address, wagmiAccount.isConnected, wagmiChainId]);
 
@@ -138,4 +155,11 @@ export function clearPersistedConnection() {
   } catch (error) {
     console.error('Failed to clear connection:', error);
   }
+}
+    // Format address for display
+    addressObject.address = address;
+    addressObject.displayName = `${address.slice(0, 4)}...${address.slice(-4)}`;
+    
+    return { ...addressObject };
+  }, [address, isConnected]);
 }
