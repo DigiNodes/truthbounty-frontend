@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
-jest.mock('@stellar/freighter-api', () => ({
-  setAllowed: jest.fn(),
-}));
-
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => ({
     isVerified: true,
@@ -17,7 +13,7 @@ jest.mock('@/components/hooks/useTrust', () => ({
 }));
 
 jest.mock('@/hooks/useAccount', () => ({
-  useAccount: () => ({ address: 'GABC1234', displayName: 'GABC...1234' }),
+  useAccount: () => ({ address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E', displayName: '0x742d...eB1E' }),
 }));
 
 jest.mock('@/app/queries/claims.queries', () => ({

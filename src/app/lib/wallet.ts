@@ -1,32 +1,26 @@
 /**
- * Wallet abstraction layer
- * (mock implementation for now)
+ * Wallet and Token abstraction layer for TruthBounty V2 EVM runtime
  */
 
+export interface ClaimRewardResult {
+  txHash: `0x${string}`;
+}
+
 export async function getTokenBalance(): Promise<number> {
-  // Later: replace with ERC20 balanceOf call
-  return 1000;
+  // Canonical balance is retrieved via Wagmi/Viem ERC20 balanceOf contract reads
+  return 0;
 }
 
 /**
- * Simulate calling the reward contract's claim() method.
- * In production, replace this with an actual on-chain transaction.
+ * Claim rewards interface
  */
 export async function claimRewards(
   claimIds: string[],
-): Promise<{ txHash: string }> {
-  // Simulate network / contract call latency
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+): Promise<ClaimRewardResult> {
+  if (!claimIds.length) {
+    throw new Error('No claim IDs provided for reward claiming');
+  }
 
-  // Simulate occasional failure (uncomment to test error state)
-  // if (Math.random() < 0.3) throw new Error("Transaction reverted");
-
-  const txHash =
-    "0x" +
-    Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16),
-    ).join("");
-
-  console.log(`[claimRewards] claimed for ${claimIds.join(", ")} → ${txHash}`);
-  return { txHash };
+  // Canonical reward claiming is submitted through Wagmi/Viem writeContract
+  throw new Error('Direct reward claim without contract instance is not supported');
 }

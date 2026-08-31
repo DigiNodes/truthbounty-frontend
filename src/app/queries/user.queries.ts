@@ -9,17 +9,19 @@ import { getVerificationStatus } from '../lib/worldcoin';
 export type { UserProfile, UserReputation };
 
 export function useUserProfile(userId: string) {
-  return useQuery(
-    queryKeys.user.profile(userId),
-    () => fetchUserProfile(userId)
-  );
+  return useQuery({
+    queryKey: queryKeys.user.profile(userId),
+    queryFn: () => fetchUserProfile(userId),
+    enabled: !!userId,
+  });
 }
 
 export function useUserReputation(userId: string) {
-  return useQuery(
-    queryKeys.user.reputation(userId),
-    () => fetchUserReputation(userId)
-  );
+  return useQuery({
+    queryKey: queryKeys.user.reputation(userId),
+    queryFn: () => fetchUserReputation(userId),
+    enabled: !!userId,
+  });
 }
 
 export function useUserVerification(userId: string) {

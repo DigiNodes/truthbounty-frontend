@@ -1,5 +1,6 @@
-import '@testing-library/jest-dom'
-import { queryClient } from './src/app/queries/queryClient'
+import '@testing-library/jest-dom';
+import React from 'react';
+import { queryClient } from './src/app/queries/queryClient';
 
 // Mock WebSocket for testing
 global.WebSocket = jest.fn(() => ({
@@ -8,31 +9,31 @@ global.WebSocket = jest.fn(() => ({
   send: jest.fn(),
   close: jest.fn(),
   readyState: 1, // OPEN
-}))
+}));
 
 // Mock fetch globally
-global.fetch = jest.fn()
+global.fetch = jest.fn();
 
 // Mock localStorage with in-memory behavior so tests can observe persisted state.
-const storage = new Map()
+const storage = new Map();
 const localStorageMock = {
   getItem: jest.fn((key) => (storage.has(key) ? storage.get(key) : null)),
   setItem: jest.fn((key, value) => {
-    storage.set(String(key), String(value))
+    storage.set(String(key), String(value));
   }),
   removeItem: jest.fn((key) => {
-    storage.delete(String(key))
+    storage.delete(String(key));
   }),
   clear: jest.fn(() => {
-    storage.clear()
+    storage.clear();
   }),
-}
-global.localStorage = localStorageMock
+};
+global.localStorage = localStorageMock;
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -42,11 +43,89 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-})
+});
+
+// Mock RainbowKit
+jest.mock('@rainbow-me/rainbowkit', () => ({
+  getDefaultConfig: jest.fn(() => ({
+    chains: [
+      { id: 10, name: 'OP Mainnet' },
+      { id: 11155420, name: 'OP Sepolia' },
+    ],
+    transports: {},
+  })),
+  RainbowKitProvider: ({ children }) => children,
+  darkTheme: jest.fn(() => ({})),
+  lightTheme: jest.fn(() => ({})),
+  ConnectButton: Object.assign(
+    ({ label = 'Connect Wallet' }) => <button type="button">{label}</button>,
+    {
+      Custom: ({ children }) =>
+        children({
+          account: undefined,
+          chain: undefined,
+          openAccountModal: jest.fn(),
+          openChainModal: jest.fn(),
+          openConnectModal: jest.fn(),
+          authenticationStatus: undefined,
+          mounted: true,
+        }),
+    }
+  ),
+  useConnectModal: () => ({
+    openConnectModal: jest.fn(),
+  }),
+}));
+
+// Mock Wagmi
+jest.mock('wagmi', () => ({
+  useAccount: () => ({
+    address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E',
+    isConnected: true,
+    isConnecting: false,
+    isDisconnected: false,
+    chainId: 10,
+    status: 'connected',
+  }),
+  useDisconnect: () => ({
+    disconnect: jest.fn(),
+    disconnectAsync: jest.fn().mockResolvedValue(undefined),
+  }),
+  useChainId: () => 10,
+  useSwitchChain: () => ({
+    switchChain: jest.fn(),
+  }),
+  usePublicClient: () => ({}),
+  useWalletClient: () => ({}),
+  WagmiProvider: ({ children }) => children,
+  createStorage: jest.fn(() => ({})),
+  cookieStorage: {},
+  http: jest.fn(),
+}));
+
+jest.mock('wagmi/chains', () => ({
+  optimism: {
+    id: 10,
+    name: 'OP Mainnet',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: ['https://mainnet.optimism.io'] } },
+    blockExplorers: { default: { name: 'Etherscan', url: 'https://optimistic.etherscan.io' } },
+  },
+  optimismSepolia: {
+    id: 11155420,
+    name: 'OP Sepolia',
+    nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: ['https://sepolia.optimism.io'] } },
+    blockExplorers: { default: { name: 'Etherscan', url: 'https://sepolia-optimism.etherscan.io' } },
+  },
+}));
+
+// Increase timeout for integration test suites
+jest.setTimeout(25000);
 
 // Clean up after each test
 afterEach(() => {
-  jest.clearAllMocks()
-  storage.clear()
-  queryClient.clear()
-})
+  jest.clearAllMocks();
+  storage.clear();
+  queryClient.clear();
+});

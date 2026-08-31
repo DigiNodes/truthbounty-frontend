@@ -1,30 +1,32 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useAccount, useDisconnect } from '@/hooks/useAccount'
-import { useIsMounted } from '@/hooks/useIsMounted'
-import { ConnectButton } from '@/components/ui/ConnectButton'
-import styles from './style.module.css'
+import React, { useState } from 'react';
+import { useAccount, useDisconnect } from '@/hooks/useAccount';
+import { useIsMounted } from '@/hooks/useIsMounted';
+import { ConnectButton } from '@/components/ui/ConnectButton';
+import styles from './style.module.css';
 
-// TODO: Eliminate flash of unconnected content on loading
 export function WalletConnection() {
-  const mounted = useIsMounted()
-  const account = useAccount()
-  const disconnect = useDisconnect()
+  const mounted = useIsMounted();
+  const account = useAccount();
+  const disconnect = useDisconnect();
+  const [copyStatus, setCopyStatus] = useState('');
 
   const handleDisconnect = async () => {
-    await disconnect()
-  }
+    await disconnect();
+  };
 
-  const [copyStatus, setCopyStatus] = useState('')
-
-  const handleCopyAddress = () => {
-    if (account?.address) {
-      navigator.clipboard.writeText(account.address)
-      setCopyStatus('Address copied to clipboard')
-      setTimeout(() => setCopyStatus(''), 3000)
+  const handleCopyAddress = async () => {
+    if (account?.address && typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(account.address);
+        setCopyStatus('Address copied to clipboard');
+        setTimeout(() => setCopyStatus(''), 3000);
+      } catch (error) {
+        console.error('Failed to copy address:', error);
+      }
     }
-  }
+  };
 
   return (
     <>
@@ -41,7 +43,9 @@ export function WalletConnection() {
           </button>
 
           {/* Screen-reader feedback for copy status */}
-          <span className="sr-only" aria-live="polite" aria-atomic="true">{copyStatus}</span>
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {copyStatus}
+          </span>
 
           {/* Disconnect button */}
           <button
@@ -57,5 +61,7 @@ export function WalletConnection() {
         <ConnectButton label="Connect Wallet" />
       )}
     </>
-  )
+  );
 }
+
+export default WalletConnection;

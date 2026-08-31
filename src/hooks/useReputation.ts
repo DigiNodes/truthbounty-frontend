@@ -6,7 +6,8 @@ type ReputationState = {
   addNegative: () => void;
 };
 
-export function useReputation(_userId: string): ReputationState {
+export function useReputation(_userId?: string): ReputationState {
+  void _userId;
   const [score, setScore] = useState(0);
 
   const addPositive = useCallback(() => {

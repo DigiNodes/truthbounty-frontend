@@ -18,16 +18,14 @@ export interface Claim {
   id: string;
   title: string;
   description: string;
-
+  category?: string;
   claimantAddress: string;
-
+  proposer?: string;
   status: ClaimStatus;
-
   bountyAmount: number;
   totalStaked: number;
-
   evidence: Evidence[];
-
   createdAt: string;
   updatedAt: string;
+  expiresAt?: string;
 }

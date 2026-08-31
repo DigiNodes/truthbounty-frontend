@@ -199,6 +199,6 @@ export function getAllFlagMetadata(): FeatureFlagMeta[] {
  */
 export function getFlagsByCategory(category: FeatureFlagMeta['category']): FeatureFlag[] {
   return Object.entries(FLAG_METADATA)
-    .filter(([_, meta]) => meta.category === category)
+    .filter(([, meta]) => meta.category === category)
     .map(([key]) => key as FeatureFlag);
 }

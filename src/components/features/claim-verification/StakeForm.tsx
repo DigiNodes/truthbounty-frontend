@@ -4,17 +4,23 @@ import { useState, useEffect } from 'react';
 import { getTokenBalance } from '@/app/lib/wallet';
 
 export function StakeForm({ 
-  claimId, 
+  claimId: _claimId, 
   onStakeChange 
 }: { 
   claimId: string;
   onStakeChange?: (stake: string) => void;
 }) {
+  void _claimId;
   const [stake, setStake] = useState('');
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchBalance = () => getTokenBalance().then(setBalance).catch(() => {});
+    const fetchBalance = () =>
+      getTokenBalance()
+        .then(setBalance)
+        .catch(() => {
+          setBalance(null);
+        });
     fetchBalance();
     const interval = setInterval(fetchBalance, 30_000);
     return () => clearInterval(interval);
@@ -40,11 +46,13 @@ export function StakeForm({
         className="input w-full p-3 sm:p-3 text-base min-h-[44px] touch-manipulation"
       />
 
-      <p className="text-sm sm:text-sm mt-2">
-        Balance: {balance} TBNT
-      </p>
+      {balance !== null && (
+        <p className="text-sm sm:text-sm mt-2">
+          Balance: {balance} TBNT
+        </p>
+      )}
 
-      {Number(stake) > balance && (
+      {balance !== null && Number(stake) > balance && (
         <p className="text-red-500 text-sm mt-2" role="alert">
           Insufficient balance
         </p>
@@ -52,3 +60,5 @@ export function StakeForm({
     </div>
   );
 }
+
+export default StakeForm;

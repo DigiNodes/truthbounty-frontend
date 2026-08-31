@@ -1,4 +1,4 @@
-import Button from "./Button";
+import { Button } from "@/stories/Button";
 
 export const ButtonDocs = () => {
   return (
@@ -10,15 +10,15 @@ export const ButtonDocs = () => {
       <h3>Props</h3>
       <ul>
         <li><strong>label</strong>: string — Text inside the button</li>
-        <li><strong>onClick</strong>: () => void — Click handler</li>
-        <li><strong>variant</strong>: "primary" | "secondary"</li>
+        <li><strong>onClick</strong>: () =&gt; void — Click handler</li>
+        <li><strong>primary</strong>: boolean</li>
       </ul>
 
       <h3>Usage</h3>
       <pre>
 {`<Button 
   label="Click Me" 
-  variant="primary" 
+  primary={true} 
   onClick={() => console.log("clicked")} 
 />`}
       </pre>
@@ -26,7 +26,7 @@ export const ButtonDocs = () => {
       <h3>Preview</h3>
       <Button 
         label="Click Me" 
-        variant="primary" 
+        primary={true} 
         onClick={() => alert("Clicked")} 
       />
     </div>

@@ -1,53 +1,64 @@
 /**
- * Stellar blockchain explorer utilities
+ * Optimism / EVM blockchain explorer utilities
  */
 
 export interface ExplorerConfig {
   name: string;
   baseUrl: string;
   transactionPath: string;
+  addressPath: string;
 }
 
-// Stellar explorer configurations
-export const STELLAR_EXPLORERS: Record<number, ExplorerConfig> = {
-  // Stellar Public Network
-  1: {
-    name: 'Stellar Expert',
-    baseUrl: 'https://steexp.com',
+// Canonical Optimism explorer configurations
+export const OPTIMISM_EXPLORERS: Record<number, ExplorerConfig> = {
+  // Optimism Mainnet
+  10: {
+    name: 'Optimism Etherscan',
+    baseUrl: 'https://optimistic.etherscan.io',
     transactionPath: '/tx',
+    addressPath: '/address',
   },
-  // Stellar Testnet
-  // Note: Stellar testnet uses the same explorer but different URL
+  // Optimism Sepolia Testnet
+  11155420: {
+    name: 'Optimism Sepolia Etherscan',
+    baseUrl: 'https://sepolia-optimism.etherscan.io',
+    transactionPath: '/tx',
+    addressPath: '/address',
+  },
 };
+
+export const DEFAULT_CHAIN_ID = 10;
 
 /**
  * Get the appropriate explorer URL for a transaction hash
- * @param txHash - Transaction hash
- * @param network - Network ID (defaults to 1 for public network)
+ * @param txHash - EVM transaction hash
+ * @param chainId - Network Chain ID (defaults to 10 for Optimism Mainnet)
  * @returns Full explorer URL for the transaction
  */
-export function getTransactionExplorerUrl(txHash: string, network: number = 1): string {
-  const explorer = STELLAR_EXPLORERS[network] || STELLAR_EXPLORERS[1];
+export function getTransactionExplorerUrl(txHash: string, chainId: number = DEFAULT_CHAIN_ID): string {
+  const explorer = OPTIMISM_EXPLORERS[chainId] || OPTIMISM_EXPLORERS[DEFAULT_CHAIN_ID];
   return `${explorer.baseUrl}${explorer.transactionPath}/${txHash}`;
 }
 
 /**
  * Get the appropriate explorer URL for an account address
- * @param address - Stellar account address
- * @param network - Network ID (defaults to 1 for public network)
+ * @param address - EVM account address
+ * @param chainId - Network Chain ID (defaults to 10 for Optimism Mainnet)
  * @returns Full explorer URL for the account
  */
-export function getAccountExplorerUrl(address: string, network: number = 1): string {
-  const explorer = STELLAR_EXPLORERS[network] || STELLAR_EXPLORERS[1];
-  return `${explorer.baseUrl}/account/${address}`;
+export function getAccountExplorerUrl(address: string, chainId: number = DEFAULT_CHAIN_ID): string {
+  const explorer = OPTIMISM_EXPLORERS[chainId] || OPTIMISM_EXPLORERS[DEFAULT_CHAIN_ID];
+  return `${explorer.baseUrl}${explorer.addressPath}/${address}`;
 }
 
 /**
  * Opens a transaction in a new browser tab
  * @param txHash - Transaction hash
- * @param network - Network ID (optional)
+ * @param chainId - Network Chain ID (optional)
  */
-export function openTransactionInExplorer(txHash: string, network?: number): void {
-  const url = getTransactionExplorerUrl(txHash, network);
-  window.open(url, '_blank', 'noopener,noreferrer');
+export function openTransactionInExplorer(txHash: string, chainId?: number): void {
+  const url = getTransactionExplorerUrl(txHash, chainId);
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 }
