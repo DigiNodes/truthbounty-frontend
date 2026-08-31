@@ -3,6 +3,7 @@
 type EnvSchema = {
   NEXT_PUBLIC_API_URL: string;
   NEXT_PUBLIC_APP_NAME?: string;
+  NEXT_PUBLIC_PROTOCOL_RELEASE?: string;
 };
 
 // Helper to enforce required env vars
@@ -24,4 +25,5 @@ export const env: EnvSchema = {
   ),
 
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+  NEXT_PUBLIC_PROTOCOL_RELEASE: process.env.NEXT_PUBLIC_PROTOCOL_RELEASE,
 };

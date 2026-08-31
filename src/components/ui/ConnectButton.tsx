@@ -8,6 +8,9 @@
 import React, { useCallback } from 'react';
 import { useConnect } from 'wagmi';
 import styles from './style.module.css';
+import React from 'react'
+import { ConnectButton as RainbowKitConnectButton } from '@rainbow-me/rainbowkit'
+import styles from './style.module.css'
 
 export interface ConnectButtonProps {
   label: string;
@@ -35,4 +38,53 @@ export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
       {label}
     </button>
   );
+}
+    <RainbowKitConnectButton.Custom>
+      {({
+        account,
+        chain,
+        openConnectModal,
+        authenticationStatus,
+        mounted,
+      }) => {
+        const ready = mounted && authenticationStatus !== 'loading';
+        const connected =
+          ready &&
+          account &&
+          chain &&
+          (!authenticationStatus || authenticationStatus === 'authenticated');
+
+        return (
+          <div
+            {...(!ready && {
+              'aria-hidden': true,
+              style: {
+                opacity: 0,
+                pointerEvents: 'none',
+              },
+            })}
+          >
+            {(() => {
+              if (!connected) {
+                return (
+                  <button
+                    className={styles.button}
+                    style={{ height: isHigher ? 50 : 38 }}
+                    onClick={openConnectModal}
+                    aria-label={label}
+                  >
+                    {label}
+                  </button>
+                );
+              }
+
+              return (
+                <RainbowKitConnectButton />
+              );
+            })()}
+          </div>
+        );
+      }}
+    </RainbowKitConnectButton.Custom>
+  )
 }

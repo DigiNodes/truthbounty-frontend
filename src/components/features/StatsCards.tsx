@@ -35,7 +35,7 @@ const StatsCards = memo(function StatsCards({ isLoading = false }: StatsCardsPro
         >
           <div className="text-2xl font-bold text-white flex items-center">
             {stat.value}
-            {stat.tooltip && (
+            {'tooltip' in stat && stat.tooltip && (
               <span className="ml-2">
                 <TrustScoreTooltip />
               </span>
