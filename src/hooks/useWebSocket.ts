@@ -10,6 +10,8 @@ import type {
   WebSocketEventHandler,
   WebSocketEventType,
   WebSocketEventPayloadMap,
+  RollbackEvent,
+  ReplacementEvent,
 } from '@/app/types/websocket';
 
 const DEFAULT_RECONNECT_ATTEMPTS = 10;
@@ -149,7 +151,10 @@ export function useWebSocket(config?: WebSocketConfig) {
             // Maintain cache size
             if (processedMessagesRef.current.size > messageCacheSize) {
               const iterator = processedMessagesRef.current.values();
-              processedMessagesRef.current.delete(iterator.next().value);
+              const oldest = iterator.next().value;
+              if (oldest !== undefined) {
+                processedMessagesRef.current.delete(oldest);
+              }
             }
             
             // Update cursor
@@ -191,7 +196,10 @@ export function useWebSocket(config?: WebSocketConfig) {
     // Maintain cache size to prevent memory leaks
     if (processedMessagesRef.current.size > messageCacheSize) {
       const iterator = processedMessagesRef.current.values();
-      processedMessagesRef.current.delete(iterator.next().value);
+      const oldest = iterator.next().value;
+      if (oldest !== undefined) {
+        processedMessagesRef.current.delete(oldest);
+      }
     }
 
     // Update cursor if present in message
@@ -202,13 +210,13 @@ export function useWebSocket(config?: WebSocketConfig) {
 
     // Handle rollback events for chain reorgs
     if (data.type === 'ROLLBACK') {
-      onRollback?.(data.payload);
+      onRollback?.(data.payload as RollbackEvent);
       return;
     }
 
     // Handle replacement events for chain updates
     if (data.type === 'REPLACEMENT') {
-      onReplacement?.(data.payload);
+      onReplacement?.(data.payload as ReplacementEvent);
       return;
     }
 

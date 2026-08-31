@@ -7,7 +7,7 @@ import type { Theme } from '@/lib/theme';
 import { 
   getStoredTheme, 
   saveTheme, 
-  getSystemPreference, 
+  getResolvedTheme,
   applyTheme, 
   onSystemThemeChange 
 } from '@/lib/theme';
@@ -39,9 +39,7 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
     const initialTheme = storedTheme || defaultTheme;
     
     setThemeState(initialTheme);
-    setResolvedTheme(
-      initialTheme === 'system' ? getSystemPreference() : initialTheme
-    );
+    setResolvedTheme(getResolvedTheme(initialTheme));
     
     applyTheme(initialTheme);
   }, [defaultTheme]);
@@ -63,7 +61,7 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
     setThemeState(newTheme);
     saveTheme(newTheme);
     
-    const newResolvedTheme = newTheme === 'system' ? getSystemPreference() : newTheme;
+    const newResolvedTheme = getResolvedTheme(newTheme);
     setResolvedTheme(newResolvedTheme);
     applyTheme(newTheme);
   }, []);
