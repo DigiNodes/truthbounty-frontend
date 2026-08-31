@@ -54,6 +54,148 @@ export const MOCK_CHAIN: MockChain = {
   blockExplorers: { name: 'Blockscout', url: 'https://optimism-sepolia.blockscout.com' },
 };
 
+export interface MockWallet {
+  address: `0x${string}`;
+  chainId: number;
+  balance: bigint;
+}
+
+export interface MockViemClient {
+  chain: MockChain;
+  wallet: MockWallet;
+  readContract: jest.Mock;
+  simulateContract: jest.Mock;
+  estimateGas: jest.Mock;
+}
+
+export interface MockReceipt {
+  status: 'success' | 'reverted';
+  blockNumber: bigint;
+  chainId: number;
+  transactionHash: `0x${string}`;
+  logs: unknown[];
+}
+
+export interface MockAllowance {
+  owner: `0x${string}`;
+  spender: `0x${string}`;
+  amount: bigint;
+}
+
+export interface MockCustomError {
+  name: string;
+  args: readonly unknown[];
+}
+
+export interface CanonicalArtifactFixture {
+  manifest: {
+    protocolVersion: string;
+    chainId: number;
+    releaseId: string;
+    gitCommit: string;
+  };
+  addresses: {
+    TruthBountyWeighted: `0x${string}`;
+  };
+  abis: {
+    TruthBountyWeighted: readonly unknown[];
+  };
+}
+
+export function createMockWallet(config?: {
+  address?: `0x${string}`;
+  chainId?: number;
+  balance?: bigint;
+}): MockWallet {
+  return {
+    address: config?.address ?? MOCK_ADDRESS_1,
+    chainId: config?.chainId ?? MOCK_CHAIN_ID,
+    balance: config?.balance ?? 1000n,
+  };
+}
+
+export function createMockViemClient(config?: {
+  chainId?: number;
+  wallet?: MockWallet;
+}): MockViemClient {
+  const wallet = config?.wallet ?? createMockWallet({ chainId: config?.chainId ?? MOCK_CHAIN_ID });
+  return {
+    chain: {
+      ...MOCK_CHAIN,
+      id: config?.chainId ?? MOCK_CHAIN_ID,
+    },
+    wallet,
+    readContract: jest.fn(),
+    simulateContract: jest.fn(),
+    estimateGas: jest.fn().mockResolvedValue(250000n),
+  };
+}
+
+export function createMockReceipt(config?: {
+  status?: 'success' | 'reverted';
+  blockNumber?: bigint;
+  chainId?: number;
+  transactionHash?: `0x${string}`;
+}): MockReceipt {
+  return {
+    status: config?.status ?? 'success',
+    blockNumber: config?.blockNumber ?? 123456n,
+    chainId: config?.chainId ?? MOCK_CHAIN_ID,
+    transactionHash: config?.transactionHash ?? MOCK_TX_HASH_1,
+    logs: [],
+  };
+}
+
+export function createMockAllowance(config?: {
+  owner?: `0x${string}`;
+  spender?: `0x${string}`;
+  amount?: bigint;
+}): MockAllowance {
+  return {
+    owner: config?.owner ?? MOCK_ADDRESS_1,
+    spender: config?.spender ?? ('0x1111111111111111111111111111111111111111' as `0x${string}`),
+    amount: config?.amount ?? 500n,
+  };
+}
+
+export function createMockCustomError(config?: {
+  name?: string;
+  args?: readonly unknown[];
+}): MockCustomError {
+  return {
+    name: config?.name ?? 'CustomError',
+    args: config?.args ?? [MOCK_ADDRESS_1, 0n],
+  };
+}
+
+export function createCanonicalArtifactFixture(): CanonicalArtifactFixture {
+  return {
+    manifest: {
+      protocolVersion: 'v2.1.0',
+      chainId: MOCK_CHAIN_ID,
+      releaseId: 'v2.1.0-op-sepolia',
+      gitCommit: '0000000',
+    },
+    addresses: {
+      TruthBountyWeighted: '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`,
+    },
+    abis: {
+      TruthBountyWeighted: [
+        {
+          type: 'function',
+          name: 'finalizeClaim',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'claimId', type: 'bytes32' },
+            { name: 'reason', type: 'string' },
+          ],
+          outputs: [],
+        },
+      ],
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Factory hooks (deterministic, no side-effects beyond useState)
 // ---------------------------------------------------------------------------
