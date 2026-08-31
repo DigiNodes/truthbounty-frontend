@@ -189,7 +189,7 @@ jobs:
         run: npm run test:e2e || echo "E2E tests are optional. Skipping if not configured."
       - name: Accessibility check (axe-core)
         run: |
-          if npm run test:a11y --if-present; then
+          if grep -q '"test:a11y"' package.json; then
             npm run test:a11y
           else
             echo "No accessibility test configured. Skipping."

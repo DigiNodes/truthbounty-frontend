@@ -3,13 +3,7 @@ import { useAccount as useWagmiAccount } from "wagmi";
 
 export { useDisconnect } from "wagmi";
 
-// returning the same object identity every time avoids unnecessary re-renders
-const addressObject = {
-  address: '',
-  displayName: '',
-};
-
-export function useAccount(): typeof addressObject | null {
+export function useAccount(): { address: string; displayName: string } | null {
   const { address, isConnected } = useWagmiAccount();
 
   return useMemo(() => {
@@ -17,10 +11,9 @@ export function useAccount(): typeof addressObject | null {
       return null;
     }
 
-    // Format address for display
-    addressObject.address = address;
-    addressObject.displayName = `${address.slice(0, 4)}...${address.slice(-4)}`;
-    
-    return { ...addressObject };
+    return {
+      address,
+      displayName: `${address.slice(0, 4)}...${address.slice(-4)}`,
+    };
   }, [address, isConnected]);
 }

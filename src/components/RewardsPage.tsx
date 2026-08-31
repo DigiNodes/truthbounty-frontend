@@ -23,7 +23,7 @@ export default function RewardsPage() {
   const chainId = getReleaseChainId();
 
   const [balance, setBalance] = useState<string>("0");
-  const [rewards, setRewards] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<Array<{ amount?: number | string }>>([]);
   const [loading, setLoading] = useState(false);
 
   const { data: hash, writeContract, isPending } = useWriteContract();
