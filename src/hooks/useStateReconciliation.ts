@@ -168,7 +168,6 @@ export function useStateReconciliation(
           status: receipt.status === '0x1' || receipt.status === 1 ? 'confirmed' : 'reverted',
           finalState: finalState as any,
           rewards,
-          timestamp: new Date().toISOString(),
         };
 
         setLastResult(result);
