@@ -17,12 +17,21 @@ const DEFAULT_INITIAL_RECONNECT_INTERVAL = 1000; // 1 second initial delay
 const DEFAULT_MAX_RECONNECT_INTERVAL = 30000; // 30 seconds max delay
 const DEFAULT_HEARTBEAT_INTERVAL = 30000;
 const DEFAULT_BACKOFF_MULTIPLIER = 2; // Exponential backoff multiplier
+const DEFAULT_MESSAGE_CACHE_SIZE = 1000; // Max number of messages to keep for deduplication
+const DEFAULT_CURSOR_STORAGE_KEY = 'truthbounty:ws:cursor';
+const DEFAULT_HTTP_CATCHUP_URL = '/api/claims/catchup';
 
 type TimeoutId = ReturnType<typeof setTimeout>;
 type IntervalId = ReturnType<typeof setInterval>;
 
 /**
- * Custom hook for managing WebSocket connection and events with exponential backoff
+ * Enhanced WebSocket hook with:
+ * - Resume cursor persistence
+ * - Message deduplication
+ * - Exponential backoff with jitter
+ * - Heartbeat monitoring
+ * - HTTP catch-up mechanism
+ * - Rollback/replacement support for projection-aware caches
  */
 export function useWebSocket(config?: WebSocketConfig) {
   const socketRef = useRef<WebSocket | null>(null);
@@ -33,26 +42,66 @@ export function useWebSocket(config?: WebSocketConfig) {
     Map<WebSocketEventType, Set<WebSocketEventHandler<any>>>
   >(new Map());
   const isMountedRef = useRef(true);
+  const processedMessagesRef = useRef<Set<string>>(new Set());
+  const lastCursorRef = useRef<string | null>(null);
+  const authTokenRef = useRef<string | null>(null);
 
   const [connectionState, setConnectionState] = useState<WebSocketConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketEvent | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [lastCursor, setLastCursor] = useState<string | null>(null);
 
   const {
     url,
+    authToken,
     reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS,
     reconnectInterval, // Deprecated
     initialReconnectInterval: initialInterval,
     maxReconnectInterval = DEFAULT_MAX_RECONNECT_INTERVAL,
     heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL,
     backoffMultiplier = DEFAULT_BACKOFF_MULTIPLIER,
+    messageCacheSize = DEFAULT_MESSAGE_CACHE_SIZE,
+    cursorStorageKey = DEFAULT_CURSOR_STORAGE_KEY,
+    httpCatchupUrl = DEFAULT_HTTP_CATCHUP_URL,
     onConnect,
     onDisconnect,
     onError,
+    onMessage,
+    onRollback,
+    onReplacement,
   } = config || {};
+
+  // Update auth token if it changes
+  useEffect(() => {
+    authTokenRef.current = authToken || null;
+  }, [authToken]);
 
   // Use deprecated reconnectInterval if provided for backward compatibility, otherwise use default
   const initialReconnectInterval = initialInterval ?? reconnectInterval ?? DEFAULT_INITIAL_RECONNECT_INTERVAL;
+
+  // Load persisted cursor from localStorage on mount
+  useEffect(() => {
+    try {
+      const persistedCursor = localStorage.getItem(cursorStorageKey);
+      if (persistedCursor) {
+        lastCursorRef.current = persistedCursor;
+        setLastCursor(persistedCursor);
+      }
+    } catch (e) {
+      console.warn('Failed to load persisted WebSocket cursor:', e);
+    }
+  }, [cursorStorageKey]);
+
+  // Persist cursor to localStorage when it changes
+  useEffect(() => {
+    if (lastCursor) {
+      try {
+        localStorage.setItem(cursorStorageKey, lastCursor);
+      } catch (e) {
+        console.warn('Failed to persist WebSocket cursor:', e);
+      }
+    }
+  }, [lastCursor, cursorStorageKey]);
 
   // Calculate exponential backoff delay
   const getBackoffDelay = useCallback((attempt: number) => {
@@ -76,6 +125,107 @@ export function useWebSocket(config?: WebSocketConfig) {
     }
   }, []);
 
+  // Generate message ID for deduplication
+  const generateMessageId = (event: WebSocketEvent): string => {
+    return `${event.type}:${event.timestamp}:${JSON.stringify(event.payload).slice(0, 100)}`;
+  };
+
+  // HTTP catch-up mechanism to fetch missed messages when reconnecting
+  const fetchCatchupMessages = useCallback(async (fromCursor: string | null) => {
+    if (!fromCursor) return;
+    
+    try {
+      const response = await fetch(`${httpCatchupUrl}?from=${encodeURIComponent(fromCursor)}`, {
+        headers: authTokenRef.current ? { 'Authorization': `Bearer ${authTokenRef.current}` } : {},
+      });
+      
+      if (response.ok) {
+        const messages: WebSocketEvent[] = await response.json();
+        // Process missed messages in order
+        for (const message of messages) {
+          const messageId = generateMessageId(message);
+          if (!processedMessagesRef.current.has(messageId)) {
+            processedMessagesRef.current.add(messageId);
+            // Maintain cache size
+            if (processedMessagesRef.current.size > messageCacheSize) {
+              const iterator = processedMessagesRef.current.values();
+              processedMessagesRef.current.delete(iterator.next().value);
+            }
+            
+            // Update cursor
+            if (message.cursor) {
+              lastCursorRef.current = message.cursor;
+              setLastCursor(message.cursor);
+            }
+            
+            // Dispatch message
+            const listeners = listenersRef.current.get(message.type);
+            if (listeners) {
+              listeners.forEach((handler: WebSocketEventHandler<any>) => {
+                if (isMountedRef.current) {
+                  handler(message.payload);
+                }
+              });
+            }
+            onMessage?.(message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch catch-up messages:', err);
+    }
+  }, [httpCatchupUrl, messageCacheSize, onMessage]);
+
+  // Process incoming message with deduplication and cursor tracking
+  const processMessage = useCallback((data: WebSocketEvent) => {
+    const messageId = generateMessageId(data);
+    
+    // Skip if already processed
+    if (processedMessagesRef.current.has(messageId)) {
+      return;
+    }
+
+    // Add to processed messages
+    processedMessagesRef.current.add(messageId);
+    
+    // Maintain cache size to prevent memory leaks
+    if (processedMessagesRef.current.size > messageCacheSize) {
+      const iterator = processedMessagesRef.current.values();
+      processedMessagesRef.current.delete(iterator.next().value);
+    }
+
+    // Update cursor if present in message
+    if ('cursor' in data && typeof data.cursor === 'string') {
+      lastCursorRef.current = data.cursor;
+      setLastCursor(data.cursor);
+    }
+
+    // Handle rollback events for chain reorgs
+    if (data.type === 'ROLLBACK') {
+      onRollback?.(data.payload);
+      return;
+    }
+
+    // Handle replacement events for chain updates
+    if (data.type === 'REPLACEMENT') {
+      onReplacement?.(data.payload);
+      return;
+    }
+
+    // Dispatch to registered listeners
+    const listeners = listenersRef.current.get(data.type);
+    if (listeners) {
+      listeners.forEach((handler: WebSocketEventHandler<any>) => {
+        if (isMountedRef.current) {
+          handler(data.payload);
+        }
+      });
+    }
+
+    setLastMessage(data);
+    onMessage?.(data);
+  }, [messageCacheSize, onMessage, onRollback, onReplacement]);
+
   // Connect to WebSocket server
   const connect = useCallback(() => {
     if (!url || !isMountedRef.current) return;
@@ -91,7 +241,12 @@ export function useWebSocket(config?: WebSocketConfig) {
     setError(null);
 
     try {
-      const socket = new WebSocket(url);
+      // Append last cursor to connection URL to resume from last processed message
+      const connectionUrl = lastCursorRef.current 
+        ? `${url}?cursor=${encodeURIComponent(lastCursorRef.current)}`
+        : url;
+        
+      const socket = new WebSocket(connectionUrl);
       socketRef.current = socket;
 
       socket.onopen = () => {
@@ -101,12 +256,25 @@ export function useWebSocket(config?: WebSocketConfig) {
         reconnectAttemptsRef.current = 0;
         onConnect?.();
 
+        // Authenticate if token is available
+        if (authTokenRef.current) {
+          socket.send(JSON.stringify({ 
+            type: 'AUTHENTICATE', 
+            token: authTokenRef.current 
+          }));
+        }
+
         // Start heartbeat
         heartbeatIntervalRef.current = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN && isMountedRef.current) {
-            socket.send(JSON.stringify({ type: 'PING' }));
+            socket.send(JSON.stringify({ type: 'PING', cursor: lastCursorRef.current }));
           }
         }, heartbeatInterval);
+
+        // Trigger HTTP catch-up to fetch any messages missed during reconnection
+        if (lastCursorRef.current) {
+          fetchCatchupMessages(lastCursorRef.current);
+        }
       };
 
       socket.onmessage = (event) => {
@@ -114,17 +282,7 @@ export function useWebSocket(config?: WebSocketConfig) {
         
         try {
           const data: WebSocketEvent = JSON.parse(event.data);
-          setLastMessage(data);
-
-          // Dispatch to registered listeners
-          const listeners = listenersRef.current.get(data.type);
-          if (listeners) {
-            listeners.forEach((handler: WebSocketEventHandler<any>) => {
-              if (isMountedRef.current) {
-                handler(data.payload);
-              }
-            });
-          }
+          processMessage(data);
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err);
         }
@@ -233,27 +391,42 @@ export function useWebSocket(config?: WebSocketConfig) {
     };
   }, [url, connect, disconnect]);
 
+  // Clear persisted cursor
+  const clearPersistedCursor = useCallback(() => {
+    try {
+      localStorage.removeItem(cursorStorageKey);
+      lastCursorRef.current = null;
+      setLastCursor(null);
+    } catch (e) {
+      console.warn('Failed to clear persisted WebSocket cursor:', e);
+    }
+  }, [cursorStorageKey]);
+
   // Return the hook interface
   return useMemo(
     () => ({
       connectionState,
       isConnected: connectionState === 'connected',
       lastMessage,
+      lastCursor,
       error,
       reconnectAttempts: reconnectAttemptsRef.current,
       connect,
       disconnect,
       subscribe,
       send,
+      clearPersistedCursor,
     }),
     [
       connectionState,
       lastMessage,
+      lastCursor,
       error,
       connect,
       disconnect,
       subscribe,
       send,
+      clearPersistedCursor,
     ]
   );
 }
