@@ -43,7 +43,7 @@ const faqs = [
   },
   {
     q: 'What tokens are used for staking?',
-    a: 'TruthBounty uses a platform token on the Stellar network. You can acquire tokens through the in-app faucet during the beta period.',
+    a: 'TruthBounty uses a platform token on the Optimism network. You can acquire tokens through the in-app faucet during the beta period.',
   },
   {
     q: 'How long does verification take?',
