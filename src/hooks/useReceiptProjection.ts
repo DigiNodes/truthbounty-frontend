@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getProtocolVersion } from '@/lib/contracts/registry';
 
 export type ReceiptProjectionStatus =
   | 'idle'
@@ -50,8 +51,9 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       claimId,
       receipt,
       projection,
-      artifactVersion,
+      artifactVersion: providedArtifactVersion,
     } = options;
+    const artifactVersion = providedArtifactVersion ?? getProtocolVersion();
 
     if (!txHash && !receipt && !projection) {
       return {
