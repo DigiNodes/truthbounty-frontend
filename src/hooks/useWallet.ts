@@ -1,27 +1,46 @@
-import { useCallback, useState } from "react";
+/**
+ * useWallet
+ *
+ * Thin adapter that exposes wallet balance and address from Wagmi hooks
+ * and the query cache.
+ *
+ * Replaces the previous local-state-only implementation that allowed
+ * arbitrary client-side balance mutations. Balances are now read from
+ * the on-chain state via Wagmi; no values are fabricated locally.
+ */
 
-type WalletState = {
-  balance: number;
-  deposit: (amount: number) => void;
-  withdraw: (amount: number) => void;
-};
+'use client';
 
-export function useWallet(): WalletState {
-  const [balance, setBalance] = useState(0);
+import { useAccount, useBalance } from 'wagmi';
 
-  const deposit = useCallback((amount: number) => {
-    if (amount <= 0) return;
-    setBalance((current) => current + amount);
-  }, []);
+export interface UseWalletReturn {
+  /** Connected wallet address, or undefined when not connected. */
+  address: `0x${string}` | undefined;
+  /** True when a wallet is connected. */
+  isConnected: boolean;
+  /** Current ETH balance in ether units as a formatted string, or undefined. */
+  formattedBalance: string | undefined;
+  /** Raw balance value, or undefined. */
+  balance: bigint | undefined;
+  /** True while the balance is being fetched. */
+  isLoadingBalance: boolean;
+}
 
-  const withdraw = useCallback((amount: number) => {
-    if (amount <= 0) return;
-    setBalance((current) => Math.max(0, current - amount));
-  }, []);
+export function useWallet(): UseWalletReturn {
+  const { address, isConnected } = useAccount();
+
+  const { data: balanceData, isLoading: isLoadingBalance } = useBalance({
+    address,
+    // Only query when we have an address; the `enabled` flag avoids an
+    // unnecessary network call when the wallet is disconnected.
+    query: { enabled: !!address },
+  });
 
   return {
-    balance,
-    deposit,
-    withdraw,
+    address,
+    isConnected,
+    formattedBalance: balanceData?.formatted,
+    balance: balanceData?.value,
+    isLoadingBalance,
   };
 }
