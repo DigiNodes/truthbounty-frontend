@@ -220,6 +220,10 @@ export type WebSocketEventPayloadMap = {
   USER_STATS_UPDATED: UserStatsUpdatedEvent;
   CONNECTION_STATUS: ConnectionStatusEvent;
   ERROR: WebSocketErrorEvent;
+  ROLLBACK: RollbackEvent;
+  REPLACEMENT: ReplacementEvent;
+  PONG: { timestamp: string };
+  AUTHENTICATED: AuthenticatedEvent;
 };
 
 /**

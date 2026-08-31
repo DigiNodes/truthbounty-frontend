@@ -43,7 +43,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const account = useAccount();
   const isWalletConnected = !!account?.address;
 
-  const { mutateAsync, isLoading } = useSubmitClaim();
+  const { mutateAsync, isPending } = useSubmitClaim();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -200,7 +200,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  const statusMessage = isLoading
+  const statusMessage = isPending
     ? "Submitting your claim..."
     : submitError
       ? submitError
@@ -271,12 +271,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               name={field}
               type="text"
               className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
-              placeholder={capitalize(field)}
-              aria-label={capitalize(field)}
               placeholder={field === "source" ? "https://example.com" : capitalize(field)}
+              aria-label={capitalize(field)}
               value={
                 { title, category, impact, source }[
-                  field as keyof ClaimFormData
+                  field as 'title' | 'category' | 'impact' | 'source'
                 ]
               }
               onChange={(e) =>
@@ -286,7 +285,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
                 handleBlur(
                   field,
                   { title, category, impact, source }[
-                    field as keyof ClaimFormData
+                    field as 'title' | 'category' | 'impact' | 'source'
                   ]
                 )
               }
@@ -317,7 +316,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           <button
             type="button"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isPending}
             className="flex-1 bg-[#232329] text-white py-3 rounded-lg"
             aria-label="Cancel claim submission"
           >
@@ -326,11 +325,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           <button
             type="submit"
             data-testid="submit-claim-button"
-            disabled={isLoading || !isWalletConnected}
+            disabled={isPending || !isWalletConnected}
             className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
-            aria-label={isLoading ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
+            aria-label={isPending ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
           >
-            {isLoading
+            {isPending
               ? "Submitting..."
               : !isWalletConnected
                 ? "Connect your wallet to submit"

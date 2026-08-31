@@ -1,32 +1,48 @@
 /**
- * Wallet abstraction layer
- * (mock implementation for now)
+ * Wallet helpers backed by the verified protocol release registry.
+ * On-chain reads use the pinned contract address; writes require a connected wallet.
  */
 
-export async function getTokenBalance(): Promise<number> {
-  // Later: replace with ERC20 balanceOf call
-  return 1000;
+import { createPublicClient, http, type Address } from 'viem';
+import { optimismSepolia } from 'viem/chains';
+import {
+  getContractAbi,
+  getContractAddress,
+  getReleaseChainId,
+} from '@/lib/contracts/registry';
+
+function getReadClient() {
+  const chainId = getReleaseChainId();
+  const chain = chainId === optimismSepolia.id ? optimismSepolia : optimismSepolia;
+  return createPublicClient({
+    chain,
+    transport: http(),
+  });
+}
+
+export async function getTokenBalance(account: Address): Promise<bigint> {
+  const client = getReadClient();
+  const result = await client.readContract({
+    address: getContractAddress('TruthBountyWeighted'),
+    abi: getContractAbi('TruthBountyWeighted'),
+    functionName: 'balanceOf',
+    args: [account],
+  });
+  return result as bigint;
 }
 
 /**
- * Simulate calling the reward contract's claim() method.
- * In production, replace this with an actual on-chain transaction.
+ * Claim rewards through the user's wallet (write path).
+ * Callers must submit the transaction via Wagmi writeContract — this helper
+ * only validates registry wiring and rejects synthetic hashes.
  */
-export async function claimRewards(
-  claimIds: string[],
-): Promise<{ txHash: string }> {
-  // Simulate network / contract call latency
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+export async function claimRewards(claimIds: string[]): Promise<never> {
+  if (claimIds.length === 0) {
+    throw new Error('No rewards selected to claim');
+  }
 
-  // Simulate occasional failure (uncomment to test error state)
-  // if (Math.random() < 0.3) throw new Error("Transaction reverted");
-
-  const txHash =
-    "0x" +
-    Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16),
-    ).join("");
-
-  console.log(`[claimRewards] claimed for ${claimIds.join(", ")} → ${txHash}`);
-  return { txHash };
+  getContractAddress('TruthBountyWeighted');
+  throw new Error(
+    'Rewards claim requires an on-chain wallet transaction via writeContract; synthetic tx hashes are not produced.',
+  );
 }
