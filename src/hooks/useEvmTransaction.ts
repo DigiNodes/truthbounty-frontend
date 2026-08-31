@@ -51,18 +51,12 @@ export interface SendTransactionParams {
   data?: `0x${string}`;
 }
 
-export interface UseEvmTransactionOptions
-  extends Omit<UseTransactionMachineOptions, 'allowLocalDev'> {
+export interface UseEvmTransactionOptions extends UseTransactionMachineOptions {
   /**
    * Expected chain ID. Defaults to Optimism Mainnet (10).
    * Must be in OPTIMISM_CHAIN_IDS (or 31337 when allowLocalDev is true).
    */
   expectedChainId?: number;
-  /**
-   * Allow Hardhat chain ID 31337 for local development.
-   * Default: false (production).
-   */
-  allowLocalDev?: boolean;
   /**
    * Minimum confirmations before transitioning to `safe`.
    * Default: 1 (Optimism finalises quickly on L2).
@@ -105,7 +99,7 @@ const DEFAULT_SAFE_CONFIRMATIONS = 1;
 // ---------------------------------------------------------------------------
 
 export function useEvmTransaction(
-  opts: UseEvmTransactionOptions,
+  opts: UseEvmTransactionOptions = {},
 ): UseEvmTransactionReturn {
   const {
     expectedChainId = OPTIMISM_CHAIN_IDS[0], // Optimism Mainnet

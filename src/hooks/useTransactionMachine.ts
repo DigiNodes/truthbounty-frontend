@@ -35,10 +35,10 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface UseTransactionMachineOptions {
-  /** Stable, caller-assigned identifier for this transaction instance. */
-  id: string;
-  /** Human-readable label persisted with the context (for pending-tx lists). */
-  label: string;
+  /** Stable, caller-assigned identifier for this transaction instance. Defaults to 'tx-default'. */
+  id?: string;
+  /** Human-readable label persisted with the context (for pending-tx lists). Defaults to 'Transaction'. */
+  label?: string;
   /** Allow Hardhat chain ID 31337 during local development. Default: false. */
   allowLocalDev?: boolean;
   /** Called once when the transaction reaches the `finalized` state. */
@@ -112,9 +112,9 @@ function reducer(state: ReducerState, action: ReducerAction): ReducerState {
 // ---------------------------------------------------------------------------
 
 export function useTransactionMachine(
-  opts: UseTransactionMachineOptions,
+  opts: UseTransactionMachineOptions = {},
 ): UseTransactionMachineReturn {
-  const { id, label, allowLocalDev = false } = opts;
+  const { id = 'tx-default', label = 'Transaction', allowLocalDev = false } = opts;
 
   // Refs for callbacks — stable references, no need to restart effects
   const onFinalizedRef = useRef(opts.onFinalized);
