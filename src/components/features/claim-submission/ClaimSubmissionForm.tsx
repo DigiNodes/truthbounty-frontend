@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { setAllowed } from "@stellar/freighter-api";
+import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -41,7 +41,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const trust = useTrust();
   const account = useAccount();
-  const isWalletConnected = !!account?.address;
+  const { connect, connectors } = useConnect();
+  const isWalletConnected = !!account?.address && !account?.isWrongNetwork;
 
   const { mutateAsync, isLoading } = useSubmitClaim();
 

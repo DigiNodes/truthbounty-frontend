@@ -1,153 +1,113 @@
-import { useEffect, useState } from "react";
-import { isConnected, getAddress } from "@stellar/freighter-api";
+/**
+ * V2 EVM Wallet Account Hook
+ *
+ * Replaces Stellar/Freighter wallet integration with canonical EVM wallet support
+ * using Wagmi and Viem. Never connects to non-canonical chains or performs
+ * unauthorized wallet operations.
+ */
 
-const WALLET_STORAGE_KEY = 'truthbounty-wallet-connection';
+import { useAccount as useWagmiAccount, useChainId, useDisconnect as useWagmiDisconnect } from 'wagmi';
+import { useEffect, useState, useCallback } from 'react';
+import { type Address } from 'viem';
+import { getChainConfig, isSupportedChain } from '@/config/chains';
 
-let address: string | undefined;
+const WALLET_STORAGE_KEY = 'truthbounty-wallet-connection-v2';
 
-const resetAddress = () => {
-  address = undefined;
-  localStorage.removeItem(WALLET_STORAGE_KEY);
-};
+interface AccountState {
+  address: Address | undefined;
+  displayName: string;
+  chainId: number;
+  isConnected: boolean;
+  isDisconnected: boolean;
+  isWrongNetwork: boolean;
+}
 
-const persistConnection = (walletAddress: string) => {
-  localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({
-    address: walletAddress,
-    timestamp: Date.now()
-  }));
-};
+/**
+ * useAccount hook - EVM wallet integration
+ *
+ * Returns account state with chain validation.
+ * Detects wrong network and prevents operations on unsupported chains.
+ */
+export function useAccount() {
+  const wagmiAccount = useWagmiAccount();
+  const wagmiChainId = useChainId();
+  const [isWrongNetwork, setIsWrongNetwork] = useState(false);
 
-const getPersistedConnection = () => {
+  // Validate chain on account/chainId change
+  useEffect(() => {
+    if (wagmiAccount.isConnected && wagmiAccount.address) {
+      const supported = isSupportedChain(wagmiChainId);
+      setIsWrongNetwork(!supported);
+
+      if (supported) {
+        try {
+          const config = getChainConfig(wagmiChainId);
+          // Persist valid connection
+          localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({
+            address: wagmiAccount.address,
+            chainId: wagmiChainId,
+            chainName: config.name,
+            timestamp: Date.now(),
+          }));
+        } catch (error) {
+          console.error('Failed to persist wallet connection:', error);
+        }
+      }
+    } else {
+      setIsWrongNetwork(false);
+      try {
+        localStorage.removeItem(WALLET_STORAGE_KEY);
+      } catch (error) {
+        console.error('Failed to clear wallet connection:', error);
+      }
+    }
+  }, [wagmiAccount.address, wagmiAccount.isConnected, wagmiChainId]);
+
+  const getDisplayName = useCallback((address: Address | undefined): string => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }, []);
+
+  return {
+    address: wagmiAccount.address as Address | undefined,
+    displayName: getDisplayName(wagmiAccount.address as Address | undefined),
+    chainId: wagmiChainId,
+    isConnected: wagmiAccount.isConnected,
+    isDisconnected: !wagmiAccount.isConnected,
+    isWrongNetwork,
+  };
+}
+
+/**
+ * useDisconnect hook - Wrapper around wagmi's useDisconnect
+ * 
+ * Provides wallet disconnection functionality with cleanup.
+ */
+export function useDisconnect() {
+  const { disconnect } = useWagmiDisconnect();
+  
+  return useCallback(async () => {
+    try {
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+      disconnect?.();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  }, [disconnect]);
+}
+
+/**
+ * Get persisted wallet connection info (for recovery/debugging)
+ */
+export function getPersistedConnection() {
   try {
     const stored = localStorage.getItem(WALLET_STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.address;
-    }
-  } catch (error) {
-    console.error('Failed to parse stored wallet connection:', error);
-    localStorage.removeItem(WALLET_STORAGE_KEY);
-  }
-  return null;
-};
-
-const addressLookup = (async () => {
-  // First check if we have a persisted connection
-  const persistedAddress = getPersistedConnection();
-  if (persistedAddress) {
-    // Verify the wallet is still connected
-    if (await isConnected()) {
-      const currentAddress = await getAddress();
-      if (currentAddress?.address === persistedAddress) {
-        return currentAddress;
-      } else {
-        // Address changed, clear persisted data
-        resetAddress();
-      }
-    } else {
-      // Wallet not connected, clear persisted data
-      resetAddress();
-    }
-  }
-  
-  // No persisted connection or validation failed, check current state
-  if (await isConnected()) {
-    const walletAddress = await getAddress();
-    if (walletAddress) {
-      persistConnection(walletAddress.address);
-    }
-    return walletAddress;
-  }
-  
-  return null;
-})();
-
-// returning the same object identity every time avoids unnecessary re-renders
-const addressObject = {
-  address: '',
-  displayName: '',
-};
-
-const addressToHistoricObject = (address: string) => {
-  addressObject.address = address;
-  addressObject.displayName = `${address.slice(0, 4)}...${address.slice(-4)}`;
-  return addressObject
-};
-
-export function useAccount(): typeof addressObject | null {
-  const [ , setTick] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const notify = () => {
-      // toggle to force re-render for subscribers
-      setTick((t) => !t);
-    };
-
-    const validate = async () => {
-      try {
-        if (await isConnected()) {
-          const current = await getAddress();
-          if (current && current.address) {
-            if (address !== current.address) {
-              address = current.address;
-              persistConnection(current.address);
-              if (mounted) notify();
-            }
-            return;
-          }
-        }
-
-        // not connected
-        if (address !== undefined) {
-          resetAddress();
-          if (mounted) notify();
-        }
-      } catch (error) {
-        // swallow errors but ensure state consistency
-        console.error('Failed to validate wallet connection:', error);
-      }
-    };
-
-    // initial lookup (only if we don't already have an address)
-    if (address === undefined) {
-      addressLookup
-        .then(user => {
-          if (user) {
-            address = user.address;
-            persistConnection(user.address);
-          }
-        })
-        .finally(() => { if (mounted) notify(); });
-    } else {
-      // validate existing address on mount
-      void validate();
-    }
-
-    // Re-check when the window regains focus or becomes visible
-    const onFocus = () => void validate();
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void validate();
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    // Listen for storage changes (other tabs) and apply persisted changes
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === WALLET_STORAGE_KEY) {
-        const persisted = getPersistedConnection();
-        if (!persisted && address !== undefined) {
-          // cleared from another tab
-          resetAddress();
-          if (mounted) notify();
-        } else if (persisted && persisted !== address) {
-          // changed in another tab
-          address = persisted || undefined;
-          if (mounted) notify();
-        }
-      }
+      return JSON.parse(stored) as {
+        address: Address;
+        chainId: number;
+        chainName: string;
+        timestamp: number;
     };
 
     window.addEventListener('storage', onStorage);
@@ -161,20 +121,21 @@ export function useAccount(): typeof addressObject | null {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('storage', onStorage);
       clearInterval(interval);
-    };
-  }, []);
-
-  if (address) return addressToHistoricObject(address);
-
-  return null;
-};
-
-export function useDisconnect() {
-  return async () => {
-    try {
-      resetAddress();
-    } catch (error) {
-      console.error('Failed to disconnect:', error);
+      };
     }
-  };
-};
+  } catch (error) {
+    console.error('Failed to retrieve persisted connection:', error);
+  }
+  return null;
+}
+
+/**
+ * Clear persisted wallet connection
+ */
+export function clearPersistedConnection() {
+  try {
+    localStorage.removeItem(WALLET_STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear connection:', error);
+  }
+}

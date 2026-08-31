@@ -3,7 +3,7 @@
  */
 
 import type { WorldcoinVerification, WorldcoinVerificationResult, IDKitResponse } from '@/app/types/worldcoin';
-import { shouldUseMockVerification } from '@/config/worldcoin-client';
+import { shouldUseMockVerification, isWorldcoinConfigured } from '@/config/worldcoin-client';
 
 /**
  * Submit Worldcoin verification proof to backend

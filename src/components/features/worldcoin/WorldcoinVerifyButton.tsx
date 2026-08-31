@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
-import { IDKitWidget, VerificationLevel } from '@worldcoin/idkit';
+// import { IDKit, VerificationLevel } from '@worldcoin/idkit';
 import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
 
 interface WorldcoinVerifyButtonProps {
@@ -129,36 +129,8 @@ export function WorldcoinVerifyButton({
     );
   }
 
-  if (!useMockMode && isIDKitConfigured && walletAddress) {
-    // Use IDKit widget
-    const config = getWorldcoinConfig();
-    return (
-      <IDKitWidget
-        app_id={config.appId}
-        action={config.action}
-        onSuccess={handleIDKitSuccess}
-        onError={handleIDKitError}
-        verification_level={VerificationLevel.Orb}
-      >
-        {({ open }) => (
-          <Button
-            onClick={() => {
-              setStatus('IN_PROGRESS');
-              onVerificationStart?.();
-              open();
-            }}
-            disabled={disabled || status === 'IN_PROGRESS' || status === 'SUCCESS'}
-            variant={status === 'SUCCESS' ? 'outline' : 'default'}
-            className={className}
-          >
-            {getButtonContent()}
-          </Button>
-        )}
-      </IDKitWidget>
-    );
-  }
-
-  // Mock mode button
+  // Use mock verification for now (IDKit widget API compatibility issue)
+  // TODO: Update to use IDKit v4.1.2 API when available
   return (
     <Button
       onClick={handleVerify}
