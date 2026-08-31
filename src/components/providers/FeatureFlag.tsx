@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { useFeatureFlags } from './FeatureFlagProvider';
+import { useFeatureFlags, useFeatureFlag } from './FeatureFlagProvider';
 import { FeatureFlag } from '@/config/feature-flags';
 
 interface FeatureFlagGateProps {

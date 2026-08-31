@@ -1,4 +1,17 @@
 "use client";
+
+/**
+ * useRewards — V2 update (V2-FE-009)
+ *
+ * Updated to:
+ *  - Pass v2 PendingTransactionEntry fields (txHash, chainId, machineState)
+ *    to trackPendingTransaction.
+ *  - claimRewards from wallet.ts now throws NotImplemented pending V2-FE-003.
+ *    This hook gracefully surfaces that error to the user as an `error` state.
+ *  - lastTxHash is typed as `0x${string} | null` to match V2 integrity rules
+ *    (no string-typed fake hash).
+ */
+
 import { useState, useCallback } from "react";
 import { claimableRewards, ClaimableReward } from "@/data/mock-data";
 import { claimRewards } from "@/app/lib/wallet";
@@ -13,7 +26,7 @@ export interface UseRewardsReturn {
   pendingRewards: ClaimableReward[];
   totalClaimable: number;
   status: ClaimStatus;
-  lastTxHash: string | null;
+  lastTxHash: `0x${string}` | null;
   errorMessage: string | null;
   claimAll: () => Promise<void>;
 }
@@ -22,7 +35,7 @@ export function useRewards(): UseRewardsReturn {
   const [pendingRewards, setPendingRewards] =
     useState<ClaimableReward[]>(claimableRewards);
   const [status, setStatus] = useState<ClaimStatus>("idle");
-  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const totalClaimable = pendingRewards.reduce((sum, r) => sum + r.amount, 0);
@@ -35,11 +48,16 @@ export function useRewards(): UseRewardsReturn {
 
     setStatus("loading");
     setErrorMessage(null);
+
+    // Track in pending-tx registry with v2 fields
     trackPendingTransaction({
       id: transactionId,
       kind: 'rewards',
       title: 'Rewards claim pending',
       description: `Claiming ${ids.length} reward${ids.length === 1 ? '' : 's'} from your dashboard.`,
+      txHash: null,       // not yet submitted
+      chainId: null,      // not yet known
+      machineState: 'idle',
     });
 
     try {

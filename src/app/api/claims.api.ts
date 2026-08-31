@@ -20,7 +20,10 @@ export async function fetchClaimDetail(claimId: string): Promise<Claim> {
 export async function submitClaim(payload: {
   title: string;
   description: string;
-  evidence: Array<{ type: string; value: string }>;
+  category?: string;
+  impact?: string;
+  source?: string;
+  evidence?: Array<{ type: string; value: string }>;
 }): Promise<Claim> {
   const res = await fetch('/api/claims', {
     method: 'POST',
