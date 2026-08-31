@@ -324,6 +324,27 @@ interface ClaimCreatedEvent {
 - **RainbowKit**: Standardized wallet UI
 - **Transaction Signing**: Client-side transaction validation
 
+### 4. Wallet-Scoped Auth Sessions (V2-FE-008)
+
+Authenticated sessions are bound to the connected wallet scope
+(`account address + chain id`):
+
+- **Session store** (`src/lib/session-store.ts`): a token is only usable for the
+  exact `(address, chainId)` scope it was issued for. Address comparisons are
+  case-insensitive; stored payloads are shape-validated before use.
+- **Session reconciliation** (`src/hooks/useSessionReconciliation.ts`): when the
+  connected account changes, the required chain changes, or the wallet
+  disconnects, the auth session is invalidated, chain-scoped storage caches and
+  the resumable WebSocket cursor are dropped, and the query cache is cleared.
+  It also coordinates wagmi reconnect, explicit logout, and re-authentication.
+- **Consumer API** (`src/hooks/useAuthSession.ts`): `authenticate()` stores a
+  backend-issued token bound to the current scope and refuses to run without a
+  connected wallet; `isAuthenticated` flips to false as soon as the scope moves.
+- **Realtime stream** (`src/hooks/useWebSocket.ts`): authenticated frames and
+  the HTTP catch-up request only carry the `Authorization` header while the
+  stored session is valid for the current scope; the socket is re-established
+  when the wallet scope changes so a stale session cannot keep a live stream.
+
 ## Testing Architecture
 
 ### 1. Unit Testing
