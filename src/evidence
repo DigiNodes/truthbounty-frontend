@@ -1,0 +1,1869 @@
+import {
+  BadGatewayException,
+  BadRequestException,
+  Controller,
+  Get,
+  Injectable,
+  Logger,
+  Module,
+  Param,
+  Post,
+  Body,
+} from '@nestjs/common';
+
+// ============================================================
+// EVIDENCE TYPES
+// ============================================================
+
+export enum EvidenceType {
+  DOCUMENT = 'document',
+  TRANSACTION = 'transaction',
+  EVENT = 'event',
+  AUDIT = 'audit',
+  SYSTEM = 'system',
+  EXTERNAL = 'external',
+}
+
+export enum EvidenceStatus {
+  PENDING = 'pending',
+  SUBMITTED = 'submitted',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+  FAILED = 'failed',
+}
+
+export interface EvidenceData {
+
+  id: string;
+
+  /*
+   * The entity/resource this evidence belongs to.
+   */
+  subjectId: string;
+
+  /*
+   * Type of evidence.
+   */
+  type: EvidenceType;
+
+  /*
+   * Human-readable title.
+   */
+  title: string;
+
+  /*
+   * Original source of the evidence.
+   */
+  source: string;
+
+  /*
+   * Arbitrary structured evidence payload.
+   */
+  data: Record<string, unknown>;
+
+  /*
+   * Cryptographic hash of the canonical evidence payload.
+   */
+  hash: string;
+
+  /*
+   * Current lifecycle state.
+   */
+  status: EvidenceStatus;
+
+  /*
+   * External gateway identifier after submission.
+   */
+  gatewayReference?: string;
+
+  /*
+   * Version allows evidence schemas to evolve without
+   * invalidating previously stored evidence.
+   */
+  schemaVersion: number;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+}
+
+// ============================================================
+// GATEWAY REQUEST
+// ============================================================
+
+export interface GatewayEvidenceRequest {
+
+  evidenceId: string;
+
+  subjectId: string;
+
+  type: EvidenceType;
+
+  title: string;
+
+  source: string;
+
+  payload: Record<string, unknown>;
+
+  hash: string;
+
+  schemaVersion: number;
+}
+
+// ============================================================
+// GATEWAY RESPONSE
+// ============================================================
+
+export interface GatewayEvidenceResponse {
+
+  success: boolean;
+
+  reference?: string;
+
+  status:
+    | EvidenceStatus
+    | string;
+
+  message?: string;
+
+  submittedAt?: string;
+}
+
+// ============================================================
+// GATEWAY ADAPTER INTERFACE
+// ============================================================
+
+/*
+ * The application should depend on this interface rather than
+ * directly depending on an HTTP client, blockchain SDK,
+ * external API, or vendor-specific implementation.
+ */
+
+export interface EvidenceGatewayAdapter {
+
+  submit(
+    request: GatewayEvidenceRequest,
+  ): Promise<GatewayEvidenceResponse>;
+
+  getStatus(
+    reference: string,
+  ): Promise<GatewayEvidenceResponse>;
+}
+
+// ============================================================
+// EVIDENCE REPOSITORY
+// ============================================================
+
+export interface EvidenceRepository {
+
+  create(
+    evidence: EvidenceData,
+  ): Promise<EvidenceData>;
+
+  findById(
+    id: string,
+  ): Promise<EvidenceData | null>;
+
+  update(
+    id: string,
+    changes: Partial<EvidenceData>,
+  ): Promise<EvidenceData>;
+
+  findBySubject(
+    subjectId: string,
+  ): Promise<EvidenceData[]>;
+}
+
+// ============================================================
+// IN-MEMORY EVIDENCE REPOSITORY
+// ============================================================
+
+@Injectable()
+export class InMemoryEvidenceRepository
+  implements EvidenceRepository {
+
+  private readonly records =
+    new Map<string, EvidenceData>();
+
+  // ----------------------------------------------------------
+  // CREATE
+  // ----------------------------------------------------------
+
+  async create(
+    evidence: EvidenceData,
+  ): Promise<EvidenceData> {
+
+    if (
+      this.records.has(
+        evidence.id,
+      )
+    ) {
+
+      throw new Error(
+        'Evidence already exists',
+      );
+    }
+
+    this.records.set(
+      evidence.id,
+      evidence,
+    );
+
+    return evidence;
+  }
+
+  // ----------------------------------------------------------
+  // FIND
+  // ----------------------------------------------------------
+
+  async findById(
+    id: string,
+  ): Promise<EvidenceData | null> {
+
+    return (
+      this.records.get(id) ??
+      null
+    );
+  }
+
+  // ----------------------------------------------------------
+  // UPDATE
+  // ----------------------------------------------------------
+
+  async update(
+    id: string,
+    changes: Partial<EvidenceData>,
+  ): Promise<EvidenceData> {
+
+    const existing =
+      this.records.get(id);
+
+    if (!existing) {
+
+      throw new Error(
+        'Evidence not found',
+      );
+    }
+
+    const updated: EvidenceData = {
+      ...existing,
+      ...changes,
+      updatedAt:
+        new Date(),
+    };
+
+    this.records.set(
+      id,
+      updated,
+    );
+
+    return updated;
+  }
+
+  // ----------------------------------------------------------
+  // SUBJECT
+  // ----------------------------------------------------------
+
+  async findBySubject(
+    subjectId: string,
+  ): Promise<EvidenceData[]> {
+
+    return Array.from(
+      this.records.values(),
+    ).filter(
+      evidence =>
+        evidence.subjectId ===
+        subjectId,
+    );
+  }
+}
+
+// ============================================================
+// MOCK GATEWAY ADAPTER
+// ============================================================
+
+@Injectable()
+export class MockEvidenceGatewayAdapter
+  implements EvidenceGatewayAdapter {
+
+  private readonly logger =
+    new Logger(
+      'MockEvidenceGateway',
+    );
+
+  private readonly submitted =
+    new Map<
+      string,
+      GatewayEvidenceResponse
+    >();
+
+  // ==========================================================
+  // SUBMIT
+  // ==========================================================
+
+  async submit(
+    request: GatewayEvidenceRequest,
+  ): Promise<GatewayEvidenceResponse> {
+
+    this.logger.log(
+      `Submitting evidence ${request.evidenceId}`,
+    );
+
+    const reference =
+      `gateway-${request.evidenceId}`;
+
+    const response:
+      GatewayEvidenceResponse = {
+
+      success:
+        true,
+
+      reference,
+
+      status:
+        EvidenceStatus.SUBMITTED,
+
+      submittedAt:
+        new Date()
+          .toISOString(),
+    };
+
+    this.submitted.set(
+      reference,
+      response,
+    );
+
+    return response;
+  }
+
+  // ==========================================================
+  // STATUS
+  // ==========================================================
+
+  async getStatus(
+    reference: string,
+  ): Promise<GatewayEvidenceResponse> {
+
+    const result =
+      this.submitted.get(
+        reference,
+      );
+
+    if (!result) {
+
+      return {
+        success:
+          false,
+
+        status:
+          EvidenceStatus.REJECTED,
+
+        message:
+          'Evidence reference not found',
+      };
+    }
+
+    return result;
+  }
+}
+
+// ============================================================
+// EVIDENCE SERVICE
+// ============================================================
+
+@Injectable()
+export class EvidenceService {
+
+  private readonly logger =
+    new Logger(
+      'EvidenceService',
+    );
+
+  constructor(
+    private readonly repository:
+      EvidenceRepository,
+
+    private readonly gateway:
+      EvidenceGatewayAdapter,
+  ) {}
+
+  // ==========================================================
+  // CREATE EVIDENCE
+  // ==========================================================
+
+  async create(
+    input: {
+      subjectId: string;
+      type: EvidenceType;
+      title: string;
+      source: string;
+      data: Record<string, unknown>;
+    },
+  ): Promise<EvidenceData> {
+
+    // --------------------------------------------------------
+    // VALIDATION
+    // --------------------------------------------------------
+
+    this.validateInput(
+      input,
+    );
+
+    // --------------------------------------------------------
+    // CANONICALIZE DATA
+    // --------------------------------------------------------
+
+    const canonicalData =
+      this.canonicalize(
+        input.data,
+      );
+
+    // --------------------------------------------------------
+    // HASH DATA
+    // --------------------------------------------------------
+
+    const hash =
+      this.createHash(
+        canonicalData,
+      );
+
+    // --------------------------------------------------------
+    // CREATE RECORD
+    // --------------------------------------------------------
+
+    const now =
+      new Date();
+
+    const evidence:
+      EvidenceData = {
+
+      id:
+        this.generateId(),
+
+      subjectId:
+        input.subjectId,
+
+      type:
+        input.type,
+
+      title:
+        input.title.trim(),
+
+      source:
+        input.source.trim(),
+
+      data:
+        canonicalData,
+
+      hash,
+
+      status:
+        EvidenceStatus.PENDING,
+
+      schemaVersion:
+        1,
+
+      createdAt:
+        now,
+
+      updatedAt:
+        now,
+    };
+
+    // --------------------------------------------------------
+    // PERSIST
+    // --------------------------------------------------------
+
+    return this.repository.create(
+      evidence,
+    );
+  }
+
+  // ==========================================================
+  // SUBMIT TO GATEWAY
+  // ==========================================================
+
+  async submit(
+    evidenceId: string,
+  ): Promise<EvidenceData> {
+
+    const evidence =
+      await this.repository.findById(
+        evidenceId,
+      );
+
+    if (!evidence) {
+
+      throw new BadRequestException(
+        'Evidence not found',
+      );
+    }
+
+    // --------------------------------------------------------
+    // PREVENT DUPLICATE SUBMISSION
+    // --------------------------------------------------------
+
+    if (
+      evidence.gatewayReference
+    ) {
+
+      return evidence;
+    }
+
+    // --------------------------------------------------------
+    // VALIDATE STATE
+    // --------------------------------------------------------
+
+    if (
+      evidence.status !==
+      EvidenceStatus.PENDING
+    ) {
+
+      throw new BadRequestException(
+        `Evidence cannot be submitted from status ${evidence.status}`,
+      );
+    }
+
+    // --------------------------------------------------------
+    // BUILD GATEWAY REQUEST
+    // --------------------------------------------------------
+
+    const gatewayRequest:
+      GatewayEvidenceRequest = {
+
+      evidenceId:
+        evidence.id,
+
+      subjectId:
+        evidence.subjectId,
+
+      type:
+        evidence.type,
+
+      title:
+        evidence.title,
+
+      source:
+        evidence.source,
+
+      payload:
+        evidence.data,
+
+      hash:
+        evidence.hash,
+
+      schemaVersion:
+        evidence.schemaVersion,
+    };
+
+    // --------------------------------------------------------
+    // SEND TO GATEWAY
+    // --------------------------------------------------------
+
+    let result:
+      GatewayEvidenceResponse;
+
+    try {
+
+      result =
+        await this.gateway.submit(
+          gatewayRequest,
+        );
+
+    } catch (error) {
+
+      this.logger.error(
+        `Gateway submission failed for ${evidenceId}`,
+        error instanceof Error
+          ? error.stack
+          : undefined,
+      );
+
+      await this.repository.update(
+        evidenceId,
+        {
+          status:
+            EvidenceStatus.FAILED,
+        },
+      );
+
+      throw new BadGatewayException(
+        'Evidence gateway unavailable',
+      );
+    }
+
+    // --------------------------------------------------------
+    // HANDLE GATEWAY FAILURE
+    // --------------------------------------------------------
+
+    if (
+      !result.success ||
+      !result.reference
+    ) {
+
+      await this.repository.update(
+        evidenceId,
+        {
+          status:
+            EvidenceStatus.FAILED,
+        },
+      );
+
+      throw new BadGatewayException(
+        result.message ??
+          'Evidence submission failed',
+      );
+    }
+
+    // --------------------------------------------------------
+    // UPDATE RECORD
+    // --------------------------------------------------------
+
+    return this.repository.update(
+      evidenceId,
+      {
+        status:
+          this.mapGatewayStatus(
+            result.status,
+          ),
+
+        gatewayReference:
+          result.reference,
+      },
+    );
+  }
+
+  // ==========================================================
+  // REFRESH GATEWAY STATUS
+  // ==========================================================
+
+  async refreshStatus(
+    evidenceId: string,
+  ): Promise<EvidenceData> {
+
+    const evidence =
+      await this.repository.findById(
+        evidenceId,
+      );
+
+    if (!evidence) {
+
+      throw new BadRequestException(
+        'Evidence not found',
+      );
+    }
+
+    if (
+      !evidence.gatewayReference
+    ) {
+
+      throw new BadRequestException(
+        'Evidence has not been submitted',
+      );
+    }
+
+    let result:
+      GatewayEvidenceResponse;
+
+    try {
+
+      result =
+        await this.gateway.getStatus(
+          evidence.gatewayReference,
+        );
+
+    } catch (error) {
+
+      this.logger.error(
+        `Gateway status check failed for ${evidenceId}`,
+        error instanceof Error
+          ? error.stack
+          : undefined,
+      );
+
+      throw new BadGatewayException(
+        'Unable to retrieve gateway status',
+      );
+    }
+
+    if (
+      !result.success
+    ) {
+
+      throw new BadGatewayException(
+        result.message ??
+          'Gateway status request failed',
+      );
+    }
+
+    return this.repository.update(
+      evidenceId,
+      {
+        status:
+          this.mapGatewayStatus(
+            result.status,
+          ),
+      },
+    );
+  }
+
+  // ==========================================================
+  // GET EVIDENCE
+  // ==========================================================
+
+  async get(
+    evidenceId: string,
+  ): Promise<EvidenceData> {
+
+    const evidence =
+      await this.repository.findById(
+        evidenceId,
+      );
+
+    if (!evidence) {
+
+      throw new BadRequestException(
+        'Evidence not found',
+      );
+    }
+
+    return evidence;
+  }
+
+  // ==========================================================
+  // GET SUBJECT EVIDENCE
+  // ==========================================================
+
+  async getForSubject(
+    subjectId: string,
+  ): Promise<EvidenceData[]> {
+
+    if (
+      !subjectId ||
+      subjectId.trim().length === 0
+    ) {
+
+      throw new BadRequestException(
+        'subjectId is required',
+      );
+    }
+
+    return this.repository
+      .findBySubject(
+        subjectId,
+      );
+  }
+
+  // ==========================================================
+  // VALIDATE INPUT
+  // ==========================================================
+
+  private validateInput(
+    input: {
+      subjectId: string;
+      type: EvidenceType;
+      title: string;
+      source: string;
+      data: Record<string, unknown>;
+    },
+  ): void {
+
+    if (
+      !input.subjectId ||
+      input.subjectId.trim().length === 0
+    ) {
+
+      throw new BadRequestException(
+        'subjectId is required',
+      );
+    }
+
+    if (
+      !Object.values(
+        EvidenceType,
+      ).includes(
+        input.type,
+      )
+    ) {
+
+      throw new BadRequestException(
+        'Invalid evidence type',
+      );
+    }
+
+    if (
+      !input.title ||
+      input.title.trim().length === 0
+    ) {
+
+      throw new BadRequestException(
+        'Evidence title is required',
+      );
+    }
+
+    if (
+      !input.source ||
+      input.source.trim().length === 0
+    ) {
+
+      throw new BadRequestException(
+        'Evidence source is required',
+      );
+    }
+
+    if (
+      !input.data ||
+      typeof input.data !==
+        'object' ||
+      Array.isArray(
+        input.data,
+      )
+    ) {
+
+      throw new BadRequestException(
+        'Evidence data must be an object',
+      );
+    }
+  }
+
+  // ==========================================================
+  // CANONICALIZE DATA
+  // ==========================================================
+
+  private canonicalize(
+    value: Record<string, unknown>,
+  ): Record<string, unknown> {
+
+    /*
+     * Stable key ordering makes the same logical evidence
+     * produce the same hash regardless of object insertion
+     * order.
+     */
+
+    const sortObject =
+      (
+        object: Record<string, unknown>,
+      ): Record<string, unknown> => {
+
+        const result:
+          Record<string, unknown> = {};
+
+        for (
+          const key of Object.keys(
+            object,
+          ).sort()
+        ) {
+
+          const current =
+            object[key];
+
+          if (
+            current &&
+            typeof current ===
+              'object' &&
+            !Array.isArray(
+              current,
+            )
+          ) {
+
+            result[key] =
+              sortObject(
+                current as Record<
+                  string,
+                  unknown
+                >,
+              );
+
+          } else if (
+            Array.isArray(
+              current,
+            )
+          ) {
+
+            result[key] =
+              current.map(
+                item => {
+
+                  if (
+                    item &&
+                    typeof item ===
+                      'object' &&
+                    !Array.isArray(
+                      item,
+                    )
+                  ) {
+
+                    return sortObject(
+                      item as Record<
+                        string,
+                        unknown
+                      >,
+                    );
+                  }
+
+                  return item;
+                },
+              );
+
+          } else {
+
+            result[key] =
+              current;
+          }
+        }
+
+        return result;
+      };
+
+    return sortObject(
+      value,
+    );
+  }
+
+  // ==========================================================
+  // HASH
+  // ==========================================================
+
+  private createHash(
+    data: Record<string, unknown>,
+  ): string {
+
+    /*
+     * In a production application, use Node's crypto module:
+     *
+     * createHash('sha256')
+     *
+     * The simplified implementation below creates a stable
+     * deterministic fingerprint for this example.
+     */
+
+    const serialized =
+      JSON.stringify(
+        data,
+      );
+
+    let hash = 0;
+
+    for (
+      let index = 0;
+      index < serialized.length;
+      index++
+    ) {
+
+      hash =
+        (
+          (
+            hash << 5
+          ) -
+          hash +
+          serialized.charCodeAt(
+            index,
+          )
+        ) |
+        0;
+    }
+
+    return Math.abs(
+      hash,
+    ).toString(16);
+  }
+
+  // ==========================================================
+  // GATEWAY STATUS
+  // ==========================================================
+
+  private mapGatewayStatus(
+    status: string,
+  ): EvidenceStatus {
+
+    switch (
+      status.toLowerCase()
+    ) {
+
+      case 'verified':
+        return EvidenceStatus.VERIFIED;
+
+      case 'rejected':
+        return EvidenceStatus.REJECTED;
+
+      case 'failed':
+        return EvidenceStatus.FAILED;
+
+      case 'submitted':
+        return EvidenceStatus.SUBMITTED;
+
+      default:
+        return EvidenceStatus.SUBMITTED;
+    }
+  }
+
+  // ==========================================================
+  // ID
+  // ==========================================================
+
+  private generateId(): string {
+
+    return [
+      'evidence',
+      Date.now(),
+      Math.random()
+        .toString(36)
+        .slice(2),
+    ].join('-');
+  }
+}
+
+// ============================================================
+// CONTROLLER
+// ============================================================
+
+@Controller('evidence')
+export class EvidenceController {
+
+  constructor(
+    private readonly service:
+      EvidenceService,
+  ) {}
+
+  // ==========================================================
+  // CREATE
+  // ==========================================================
+
+  @Post()
+  async create(
+    @Body()
+    body: {
+      subjectId: string;
+      type: EvidenceType;
+      title: string;
+      source: string;
+      data: Record<string, unknown>;
+    },
+  ) {
+
+    return this.service.create(
+      body,
+    );
+  }
+
+  // ==========================================================
+  // SUBMIT
+  // ==========================================================
+
+  @Post(':id/submit')
+  async submit(
+    @Param('id')
+    id: string,
+  ) {
+
+    return this.service.submit(
+      id,
+    );
+  }
+
+  // ==========================================================
+  // REFRESH STATUS
+  // ==========================================================
+
+  @Post(':id/refresh')
+  async refresh(
+    @Param('id')
+    id: string,
+  ) {
+
+    return this.service.refreshStatus(
+      id,
+    );
+  }
+
+  // ==========================================================
+  // GET EVIDENCE
+  // ==========================================================
+
+  @Get(':id')
+  async get(
+    @Param('id')
+    id: string,
+  ) {
+
+    return this.service.get(
+      id,
+    );
+  }
+
+  // ==========================================================
+  // GET SUBJECT EVIDENCE
+  // ==========================================================
+
+  @Get('subject/:subjectId')
+  async subject(
+    @Param('subjectId')
+    subjectId: string,
+  ) {
+
+    return this.service
+      .getForSubject(
+        subjectId,
+      );
+  }
+}
+
+// ============================================================
+// MODULE
+// ============================================================
+
+@Module({
+  controllers: [
+    EvidenceController,
+  ],
+
+  providers: [
+    {
+      provide:
+        'EvidenceRepository',
+
+      useClass:
+        InMemoryEvidenceRepository,
+    },
+
+    {
+      provide:
+        'EvidenceGatewayAdapter',
+
+      useClass:
+        MockEvidenceGatewayAdapter,
+    },
+
+    /*
+     * Because the service constructor uses interfaces, NestJS
+     * requires explicit injection tokens in a real application.
+     *
+     * The concrete implementation below demonstrates the
+     * intended architecture.
+     */
+
+    EvidenceService,
+  ],
+})
+export class EvidenceModule {}
+
+// ============================================================
+// PRISMA MODEL
+// ============================================================
+
+/*
+ *
+ * A production database model can look like:
+ *
+ *
+ * model Evidence {
+ *
+ *   id String @id @default(cuid())
+ *
+ *   subjectId String
+ *
+ *   type String
+ *
+ *   title String
+ *
+ *   source String
+ *
+ *   data Json
+ *
+ *   hash String
+ *
+ *   status String
+ *
+ *   gatewayReference String?
+ *
+ *   schemaVersion Int
+ *
+ *   createdAt DateTime @default(now())
+ *
+ *   updatedAt DateTime @updatedAt
+ *
+ *   @@index([subjectId])
+ *
+ *   @@index([status])
+ *
+ *   @@index([gatewayReference])
+ *
+ *   @@index([createdAt])
+ * }
+ *
+ */
+
+// ============================================================
+// DATABASE MIGRATION
+// ============================================================
+
+/*
+ *
+ * CREATE TABLE evidence (
+ *
+ *   id UUID PRIMARY KEY,
+ *
+ *   subject_id UUID NOT NULL,
+ *
+ *   type VARCHAR(50) NOT NULL,
+ *
+ *   title VARCHAR(500) NOT NULL,
+ *
+ *   source VARCHAR(500) NOT NULL,
+ *
+ *   data JSONB NOT NULL,
+ *
+ *   hash VARCHAR(128) NOT NULL,
+ *
+ *   status VARCHAR(50) NOT NULL,
+ *
+ *   gateway_reference VARCHAR(500),
+ *
+ *   schema_version INTEGER NOT NULL DEFAULT 1,
+ *
+ *   created_at TIMESTAMPTZ NOT NULL
+ *     DEFAULT CURRENT_TIMESTAMP,
+ *
+ *   updated_at TIMESTAMPTZ NOT NULL
+ *     DEFAULT CURRENT_TIMESTAMP
+ * );
+ *
+ *
+ * CREATE INDEX evidence_subject_idx
+ * ON evidence(subject_id);
+ *
+ *
+ * CREATE INDEX evidence_status_idx
+ * ON evidence(status);
+ *
+ *
+ * CREATE INDEX evidence_gateway_reference_idx
+ * ON evidence(gateway_reference);
+ *
+ *
+ * CREATE INDEX evidence_created_at_idx
+ * ON evidence(created_at);
+ *
+ */
+
+// ============================================================
+// GATEWAY ADAPTER ARCHITECTURE
+// ============================================================
+
+/*
+ *
+ * The application should NOT do this:
+ *
+ *
+ * EvidenceService
+ *       |
+ *       ├── axios
+ *       ├── vendor SDK
+ *       ├── external API
+ *       └── gateway-specific DTO
+ *
+ *
+ * Instead:
+ *
+ *
+ * EvidenceService
+ *       |
+ *       ▼
+ * EvidenceGatewayAdapter
+ *       |
+ *       ├── HttpEvidenceGateway
+ *       |
+ *       ├── BlockchainEvidenceGateway
+ *       |
+ *       ├── MockEvidenceGateway
+ *       |
+ *       └── FutureGateway
+ *
+ *
+ * This makes the evidence domain independent from the
+ * underlying gateway implementation.
+ *
+ */
+
+// ============================================================
+// HTTP GATEWAY EXAMPLE
+// ============================================================
+
+/*
+ *
+ * @Injectable()
+ * export class HttpEvidenceGatewayAdapter
+ *   implements EvidenceGatewayAdapter {
+ *
+ *   private readonly logger =
+ *     new Logger(
+ *       'HttpEvidenceGateway',
+ *     );
+ *
+ *   constructor(
+ *     private readonly httpService:
+ *       HttpService,
+ *   ) {}
+ *
+ *   async submit(
+ *     request: GatewayEvidenceRequest,
+ *   ): Promise<GatewayEvidenceResponse> {
+ *
+ *     const response =
+ *       await firstValueFrom(
+ *         this.httpService.post(
+ *
+ *           `${process.env.EVIDENCE_GATEWAY_URL}/evidence`,
+ *
+ *           request,
+ *
+ *           {
+ *             headers: {
+ *               Authorization:
+ *                 `Bearer ${process.env.EVIDENCE_GATEWAY_TOKEN}`,
+ *
+ *               'Content-Type':
+ *                 'application/json',
+ *             },
+ *
+ *             timeout:
+ *               10000,
+ *           },
+ *         ),
+ *       );
+ *
+ *     return response.data;
+ *   }
+ *
+ *
+ *   async getStatus(
+ *     reference: string,
+ *   ): Promise<GatewayEvidenceResponse> {
+ *
+ *     const response =
+ *       await firstValueFrom(
+ *         this.httpService.get(
+ *           `${process.env.EVIDENCE_GATEWAY_URL}/evidence/${reference}`,
+ *         ),
+ *       );
+ *
+ *     return response.data;
+ *   }
+ * }
+ *
+ */
+
+// ============================================================
+// TESTS
+// ============================================================
+
+describe(
+  'EvidenceService',
+  () => {
+
+    let service:
+      EvidenceService;
+
+    let repository:
+      InMemoryEvidenceRepository;
+
+    let gateway:
+      MockEvidenceGatewayAdapter;
+
+    beforeEach(
+      () => {
+
+        repository =
+          new InMemoryEvidenceRepository();
+
+        gateway =
+          new MockEvidenceGatewayAdapter();
+
+        service =
+          new EvidenceService(
+            repository,
+            gateway,
+          );
+      },
+    );
+
+    // ========================================================
+    // CREATE
+    // ========================================================
+
+    it(
+      'creates evidence',
+      async () => {
+
+        const evidence =
+          await service.create({
+            subjectId:
+              'subject-1',
+
+            type:
+              EvidenceType.DOCUMENT,
+
+            title:
+              'Identity Document',
+
+            source:
+              'verification-service',
+
+            data:
+              {
+                documentId:
+                  'doc-123',
+
+                verified:
+                  true,
+              },
+          });
+
+        expect(
+          evidence.id,
+        ).toBeDefined();
+
+        expect(
+          evidence.subjectId,
+        ).toBe(
+          'subject-1',
+        );
+
+        expect(
+          evidence.status,
+        ).toBe(
+          EvidenceStatus.PENDING,
+        );
+
+        expect(
+          evidence.hash,
+        ).toBeDefined();
+
+        expect(
+          evidence.schemaVersion,
+        ).toBe(
+          1,
+        );
+      },
+    );
+
+    // ========================================================
+    // SUBMIT
+    // ========================================================
+
+    it(
+      'submits evidence through the gateway adapter',
+      async () => {
+
+        const evidence =
+          await service.create({
+            subjectId:
+              'subject-2',
+
+            type:
+              EvidenceType.TRANSACTION,
+
+            title:
+              'Payment Evidence',
+
+            source:
+              'payment-service',
+
+            data:
+              {
+                transactionId:
+                  'tx-123',
+
+                amount:
+                  100,
+              },
+          });
+
+        const result =
+          await service.submit(
+            evidence.id,
+          );
+
+        expect(
+          result.status,
+        ).toBe(
+          EvidenceStatus.SUBMITTED,
+        );
+
+        expect(
+          result.gatewayReference,
+        ).toBeDefined();
+      },
+    );
+
+    // ========================================================
+    // DUPLICATE SUBMISSION
+    // ========================================================
+
+    it(
+      'does not submit evidence twice',
+      async () => {
+
+        const evidence =
+          await service.create({
+            subjectId:
+              'subject-3',
+
+            type:
+              EvidenceType.EVENT,
+
+            title:
+              'System Event',
+
+            source:
+              'system',
+
+            data:
+              {
+                event:
+                  'login',
+              },
+          });
+
+        const first =
+          await service.submit(
+            evidence.id,
+          );
+
+        const second =
+          await service.submit(
+            evidence.id,
+          );
+
+        expect(
+          second.gatewayReference,
+        ).toBe(
+          first.gatewayReference,
+        );
+      },
+    );
+
+    // ========================================================
+    // GET
+    // ========================================================
+
+    it(
+      'retrieves evidence',
+      async () => {
+
+        const created =
+          await service.create({
+            subjectId:
+              'subject-4',
+
+            type:
+              EvidenceType.AUDIT,
+
+            title:
+              'Audit Evidence',
+
+            source:
+              'audit-service',
+
+            data:
+              {
+                action:
+                  'UPDATE',
+              },
+          });
+
+        const result =
+          await service.get(
+            created.id,
+          );
+
+        expect(
+          result.id,
+        ).toBe(
+          created.id,
+        );
+      },
+    );
+
+    // ========================================================
+    // SUBJECT EVIDENCE
+    // ========================================================
+
+    it(
+      'returns all evidence for a subject',
+      async () => {
+
+        await service.create({
+          subjectId:
+            'subject-5',
+
+          type:
+            EvidenceType.EVENT,
+
+          title:
+            'Event 1',
+
+          source:
+            'service',
+
+          data:
+            {},
+        });
+
+        await service.create({
+          subjectId:
+            'subject-5',
+
+          type:
+            EvidenceType.AUDIT,
+
+          title:
+            'Audit 1',
+
+          source:
+            'service',
+
+          data:
+            {},
+        });
+
+        const result =
+          await service
+            .getForSubject(
+              'subject-5',
+            );
+
+        expect(
+          result,
+        ).toHaveLength(
+          2,
+        );
+      },
+    );
+
+    // ========================================================
+    // INVALID INPUT
+    // ========================================================
+
+    it(
+      'rejects missing subject ID',
+      async () => {
+
+        await expect(
+          service.create({
+            subjectId:
+              '',
+
+            type:
+              EvidenceType.EVENT,
+
+            title:
+              'Test',
+
+            source:
+              'test',
+
+            data:
+              {},
+          }),
+        ).rejects.toThrow(
+          'subjectId is required',
+        );
+      },
+    );
+
+    // ========================================================
+    // INVALID TYPE
+    // ========================================================
+
+    it(
+      'rejects an invalid evidence type',
+      async () => {
+
+        await expect(
+          service.create({
+            subjectId:
+              'subject-6',
+
+            type:
+              'invalid' as EvidenceType,
+
+            title:
+              'Test',
+
+            source:
+              'test',
+
+            data:
+              {},
+          }),
+        ).rejects.toThrow(
+          'Invalid evidence type',
+        );
+      },
+    );
+
+    // ========================================================
+    // HASH CONSISTENCY
+    // ========================================================
+
+    it(
+      'creates deterministic hashes for equivalent data',
+      async () => {
+
+        const first =
+          await service.create({
+            subjectId:
+              'subject-7',
+
+            type:
+              EvidenceType.EVENT,
+
+            title:
+              'Event',
+
+            source:
+              'service',
+
+            data:
+              {
+                b:
+                  2,
+
+                a:
+                  1,
+              },
+          });
+
+        const second =
+          await service.create({
+            subjectId:
+              'subject-8',
+
+            type:
+              EvidenceType.EVENT,
+
+            title:
+              'Event',
+
+            source:
+              'service',
+
+            data:
+              {
+                a:
+                  1,
+
+                b:
+                  2,
+              },
+          });
+
+        expect(
+          first.hash,
+        ).toBe(
+          second.hash,
+        );
+      },
+    );
+
+    // ========================================================
+    // STATUS REFRESH
+    // ========================================================
+
+    it(
+      'refreshes status from the gateway',
+      async () => {
+
+        const evidence =
+          await service.create({
+            subjectId:
+              'subject-8',
+
+            type:
+              EvidenceType.EXTERNAL,
+
+            title:
+              'External Evidence',
+
+            source:
+              'external',
+
+            data:
+              {
+                reference:
+                  'external-123',
+              },
+          });
+
+        const submitted =
+          await service.submit(
+            evidence.id,
+          );
+
+        const refreshed =
+          await service.refreshStatus(
+            submitted.id,
+          );
+
+        expect(
+          refreshed.status,
+        ).toBe(
+          EvidenceStatus.SUBMITTED,
+        );
+      },
+    );
+  },
+);
+
+// ============================================================
+// SECURITY REQUIREMENTS
+// ============================================================
+
+/*
+ *
+ * Production implementation should additionally ensure:
+ *
+ *
+ * [x] Evidence is strongly typed.
+ *
+ * [x] Evidence has a schema version.
+ *
+ * [x] Evidence has a deterministic hash.
+ *
+ * [x] Gateway-specific code is isolated behind an adapter.
+ *
+ * [x] Gateway failures become controlled application errors.
+ *
+ * [x] Duplicate submissions are prevented.
+ *
+ * [x] Gateway references are persisted.
+ *
+ * [x] Gateway status can be refreshed.
+ *
+ * [x] Evidence can be queried by subject.
+ *
+ * [x] Internal gateway errors are not exposed to clients.
+ *
+ * [x] Tests cover creation and submission.
+ *
+ *
+ * Additional production requirements:
+ *
+ *
+ * - Use SHA-256 or another approved cryptographic hash.
+ * - Encrypt sensitive evidence at rest.
+ * - Never log raw sensitive evidence.
+ * - Authenticate gateway requests.
+ * - Validate gateway responses.
+ * - Use request timeouts.
+ * - Add retry/backoff only for safe transient failures.
+ * - Add idempotency keys to gateway submissions.
+ * - Store gateway request/response metadata separately where
+ *   required for auditability.
+ *
+ */
+
+// ============================================================
+// END
+// ============================================================
