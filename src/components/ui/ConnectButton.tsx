@@ -1,5 +1,5 @@
 import React from 'react'
-import { setAllowed } from '@stellar/freighter-api'
+import { ConnectButton as RainbowKitConnectButton } from '@rainbow-me/rainbowkit'
 import styles from './style.module.css'
 
 export interface ConnectButtonProps {
@@ -9,13 +9,52 @@ export interface ConnectButtonProps {
 
 export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
   return (
-    <button
-      className={styles.button}
-      style={{ height: isHigher ? 50 : 38 }}
-      onClick={setAllowed}
-      aria-label={label}
-    >
-      {label}
-    </button>
+    <RainbowKitConnectButton.Custom>
+      {({
+        account,
+        chain,
+        openConnectModal,
+        authenticationStatus,
+        mounted,
+      }) => {
+        const ready = mounted && authenticationStatus !== 'loading';
+        const connected =
+          ready &&
+          account &&
+          chain &&
+          (!authenticationStatus || authenticationStatus === 'authenticated');
+
+        return (
+          <div
+            {...(!ready && {
+              'aria-hidden': true,
+              style: {
+                opacity: 0,
+                pointerEvents: 'none',
+              },
+            })}
+          >
+            {(() => {
+              if (!connected) {
+                return (
+                  <button
+                    className={styles.button}
+                    style={{ height: isHigher ? 50 : 38 }}
+                    onClick={openConnectModal}
+                    aria-label={label}
+                  >
+                    {label}
+                  </button>
+                );
+              }
+
+              return (
+                <RainbowKitConnectButton />
+              );
+            })()}
+          </div>
+        );
+      }}
+    </RainbowKitConnectButton.Custom>
   )
 }
