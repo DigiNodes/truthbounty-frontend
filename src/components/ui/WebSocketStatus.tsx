@@ -47,24 +47,12 @@ export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketS
 
   return (
     <div
-      className={`flex items-center gap-2 ${
-        connectionState === 'connecting' || connectionState === 'reconnecting'
-          ? 'text-amber-500'
-          : isConnected
-            ? 'text-green-500'
-            : 'text-gray-400'
-      } ${className}`}
+      className={`flex items-center gap-2 text-gray-400 ${className}`}
       aria-live="polite"
       aria-atomic="true"
       aria-label={`WebSocket status: ${statusText}`}
     >
-      {connectionState === 'connecting' || connectionState === 'reconnecting' ? (
-        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-      ) : isConnected ? (
-        <Wifi className="w-4 h-4" aria-hidden="true" />
-      ) : (
-        <WifiOff className="w-4 h-4" aria-hidden="true" />
-      )}
+      <WifiOff className="w-4 h-4" aria-hidden="true" />
       {showLabel && <span className="text-sm">{statusText}</span>}
     </div>
   );

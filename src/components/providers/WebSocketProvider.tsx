@@ -4,7 +4,7 @@
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { WebSocketConfig, WebSocketEvent } from '@/app/types/websocket';
+import type { WebSocketConfig, WebSocketEvent, WebSocketEventHandler, WebSocketEventType } from '@/app/types/websocket';
 
 export interface WebSocketContextValue {
   isConnected: boolean;
@@ -14,9 +14,9 @@ export interface WebSocketContextValue {
   reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
-  subscribe: <T extends string>(
+  subscribe: <T extends WebSocketEventType>(
     eventType: T,
-    handler: (payload: any) => void
+    handler: WebSocketEventHandler<T>
   ) => () => void;
   send: (message: unknown) => void;
   clearPersistedCursor: () => void;
