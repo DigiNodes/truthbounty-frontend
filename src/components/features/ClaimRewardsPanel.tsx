@@ -11,17 +11,23 @@ interface ClaimRewardsPanelProps {
 export default function ClaimRewardsPanel({ isLoading: externalLoading = false }: ClaimRewardsPanelProps) {
   const {
     pendingRewards,
-    totalClaimable,
-    status,
+    claimStatus,
+    isLoading: rewardsLoading,
     lastTxHash,
     errorMessage,
     claimAll,
   } = useRewards();
 
+  // totalClaimable in display units: amounts are wei strings from the indexer.
+  // Divide by 1e18 for human-readable TBT display.
+  const totalClaimable = pendingRewards.reduce(
+    (sum, r) => sum + Number(r.amount) / 1e18,
+    0,
+  );
   const hasRewards = totalClaimable > 0;
-  const isLoading = externalLoading;
-  const isSuccess = status === "success";
-  const isError = status === "error";
+  const isLoading = externalLoading || rewardsLoading;
+  const isSuccess = claimStatus === "success";
+  const isError = claimStatus === "error";
 
   if (isLoading) {
     return <ClaimRewardsPanelSkeleton />;
@@ -157,7 +163,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 <p className="text-white text-sm truncate">{reward.title}</p>
               </div>
               <span className="text-[#5b5bf6] font-semibold text-sm ml-4 shrink-0">
-                +${reward.amount.toFixed(2)}
+                +{(Number(reward.amount) / 1e18).toFixed(2)} TBT
               </span>
             </div>
           ))
