@@ -18,11 +18,16 @@ export interface Dispute {
   id: string;
   claimId: string;
   reason: string;
-  status: 'OPEN' | 'VOTING' | 'RESOLVED' | 'FAILED';
+  status: 'OPEN' | 'VOTING' | 'RESOLVED' | 'FAILED' | 'APPEALED';
   proVotes: number;
   conVotes: number; 
   totalStaked: number;
   createdAt: string;
+  
+  // Appeal information (if dispute has been appealed)
+  appealId?: string;
+  appealInitiatedAt?: string;
+  appealDeadline?: string;
 }
 
 export interface CreateDisputePayload {
