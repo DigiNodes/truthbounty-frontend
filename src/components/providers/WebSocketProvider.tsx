@@ -10,6 +10,7 @@ export interface WebSocketContextValue {
   isConnected: boolean;
   connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
   lastMessage: WebSocketEvent | null;
+  lastCursor: string | null;
   reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
@@ -18,6 +19,7 @@ export interface WebSocketContextValue {
     handler: (payload: any) => void
   ) => () => void;
   send: (message: unknown) => void;
+  clearPersistedCursor: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
