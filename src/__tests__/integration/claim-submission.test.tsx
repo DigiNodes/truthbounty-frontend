@@ -397,7 +397,7 @@ describe('Claim Submission Integration Tests', () => {
   describe('Multiple Submissions', () => {
     it('should support submitting multiple claims in sequence', async () => {
       const { submitClaim } = require('@/app/api/claims.api')
-      
+
       submitClaim
         .mockResolvedValueOnce(createMockClaim({ id: 'claim-1', title: 'First Claim' }))
         .mockResolvedValueOnce(createMockClaim({ id: 'claim-2', title: 'Second Claim' }))
@@ -429,137 +429,6 @@ describe('Claim Submission Integration Tests', () => {
       await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('2'))
 
       expect(submitClaim).toHaveBeenCalledTimes(2)
-    })
-  })
-})
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Check for trust warning
-      expect(screen.getByText(/⚠️ Your account has a low trust score/)).toBeInTheDocument()
-    })
-
-    it('should not show trust warning for high trust accounts', () => {
-      const onSubmit = jest.fn()
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Should not show trust warning
-      expect(screen.queryByText(/⚠️ Your account has a low trust score/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('API Integration', () => {
-    it('should handle API errors gracefully', async () => {
-      // Mock API error
-      const { submitClaim } = require('@/app/api/claims.api')
-      submitClaim.mockRejectedValue(new Error('API Error'))
-
-      const onSubmit = jest.fn()
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Fill out form
-      const titleInput = screen.getByPlaceholderText('Title')
-      await user.type(titleInput, 'Test Claim')
-
-      // Submit form
-      const submitButton = screen.getByRole('button', { name: 'Submit' })
-      await user.click(submitButton)
-
-      // The form should handle the error (currently it just closes the form)
-      // In a real implementation, you might want to show an error message
-      await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalled()
-      })
-    })
-
-    it('should integrate with React Query mutation', async () => {
-      // This test would require more complex setup with actual React Query integration
-      // For now, we test the component in isolation
-      const onSubmit = jest.fn()
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Fill and submit form
-      const titleInput = screen.getByPlaceholderText('Title')
-      await user.type(titleInput, 'Test Claim')
-
-      const submitButton = screen.getByRole('button', { name: 'Submit' })
-      await user.click(submitButton)
-
-      await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Test Claim',
-          })
-        )
-      })
-    })
-  })
-
-  describe('Accessibility', () => {
-    it('should be accessible via keyboard', async () => {
-      const onSubmit = jest.fn()
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Tab through form fields
-      const titleInput = screen.getByPlaceholderText('Title')
-      titleInput.focus()
-      
-      // Tab to next field
-      await user.tab()
-      expect(screen.getByPlaceholderText('Category')).toHaveFocus()
-
-      await user.tab()
-      expect(screen.getByPlaceholderText('Impact (e.g. High Impact)')).toHaveFocus()
-
-      await user.tab()
-      expect(screen.getByPlaceholderText('https://example.com')).toHaveFocus()
-
-      await user.tab()
-      expect(screen.getByPlaceholderText('Description')).toHaveFocus()
-
-      // Tab to cancel button
-      await user.tab()
-      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
-
-      // Tab to submit button
-      await user.tab()
-      expect(screen.getByRole('button', { name: 'Submit' })).toHaveFocus()
-    })
-
-    it('should have proper ARIA labels', () => {
-      const onSubmit = jest.fn()
-      
-      render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
-        { queryClient }
-      )
-
-      // Check for proper heading
-      expect(screen.getByRole('heading', { name: 'Submit a Claim' })).toBeInTheDocument()
-
-      // Check form inputs have proper labels (via placeholder)
-      expect(screen.getByPlaceholderText('Title')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Category')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Description')).toBeInTheDocument()
     })
   })
 })

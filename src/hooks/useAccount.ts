@@ -7,32 +7,46 @@
  * Public interface is preserved so existing consumers compile without change.
  *
  * Provides:
- *  - address    — checksummed `0x…` EVM address, or null if disconnected
- *  - displayName — abbreviated "0xABCD…1234" label
- *  - chainId    — currently connected chain
- *  - isConnected — boolean wallet connection status
+ *  - address      — checksummed `0x…` EVM address, or null if disconnected
+ *  - displayName  — abbreviated "0xABCD…1234" label
+ *  - chainId      — currently connected chain
+ *  - isConnected  — boolean wallet connection status
+ *  - status       — canonical Wagmi lifecycle status
+ *  - isReconnecting — true while the wallet is re-establishing a session
+ *  - connectorId/Name — last connected wallet metadata for persistence and UX
  */
 
 import { useAccount as useWagmiAccount } from 'wagmi';
 
+export type WalletLifecycleStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
 export interface AccountInfo {
-  address: string;
-  displayName: string;
+  address: string | null;
+  displayName: string | null;
   chainId: number | undefined;
   isConnected: boolean;
+  isReconnecting: boolean;
+  status: WalletLifecycleStatus;
+  connectorId?: string;
+  connectorName?: string;
 }
 
 /**
  * Returns the connected EVM account, or null if the wallet is disconnected.
  *
- * This hook is a thin adapter over Wagmi's `useAccount`.
- * The `displayName` format mirrors the previous Stellar implementation:
- * first 6 and last 4 hex characters separated by "…".
+ * This hook is a thin adapter over Wagmi's `useAccount` and exposes lifecycle
+ * metadata needed for reconnect handling and hydration-safe UI state.
  */
 export function useAccount(): AccountInfo | null {
-  const { address, chainId, isConnected } = useWagmiAccount();
+  const wagmiAccount = useWagmiAccount();
+  const { address, chainId, isConnected, isReconnecting, status, connector } = wagmiAccount;
 
-  if (!isConnected || !address) return null;
+  const lifecycleStatus: WalletLifecycleStatus =
+    status ?? (isConnected ? 'connected' : isReconnecting ? 'reconnecting' : 'disconnected');
+
+  if (!isConnected || !address) {
+    return null;
+  }
 
   const displayName = `${address.slice(0, 6)}…${address.slice(-4)}`;
 
@@ -41,11 +55,11 @@ export function useAccount(): AccountInfo | null {
     displayName,
     chainId,
     isConnected,
+    isReconnecting: Boolean(isReconnecting),
+    status: lifecycleStatus,
+    connectorId: connector?.id,
+    connectorName: connector?.name,
   };
 }
 
-/**
- * Disconnect hook — delegates to Wagmi's `useDisconnect`.
- * Exported for backward compatibility with existing callers.
- */
-export { useDisconnect } from 'wagmi';
+export { useConnect, useDisconnect, useReconnect } from 'wagmi';
