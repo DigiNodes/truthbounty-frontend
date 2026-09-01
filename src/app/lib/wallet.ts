@@ -1,48 +1,43 @@
 /**
- * Wallet helpers backed by the verified protocol release registry.
- * On-chain reads use the pinned contract address; writes require a connected wallet.
+ * Wallet abstraction layer — V2 EVM stub.
+ *
+ * V2-FE-009: Removed mock hash generation (Math.random) and Stellar
+ * dependencies. Real implementations are blocked on V2-FE-003 (contract
+ * ABI freeze) and V2-FE-005 (indexer API interface).
+ *
+ * Callers of claimRewards should migrate to useEvmTransaction + the
+ * TruthBounty rewards contract once ABIs are available.
  */
 
-import { createPublicClient, http, type Address } from 'viem';
-import { optimismSepolia } from 'viem/chains';
-import {
-  getContractAbi,
-  getContractAddress,
-  getReleaseChainId,
-} from '@/lib/contracts/registry';
-
-function getReadClient() {
-  const chainId = getReleaseChainId();
-  const chain = chainId === optimismSepolia.id ? optimismSepolia : optimismSepolia;
-  return createPublicClient({
-    chain,
-    transport: http(),
-  });
-}
-
-export async function getTokenBalance(account: Address): Promise<bigint> {
-  const client = getReadClient();
-  const result = await client.readContract({
-    address: getContractAddress('TruthBountyWeighted'),
-    abi: getContractAbi('TruthBountyWeighted'),
-    functionName: 'balanceOf',
-    args: [account],
-  });
-  return result as bigint;
+/**
+ * NOT IMPLEMENTED — pending V2-FE-003 (contract ABI freeze).
+ *
+ * Will be replaced with a Wagmi `writeContract` call to the TruthBounty
+ * rewards contract's `claim(claimIds)` method.
+ *
+ * @throws Error always — callers must gate on contract availability.
+ */
+export async function claimRewards(
+  _claimIds: string[],
+): Promise<{ txHash: `0x${string}` }> {
+  throw new Error(
+    '[claimRewards] Not implemented: waiting for V2-FE-003 contract ABI. ' +
+    'Use useEvmTransaction.writeContract once the ABI is available.',
+  );
 }
 
 /**
- * Claim rewards through the user's wallet (write path).
- * Callers must submit the transaction via Wagmi writeContract — this helper
- * only validates registry wiring and rejects synthetic hashes.
+ * NOT IMPLEMENTED — pending V2-FE-003.
+ *
+ * Will be replaced with a Wagmi `readContract` call to the ERC-20
+ * TruthBounty token's `balanceOf(address)`.
+ *
+ * @throws Error always.
  */
-export async function claimRewards(claimIds: string[]): Promise<never> {
-  if (claimIds.length === 0) {
-    throw new Error('No rewards selected to claim');
-  }
-
-  getContractAddress('TruthBountyWeighted');
+export async function getTokenBalance(
+  _address?: string,
+): Promise<bigint> {
   throw new Error(
-    'Rewards claim requires an on-chain wallet transaction via writeContract; synthetic tx hashes are not produced.',
+    '[getTokenBalance] Not implemented: waiting for V2-FE-003 contract ABI.',
   );
 }

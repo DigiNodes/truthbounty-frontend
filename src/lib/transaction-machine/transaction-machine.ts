@@ -1,0 +1,372 @@
+/**
+ * V2-FE-009 — Shared Transaction State Machine
+ * Pure reducer: transitionTxState(current, event) → next
+ *
+ * Design invariants:
+ *  - No side-effects, no I/O, no randomness
+ *  - Every returned state is a new object (immutable transitions)
+ *  - Illegal transitions throw TransactionMachineError('INVALID_TRANSITION')
+ *  - All 11 states × all events are handled explicitly — TypeScript `never` enforces exhaustiveness
+ */
+
+import {
+  TransactionState,
+  TransactionEvent,
+  TransactionMachineError,
+  TxStateIdle,
+  TxStatePreparing,
+  TxStateSignatureRequested,
+  TxStateSubmitted,
+  TxStateConfirming,
+  TxStateSafe,
+  TxStateIndexing,
+  createIdleState,
+  isValidChain,
+} from './transaction-machine.types';
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function illegal(from: string, event: string): never {
+  throw new TransactionMachineError(
+    'INVALID_TRANSITION',
+    `${from} + ${event} is not a legal transition`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-state handlers
+// ---------------------------------------------------------------------------
+
+function fromIdle(
+  state: TxStateIdle,
+  event: TransactionEvent,
+  allowLocalDev: boolean,
+): TransactionState {
+  switch (event.type) {
+    case 'PREPARE': {
+      if (!isValidChain(event.chainId, allowLocalDev)) {
+        throw new TransactionMachineError(
+          'WRONG_NETWORK',
+          `chainId ${event.chainId} is not an allowed Optimism chain`,
+        );
+      }
+      const next: TxStatePreparing = {
+        status: 'preparing',
+        txHash: null,
+        chainId: event.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'RESET':
+      return createIdleState();
+    // Allow RETRY on idle (no-op)
+    case 'RETRY':
+      return createIdleState();
+    default:
+      return illegal('idle', event.type);
+  }
+}
+
+function fromPreparing(
+  state: TxStatePreparing,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'REQUEST_SIGNATURE': {
+      const next: TxStateSignatureRequested = {
+        status: 'signature-requested',
+        txHash: null,
+        chainId: state.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'RESET':
+      return createIdleState();
+    case 'USER_REJECTED':
+      // Quietly cancel back to idle without persisting an error
+      return createIdleState();
+    default:
+      return illegal('preparing', event.type);
+  }
+}
+
+function fromSignatureRequested(
+  state: TxStateSignatureRequested,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'SUBMIT': {
+      const next: TxStateSubmitted = {
+        status: 'submitted',
+        txHash: event.txHash,
+        chainId: state.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'USER_REJECTED':
+      return createIdleState();
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('signature-requested', event.type);
+  }
+}
+
+function fromSubmitted(
+  state: TxStateSubmitted,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'CONFIRM': {
+      // Guard: receipt chainId must match the chain we submitted on
+      if (event.receiptChainId !== state.chainId) {
+        throw new TransactionMachineError(
+          'STALE_RECEIPT',
+          `receipt chainId ${event.receiptChainId} ≠ submission chainId ${state.chainId}`,
+        );
+      }
+      const next: TxStateConfirming = {
+        status: 'confirming',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: event.blockNumber,
+        confirmations: event.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'DROP':
+      return {
+        status: 'dropped',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: 'DROPPED',
+        replacedBy: null,
+      };
+    case 'REPLACE':
+      return {
+        status: 'replaced',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: null,
+        replacedBy: event.replacedBy,
+      };
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('submitted', event.type);
+  }
+}
+
+function fromConfirming(
+  state: TxStateConfirming,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'CONFIRM': {
+      // Update confirmation count; keep confirming
+      if (event.receiptChainId !== state.chainId) {
+        throw new TransactionMachineError(
+          'STALE_RECEIPT',
+          `receipt chainId ${event.receiptChainId} ≠ ${state.chainId}`,
+        );
+      }
+      return {
+        ...state,
+        blockNumber: event.blockNumber,
+        confirmations: event.confirmations,
+      };
+    }
+    case 'MARK_SAFE': {
+      const next: TxStateSafe = {
+        status: 'safe',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'REVERT':
+      return {
+        status: 'reverted',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: null,
+        error: 'REVERT',
+        replacedBy: null,
+      };
+    case 'REPLACE':
+      return {
+        status: 'replaced',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: null,
+        confirmations: null,
+        error: null,
+        replacedBy: event.replacedBy,
+      };
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('confirming', event.type);
+  }
+}
+
+function fromSafe(
+  state: TxStateSafe,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'INDEXING': {
+      const next: TxStateIndexing = {
+        status: 'indexing',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+      return next;
+    }
+    case 'FINALIZE':
+      // Direct safe → finalized (no indexing step configured)
+      return {
+        status: 'finalized',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('safe', event.type);
+  }
+}
+
+function fromIndexing(
+  state: TxStateIndexing,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'FINALIZE':
+      return {
+        status: 'finalized',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('indexing', event.type);
+  }
+}
+
+// Terminal states — only RETRY / RESET are accepted
+
+function fromTerminalFailure(
+  state: TransactionState,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'RETRY':
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal(state.status, event.type);
+  }
+}
+
+function fromFinalized(
+  state: TransactionState,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('finalized', event.type);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main reducer
+// ---------------------------------------------------------------------------
+
+/**
+ * Pure state transition function.
+ *
+ * @param current - Current transaction state
+ * @param event   - Incoming event
+ * @param opts.allowLocalDev - Allow Hardhat chain ID 31337 (default: false)
+ * @returns Next transaction state (always a new object)
+ * @throws TransactionMachineError on invalid transitions or security violations
+ */
+export function transitionTxState(
+  current: TransactionState,
+  event: TransactionEvent,
+  opts: { allowLocalDev?: boolean } = {},
+): TransactionState {
+  const allowLocalDev = opts.allowLocalDev ?? false;
+
+  switch (current.status) {
+    case 'idle':
+      return fromIdle(current, event, allowLocalDev);
+    case 'preparing':
+      return fromPreparing(current, event);
+    case 'signature-requested':
+      return fromSignatureRequested(current, event);
+    case 'submitted':
+      return fromSubmitted(current, event);
+    case 'confirming':
+      return fromConfirming(current, event);
+    case 'safe':
+      return fromSafe(current, event);
+    case 'indexing':
+      return fromIndexing(current, event);
+    case 'finalized':
+      return fromFinalized(current, event);
+    case 'dropped':
+    case 'replaced':
+    case 'reverted':
+      return fromTerminalFailure(current, event);
+    default: {
+      // Exhaustiveness check — TypeScript will error here if a state is missing
+      const _exhaustive: never = current;
+      throw new TransactionMachineError(
+        'INVALID_TRANSITION',
+        `Unknown state: ${(_exhaustive as TransactionState).status}`,
+      );
+    }
+  }
+}
