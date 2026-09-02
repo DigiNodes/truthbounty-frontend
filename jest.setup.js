@@ -18,6 +18,14 @@ global.TextDecoder = TextDecoder
 process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'test-fixture-walletconnect-project-id'
 
+// Polyfill TextEncoder/TextDecoder for libraries (e.g. viem) in the jsdom env.
+// Node provides these; jsdom's global scope may not expose them to bundled code.
+if (typeof globalThis.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('node:util')
+  globalThis.TextEncoder = TextEncoder
+  globalThis.TextDecoder = TextDecoder
+}
+
 // Mock WebSocket for testing
 global.WebSocket = jest.fn(() => ({
   addEventListener: jest.fn(),
