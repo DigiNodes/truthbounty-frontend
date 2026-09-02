@@ -46,10 +46,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const { mutateAsync, isPending } = useSubmitClaim();
 
-  const lowReputation = trust.reputation < 20;
-  const newWallet = trust.accountAgeDays < 7;
+  // Trust warnings come only from authoritative signals; unknown (null)
+  // values never trigger a warning (V2-FE-016).
+  const lowReputation = trust.reputation !== null && trust.reputation < 20;
+  const newWallet = trust.accountAgeDays !== null && trust.accountAgeDays < 7;
   const lowTrust =
-    !trust.isVerified || lowReputation || newWallet || trust.suspicious;
+    !trust.isVerified || lowReputation || newWallet || trust.suspicious === true;
 
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);

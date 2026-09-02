@@ -5,7 +5,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Hooks the form depends on.
 let mockAccount: { address: string; displayName: string } | null = null;
-const mockSetAllowed = jest.fn();
+const mockOpenConnectModal = jest.fn();
 const mockMutateAsync = jest.fn();
 
 jest.mock('@/hooks/useAccount', () => ({
@@ -33,14 +33,19 @@ jest.mock('@/app/queries/claims.queries', () => ({
   }),
 }));
 
-jest.mock('@stellar/freighter-api', () => ({
-  setAllowed: (...args: unknown[]) => mockSetAllowed(...args),
+// V2-FE-016: the EVM form opens the RainbowKit connect modal; there is no
+// Freighter/Stellar path anymore.
+jest.mock('@rainbow-me/rainbowkit', () => ({
+  useConnectModal: () => ({ openConnectModal: mockOpenConnectModal }),
 }));
 
 // Imported AFTER mocks.
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
-const CONNECTED = { address: 'GABCDEF1234567890', displayName: 'GABC...7890' };
+const CONNECTED = {
+  address: '0x1234567890123456789012345678901234567890',
+  displayName: '0x1234...7890',
+};
 
 function fillValidForm() {
   fireEvent.change(screen.getByPlaceholderText('Title'), {
@@ -62,7 +67,7 @@ function fillValidForm() {
 
 beforeEach(() => {
   mockAccount = null;
-  mockSetAllowed.mockReset();
+  mockOpenConnectModal.mockReset();
   mockMutateAsync.mockReset();
   mockMutateAsync.mockResolvedValue(undefined);
 });
@@ -99,11 +104,11 @@ describe('ClaimSubmissionForm - wallet gate', () => {
     expect(submit).toHaveTextContent(/^submit claim$/i);
   });
 
-  it('triggers Freighter setAllowed when the Connect Wallet button is clicked', () => {
+  it('opens the RainbowKit connect modal when the Connect Wallet button is clicked', () => {
     mockAccount = null;
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     fireEvent.click(screen.getByTestId('connect-wallet-button'));
-    expect(mockSetAllowed).toHaveBeenCalledTimes(1);
+    expect(mockOpenConnectModal).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -117,10 +122,11 @@ describe('ClaimSubmissionForm - submit guard', () => {
     fireEvent.submit(screen.getByTestId('submit-claim-button').closest('form')!);
 
     await waitFor(() => {
-      // An inline error must be shown to the user.
+      // An inline error must be shown to the user (both the visually-hidden
+      // live region and the visible alert carry the same message).
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();

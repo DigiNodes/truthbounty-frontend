@@ -201,12 +201,14 @@ export function useEvmTransaction(
         send({ type: 'REQUEST_SIGNATURE' });
 
         // Wagmi handles wallet popup
+        // Note: no `value` is passed to writeContract — viem types `value` as
+        // `undefined` for the frozen ABIs (no payable functions), and the
+        // callsites never need to attach a native balance.
         const txHash = await writeContractAsync({
           address: params.address,
           abi: params.abi,
           functionName: params.functionName,
           args: params.args,
-          value: params.value,
         });
 
         // Drive: signature-requested → submitted

@@ -9,17 +9,15 @@ import { useCallback, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 import {
   AppealDecision,
-  AppealParticipationPayload,
   AppealParticipationTransaction,
   AppealSimulationResult,
   AppealValidation,
   AppealParticipationContext,
-  AppealParticipationStatus,
 } from '@/app/types/appeal';
 
 interface UseAppealParticipationConfig {
   contractAddress: string;
-  abi?: any[]; // Contract ABI for encoding
+  abi?: readonly unknown[]; // Contract ABI for encoding
   expectedChainId?: number;
   artifactVersion?: string; // Contract version for safety
 }
@@ -76,7 +74,10 @@ export function useAppealParticipation(
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastTransaction, setLastTransaction] = useState<AppealParticipationTransaction | null>(null);
+  // No transaction is tracked until a real writeContract submission exists
+  // (V2-FE-016): submission currently fails clearly instead of fabricating
+  // a hash, so this stays null.
+  const [lastTransaction] = useState<AppealParticipationTransaction | null>(null);
 
   /**
    * Encode appeal participation call data
@@ -264,7 +265,6 @@ export function useAppealParticipation(
             : currentOpposeBigInt.toString();
 
         // Estimate potential reward (simplified calculation)
-        const totalStake = currentSupportBigInt + currentOpposeBigInt + stakeBigInt;
         const potentialReward = (stakeBigInt * BigInt(150)) / BigInt(100); // 1.5x if majority wins
 
         return {
@@ -325,30 +325,22 @@ export function useAppealParticipation(
         // In production, this would:
         // 1. Use Wagmi's useWriteContract hook
         // 2. Send transaction via user's connected wallet
-        // 3. Return transaction hash immediately (don't wait for confirmation)
-        // 4. Let useStateReconciliation handle confirmation tracking
+        // 3. Return the real transaction hash immediately (don't wait for
+        //    confirmation, let useStateReconciliation handle finality)
+        //
+        // const hash = await writeContract({
+        //   address: contractAddress,
+        //   abi: contractAbi,
+        //   functionName: 'participateInAppeal',
+        //   args: [appealId, decision === 'SUPPORT', BigInt(stakeAmount)],
+        // })
 
-        // Mock transaction submission
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
-
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
-        const timestamp = new Date().toISOString();
-
-        const transaction: AppealParticipationTransaction = {
-          transactionHash: mockTxHash,
-          from: userAddress!,
-          to: contractAddress,
-          status: 'PENDING',
-          appealId: context.snapshot.appealId,
-          claimId: context.snapshot.claimId,
-          disputeId: context.snapshot.disputeId,
-          decision,
-          stakeAmount,
-          timestamp,
-        };
-
-        setLastTransaction(transaction);
-        return transaction;
+        // Submission requires a wallet writeContract call; do not fabricate
+        // hashes or confirmation state (V2-FE-016 web3 cleanup).
+        throw new Error(
+          'Appeal submission requires wallet writeContract integration with the frozen contract ABI; ' +
+          'no synthetic transaction hash is emitted.',
+        );
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Submission failed';
         setError(errorMsg);
@@ -357,7 +349,7 @@ export function useAppealParticipation(
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, validateParticipation, simulateParticipation]
+    [validateParticipation, simulateParticipation]
   );
 
   return {

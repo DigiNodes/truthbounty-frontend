@@ -1,5 +1,22 @@
 import '@testing-library/jest-dom'
+import { toHaveNoViolations } from 'jest-axe'
 import { queryClient } from './src/app/queries/queryClient'
+import { TextEncoder, TextDecoder } from 'util'
+
+// Register the jest-axe a11y matcher used by src/__tests__/utils/axe.ts
+expect.extend(toHaveNoViolations)
+
+// jsdom does not expose TextEncoder/TextDecoder, but viem (imported by the
+// contracts registry and hooks) requires them at module load time.
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
+
+// Test fixture: wagmi.tsx fails fast in the browser when
+// NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is absent (V2-FE-016). Tests only
+// need a non-empty string — production requires a real value (see
+// .env.example).
+process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'test-fixture-walletconnect-project-id'
 
 // Mock WebSocket for testing
 global.WebSocket = jest.fn(() => ({

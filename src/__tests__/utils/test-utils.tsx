@@ -2,14 +2,13 @@ import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WebSocketProvider } from '@/components/providers/WebSocketProvider'
-import { Providers } from '@/app/providers'
 
 // Test query client
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      cacheTime: 0,
+      gcTime: 0,
     },
     mutations: {
       retry: false,
@@ -147,10 +146,10 @@ export const mockWebSocketEvent = (eventType: string, payload: any) => {
   })
   
   // Find WebSocket instances and trigger the event
-  const wsInstances = (global.WebSocket as jest.Mock).mock.instances
+  const wsInstances = (global.WebSocket as unknown as jest.Mock).mock.instances
   wsInstances.forEach((ws: any) => {
     const onMessageHandler = ws.addEventListener.mock.calls.find(
-      ([event]) => event === 'message'
+      ([eventName]: [string]) => eventName === 'message'
     )?.[1]
     
     if (onMessageHandler) {

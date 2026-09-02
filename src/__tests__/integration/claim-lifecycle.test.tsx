@@ -316,7 +316,7 @@ describe('Claim Lifecycle Integration Tests', () => {
         const [claim, setClaim] = React.useState(
           createMockClaim({ id: 'claim-1', totalStaked: 50 })
         )
-        const [verifications, setVerifications] = React.useState([])
+        const [verifications, setVerifications] = React.useState<any[]>([])
 
         React.useEffect(() => {
           const handleVerificationEvent = (event: any) => {
@@ -450,7 +450,7 @@ describe('Claim Lifecycle Integration Tests', () => {
       ]
 
       fetchClaims.mockResolvedValue(mockClaims)
-      fetchClaimDetail.mockImplementation((id) => 
+      fetchClaimDetail.mockImplementation((id: string) => 
         Promise.resolve(mockClaims.find(c => c.id === id))
       )
 

@@ -205,15 +205,15 @@ export function useFinalizationDetection(
 
   /**
    * Poll for finalization readiness
+   * Runs unconditionally so chain/wallet validation failures surface
+   * clearly instead of failing silently when disconnected.
    */
   useEffect(() => {
-    if (!isConnected) return;
-
     detectAction();
     const interval = setInterval(detectAction, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, detectAction, pollInterval]);
+  }, [detectAction, pollInterval]);
 
   return {
     finalizationAction,
