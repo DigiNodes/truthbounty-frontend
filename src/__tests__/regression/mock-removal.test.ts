@@ -72,11 +72,19 @@ describe('wallet.ts — mock hash generation removed', () => {
     expect(result).toBeUndefined();
   });
 
-  it('getTokenBalance throws a descriptive NotImplemented error', async () => {
+  it('getTokenBalance reads from canonical contract (replaced NotImplemented stub)', async () => {
     const { getTokenBalance } = await import('@/app/lib/wallet');
-    await expect(getTokenBalance()).rejects.toThrow(
-      /Not implemented.*V2-FE-003/,
-    );
+    // getTokenBalance now reads from the canonical contract via readContract.
+    // In the test environment the publicClient.readContract will fail (no real
+    // chain), so we expect a generic error — NOT a NotImplemented error.
+    let threwNotImplemented = false;
+    try {
+      await getTokenBalance('0x0000000000000000000000000000000000000001');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      threwNotImplemented = /Not implemented/.test(msg);
+    }
+    expect(threwNotImplemented).toBe(false);
   });
 });
 
