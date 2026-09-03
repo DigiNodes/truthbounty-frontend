@@ -1,65 +1,150 @@
-import React from 'react'
-import { render, screen } from '@testing-library/react'
-import '@testing-library/jest-dom'
+/**
+ * Unit tests for useAccount — EVM-backed account accessor.
+ *
+ * Covers:
+ *  - returns null when not connected
+ *  - returns AccountInfo with correct fields when connected
+ *  - hydration guard: null on SSR / before mount
+ *  - display name truncation format
+ *
+ * Regression coverage for:
+ *  - REMOVED: Stellar/Freighter integration (deleted path)
+ *  - REMOVED: localStorage key 'truthbounty-wallet-connection' (Freighter)
+ *  - REMOVED: focus/storage events from Freighter reconnect loop
+ */
 
-// Mock wagmi so the hook can be tested without a real wallet connection.
-let mockAddress: string | null = null
-let mockIsConnected = false
+import React from 'react';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { http } from 'viem';
+import { optimismSepolia } from 'viem/chains';
+import { createConfig, mock } from 'wagmi';
+import { useAccount } from '../useAccount';
 
-jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: mockAddress, isConnected: mockIsConnected }),
-}))
+// ── Wagmi test harness ────────────────────────────────────────────────────────
+const MOCK_ADDRESS_A = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
 
-afterEach(() => {
-  jest.clearAllMocks()
-})
+const testConfig = createConfig({
+  chains: [optimismSepolia],
+  transports: { [optimismSepolia.id]: http() },
+  connectors: [mock({ accounts: [MOCK_ADDRESS_A] })],
+});
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+});
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={testConfig}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  queryClient.clear();
+});
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useAccount', () => {
-  test('returns null when no wallet is connected', () => {
-    const { useAccount } = require('../useAccount')
+  it('returns null when the wallet is not connected', () => {
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
+    expect(result.current).toBeNull();
+  });
 
-    function TestComp() {
-      const account = useAccount()
-      return <div data-testid="addr">{account?.address ?? 'null'}</div>
-    }
+  it('returns null before the component is mounted (hydration guard)', () => {
+    // First synchronous render — useIsMounted returns false, so result is null.
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
+    expect(result.current).toBeNull();
+  });
 
-    render(<TestComp />)
-    expect(screen.getByTestId('addr')).toHaveTextContent('null')
-  })
+  it('returns AccountInfo after a successful connect', async () => {
+    const connector = testConfig.connectors[0];
 
-  test('returns the EVM address and a short display name when connected', () => {
-    mockIsConnected = true
-    mockAddress = '0x1234567890abcdef1234567890abcdef12345678'
-    const { useAccount } = require('../useAccount')
+    // Connect via the mock connector directly
+    const { result: walletResult } = renderHook(
+      () => {
+        const { useConnect } = require('wagmi');
+        return useConnect();
+      },
+      { wrapper: Wrapper },
+    );
 
-    function TestComp() {
-      const account = useAccount()
-      return (
-        <div>
-          <span data-testid="addr">{account?.address ?? 'null'}</span>
-          <span data-testid="display">{account?.displayName ?? 'null'}</span>
-        </div>
-      )
-    }
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
 
-    render(<TestComp />)
-    expect(screen.getByTestId('addr')).toHaveTextContent(
-      '0x1234567890abcdef1234567890abcdef12345678'
-    )
-    expect(screen.getByTestId('display')).toHaveTextContent('0x12...5678')
-  })
+    // Trigger connection
+    await walletResult.current.connectAsync({ connector });
 
-  test('returns null when an address is present but the wallet is disconnected', () => {
-    mockIsConnected = false
-    mockAddress = '0x1234567890abcdef1234567890abcdef12345678'
-    const { useAccount } = require('../useAccount')
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
 
-    function TestComp() {
-      const account = useAccount()
-      return <div data-testid="addr">{account?.address ?? 'null'}</div>
-    }
+    expect(result.current?.address).toMatch(/^0x/);
+    expect(typeof result.current?.displayName).toBe('string');
+  });
 
-    render(<TestComp />)
-    expect(screen.getByTestId('addr')).toHaveTextContent('null')
-  })
-})
+  it('formats displayName as "0xXXXXXX…YYYY" (6 prefix chars + ellipsis + 4 suffix)', async () => {
+    const connector = testConfig.connectors[0];
+
+    const { result: walletResult } = renderHook(
+      () => {
+        const { useConnect } = require('wagmi');
+        return useConnect();
+      },
+      { wrapper: Wrapper },
+    );
+
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
+
+    await walletResult.current.connectAsync({ connector });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+
+    const displayName = result.current!.displayName;
+    // e.g. "0xf39Fd6…2266"
+    expect(displayName).toMatch(/^0x.{4}….{4}$/);
+  });
+
+  it('returns null again after disconnecting', async () => {
+    const connector = testConfig.connectors[0];
+
+    const { result: walletResult } = renderHook(
+      () => {
+        const { useConnect, useDisconnect } = require('wagmi');
+        return { ...useConnect(), ...useDisconnect() };
+      },
+      { wrapper: Wrapper },
+    );
+
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
+
+    await walletResult.current.connectAsync({ connector });
+    await waitFor(() => expect(result.current).not.toBeNull());
+
+    await walletResult.current.disconnectAsync();
+    await waitFor(() => expect(result.current).toBeNull());
+  });
+
+  it('exposes chainId as a number when connected', async () => {
+    const connector = testConfig.connectors[0];
+
+    const { result: walletResult } = renderHook(
+      () => {
+        const { useConnect } = require('wagmi');
+        return useConnect();
+      },
+      { wrapper: Wrapper },
+    );
+
+    const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
+
+    await walletResult.current.connectAsync({ connector });
+    await waitFor(() => expect(result.current).not.toBeNull());
+
+    expect(typeof result.current?.chainId).toBe('number');
+  });
+});

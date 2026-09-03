@@ -10,10 +10,10 @@ import styles from './style.module.css'
 export function WalletConnection() {
   const mounted = useIsMounted()
   const account = useAccount()
-  const disconnect = useDisconnect()
+  const { disconnect } = useDisconnect()
 
   const handleDisconnect = async () => {
-    await disconnect()
+    disconnect()
   }
 
   const [copyStatus, setCopyStatus] = useState('')

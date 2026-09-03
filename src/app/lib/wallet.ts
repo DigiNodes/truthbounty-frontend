@@ -1,32 +1,43 @@
 /**
- * Wallet abstraction layer
- * (mock implementation for now)
+ * Wallet abstraction layer — V2 EVM stub.
+ *
+ * V2-FE-009: Removed mock hash generation (Math.random) and Stellar
+ * dependencies. Real implementations are blocked on V2-FE-003 (contract
+ * ABI freeze) and V2-FE-005 (indexer API interface).
+ *
+ * Callers of claimRewards should migrate to useEvmTransaction + the
+ * TruthBounty rewards contract once ABIs are available.
  */
 
-export async function getTokenBalance(): Promise<number> {
-  // Later: replace with ERC20 balanceOf call
-  return 1000;
+/**
+ * NOT IMPLEMENTED — pending V2-FE-003 (contract ABI freeze).
+ *
+ * Will be replaced with a Wagmi `writeContract` call to the TruthBounty
+ * rewards contract's `claim(claimIds)` method.
+ *
+ * @throws Error always — callers must gate on contract availability.
+ */
+export async function claimRewards(
+  _claimIds: string[],
+): Promise<{ txHash: `0x${string}` }> {
+  throw new Error(
+    '[claimRewards] Not implemented: waiting for V2-FE-003 contract ABI. ' +
+    'Use useEvmTransaction.writeContract once the ABI is available.',
+  );
 }
 
 /**
- * Simulate calling the reward contract's claim() method.
- * In production, replace this with an actual on-chain transaction.
+ * NOT IMPLEMENTED — pending V2-FE-003.
+ *
+ * Will be replaced with a Wagmi `readContract` call to the ERC-20
+ * TruthBounty token's `balanceOf(address)`.
+ *
+ * @throws Error always.
  */
-export async function claimRewards(
-  claimIds: string[],
-): Promise<{ txHash: string }> {
-  // Simulate network / contract call latency
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Simulate occasional failure (uncomment to test error state)
-  // if (Math.random() < 0.3) throw new Error("Transaction reverted");
-
-  const txHash =
-    "0x" +
-    Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16),
-    ).join("");
-
-  console.log(`[claimRewards] claimed for ${claimIds.join(", ")} → ${txHash}`);
-  return { txHash };
+export async function getTokenBalance(
+  _address?: string,
+): Promise<bigint> {
+  throw new Error(
+    '[getTokenBalance] Not implemented: waiting for V2-FE-003 contract ABI.',
+  );
 }

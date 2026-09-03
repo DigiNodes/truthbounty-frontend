@@ -24,7 +24,7 @@ export function saveTheme(theme: Theme): void {
 /**
  * Get system color scheme preference
  */
-export function getSystemPreference(): Theme {
+export function getSystemPreference(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'dark';
   
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {

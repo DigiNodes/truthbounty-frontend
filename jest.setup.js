@@ -1,13 +1,11 @@
 import '@testing-library/jest-dom'
 import { queryClient } from './src/app/queries/queryClient'
 
-// Polyfill Node globals that older jsdom environments omit (viem needs them).
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { TextEncoder, TextDecoder } = require('util')
+// Polyfill TextEncoder/TextDecoder for libraries (e.g. viem) in the jsdom env.
+// Node provides these; jsdom's global scope may not expose them to bundled code.
 if (typeof globalThis.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('node:util')
   globalThis.TextEncoder = TextEncoder
-}
-if (typeof globalThis.TextDecoder === 'undefined') {
   globalThis.TextDecoder = TextDecoder
 }
 
