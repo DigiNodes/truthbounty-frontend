@@ -59,4 +59,76 @@ export function getProtocolDiagnostics(): ProtocolDiagnostics {
   };
 }
 
+// ---------------------------------------------------------------------------
+// ERC-20 helpers (V2-FE-016)
+// ---------------------------------------------------------------------------
+
+/**
+ * ERC-20 subset of the TruthBountyWeighted ABI.
+ * Contains only view (balanceOf, allowance, decimals, symbol) and
+ * nonpayable (approve) functions needed for token approval flows.
+ */
+export const ERC20_ABI = [
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'decimals',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+  {
+    type: 'function',
+    name: 'symbol',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+/**
+ * Read the token decimals from the canonical contract.
+ * Returns 18 as a safe default if the read fails (e.g. contract not yet deployed).
+ */
+export async function getTokenDecimals(
+  publicClient: { readContract: (args: unknown) => Promise<unknown> },
+): Promise<number> {
+  try {
+    const result = await publicClient.readContract({
+      address: getContractAddress('TruthBountyWeighted'),
+      abi: ERC20_ABI,
+      functionName: 'decimals',
+    });
+    return Number(result as bigint);
+  } catch {
+    return 18;
+  }
+}
+
 export { loaded as protocolRegistry };

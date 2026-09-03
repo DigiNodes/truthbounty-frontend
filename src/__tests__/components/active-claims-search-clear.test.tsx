@@ -16,11 +16,30 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
+import ActiveClaimsTable, { ActiveClaimRow } from '@/components/features/ActiveClaimsTable';
+import { activeClaims } from '@/__tests__/fixtures/mock-data';
+
+// Fixture rows (development fixtures live under the test boundary, V2-FE-016).
+const fixtureRows: ActiveClaimRow[] = activeClaims.map((claim) => ({
+  category: claim.category,
+  impact: claim.impact,
+  title: claim.title,
+  source: claim.source,
+  status: claim.status,
+  confidence: claim.confidence,
+  votes: claim.votes,
+  stake: claim.stake,
+  time: claim.time,
+  actions: claim.actions,
+}));
+
+function renderTable() {
+  return render(<ActiveClaimsTable claims={fixtureRows} />);
+}
 
 describe('ActiveClaimsTable — search clear button', () => {
   it('does not render the clear button when the search input is empty', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     expect(
       screen.queryByRole('button', { name: /clear search/i })
@@ -28,7 +47,7 @@ describe('ActiveClaimsTable — search clear button', () => {
   });
 
   it('renders the clear button after the user types into the search input', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'climate' } });
@@ -40,7 +59,7 @@ describe('ActiveClaimsTable — search clear button', () => {
   });
 
   it('clicking the clear button empties the input and re-focuses it', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'climate' } });
@@ -58,7 +77,7 @@ describe('ActiveClaimsTable — search clear button', () => {
   });
 
   it('renders a friendly empty state when the selected filter matches no claims', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     fireEvent.click(screen.getByRole('button', { name: /disputed/i }));
 
@@ -68,7 +87,7 @@ describe('ActiveClaimsTable — search clear button', () => {
   });
 
   it('renders a friendly empty state when the search yields no results', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'impossible-text' } });
@@ -79,7 +98,7 @@ describe('ActiveClaimsTable — search clear button', () => {
   });
 
   it('clear button has type="button" so it never submits an enclosing form', () => {
-    render(<ActiveClaimsTable />);
+    renderTable();
 
     const searchInput = screen.getByLabelText(/search claims/i);
     fireEvent.change(searchInput, { target: { value: 'x' } });
@@ -88,5 +107,13 @@ describe('ActiveClaimsTable — search clear button', () => {
       name: /clear search/i,
     }) as HTMLButtonElement;
     expect(clearBtn.type).toBe('button');
+  });
+
+  it('shows an honest empty state when no claims are available', () => {
+    render(<ActiveClaimsTable claims={[]} />);
+
+    expect(
+      screen.getByText(/no claims available yet/i)
+    ).toBeInTheDocument();
   });
 });

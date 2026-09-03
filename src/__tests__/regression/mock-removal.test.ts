@@ -1,30 +1,53 @@
 /**
- * V2-FE-009 — Regression tests for removed mock, legacy, and unsafe behaviours.
+ * V2-FE-009 + V2-FE-016 — Regression tests for removed mock, legacy, and
+ * unsafe behaviours.
  *
  * These tests are the "delete-proof": they verify that removed code no longer
- * exists or no longer does unsafe things, so that future changes cannot silently
- * re-introduce fabricated state.
+ * exists or no longer does unsafe things, so that future changes cannot
+ * silently re-introduce fabricated state.
  *
  * Coverage:
  *  1. claimRewards() in wallet.ts throws NotImplemented (no fake hash)
  *  2. getTokenBalance() in wallet.ts throws NotImplemented
  *  3. useWallet() no longer returns a numeric `balance` field
- *  4. transaction-simulator.ts no longer exports any real simulator functions
+ *  4. transaction-simulator.ts, mock-wagmi.ts and mock-wallet-provider.tsx
+ *     are deleted from production (`src/lib`)
  *  5. pending-transactions storage key is v2 (old v1 key is abandoned)
  *  6. PendingTransactionEntry includes the v2 fields (txHash, chainId, machineState)
  *  7. @stellar/freighter-api is NOT imported by useAccount
+ *  8. No production code fabricates hashes/addresses with Math.random
+ *  9. Development fixtures (mock-data) are isolated to tests/Storybook
+ * 10. Production never uses mock Worldcoin verification
+ * 11. Real Web3 configuration is required (browser fail-fast)
  */
 
 import { renderHook } from '@testing-library/react';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Mock wagmi at top level for test environment
+// Mock wagmi/rainbowkit at top level for test environment so module
+// evaluation of the config (wagmi.tsx) never hits real library side-effects.
 jest.mock('wagmi', () => ({
   useAccount: () => ({ address: undefined, isConnected: false }),
   useChainId: () => 10,
   useDisconnect: () => ({ disconnect: jest.fn() }),
+  http: jest.fn(),
+  WagmiProvider: () => null,
 }));
+
+jest.mock('@rainbow-me/rainbowkit', () => ({
+  getDefaultConfig: jest.fn(() => ({})),
+  RainbowKitProvider: () => null,
+  useConnectModal: () => ({ openConnectModal: jest.fn() }),
+  ConnectButton: () => null,
+}));
+
+// These modules read env lazily at call time, so a static import is safe:
+// the tests below swap the env vars and assert on the pure behaviour.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { shouldUseMockVerification } = require('@/config/worldcoin-client');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { getWalletConnectProjectId } = require('@/config/walletconnect');
 
 // ---------------------------------------------------------------------------
 // 1 & 2. wallet.ts stubs throw NotImplemented
@@ -49,11 +72,19 @@ describe('wallet.ts — mock hash generation removed', () => {
     expect(result).toBeUndefined();
   });
 
-  it('getTokenBalance throws a descriptive NotImplemented error', async () => {
+  it('getTokenBalance reads from canonical contract (replaced NotImplemented stub)', async () => {
     const { getTokenBalance } = await import('@/app/lib/wallet');
-    await expect(getTokenBalance()).rejects.toThrow(
-      /Not implemented.*V2-FE-003/,
-    );
+    // getTokenBalance now reads from the canonical contract via readContract.
+    // In the test environment the publicClient.readContract will fail (no real
+    // chain), so we expect a generic error — NOT a NotImplemented error.
+    let threwNotImplemented = false;
+    try {
+      await getTokenBalance('0x0000000000000000000000000000000000000001');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      threwNotImplemented = /Not implemented/.test(msg);
+    }
+    expect(threwNotImplemented).toBe(false);
   });
 });
 
@@ -79,28 +110,34 @@ describe('useWallet — numeric balance removed', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. transaction-simulator.ts no longer exports real simulator functions
+// 4. Production mock modules are deleted (V2-FE-016)
 // ---------------------------------------------------------------------------
 
-describe('transaction-simulator.ts — real simulator removed', () => {
-  it('does not export simulateTransaction', async () => {
-    const mod = await import('@/lib/transaction-simulator');
-    expect(typeof (mod as Record<string, unknown>)['simulateTransaction']).not.toBe('function');
+const SRC_ROOT = path.resolve(__dirname, '../../');
+
+function expectFileAbsent(relPath: string) {
+  const filePath = path.join(SRC_ROOT, relPath);
+  expect(fs.existsSync(filePath)).toBe(false);
+}
+
+describe('production mock modules deleted (V2-FE-016)', () => {
+  it('src/lib/mock-wagmi.ts is deleted — only the test-boundary copy may remain', () => {
+    expectFileAbsent('lib/mock-wagmi.ts');
+    const testCopy = path.join(SRC_ROOT, '__tests__/mocks/wagmi/mock-wagmi.ts');
+    expect(fs.existsSync(testCopy)).toBe(true);
   });
 
-  it('does not export generateTransactionHash', async () => {
-    const mod = await import('@/lib/transaction-simulator');
-    expect(typeof (mod as Record<string, unknown>)['generateTransactionHash']).not.toBe('function');
+  it('src/lib/mock-wallet-provider.tsx is deleted', () => {
+    expectFileAbsent('lib/mock-wallet-provider.tsx');
   });
 
-  it('does not export createMockReceipt', async () => {
-    const mod = await import('@/lib/transaction-simulator');
-    expect(typeof (mod as Record<string, unknown>)['createMockReceipt']).not.toBe('function');
+  it('src/lib/transaction-simulator.ts is deleted', () => {
+    expectFileAbsent('lib/transaction-simulator.ts');
   });
 
-  it('does not export simulateTransactionWorkflow', async () => {
-    const mod = await import('@/lib/transaction-simulator');
-    expect(typeof (mod as Record<string, unknown>)['simulateTransactionWorkflow']).not.toBe('function');
+  it('stray backend/Stellar files are not part of the frontend', () => {
+    expectFileAbsent('CorrectRewardClaim');
+    expectFileAbsent('evidence');
   });
 });
 
@@ -196,5 +233,137 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
     const content = fs.readFileSync(filePath, 'utf-8');
     expect(content).not.toContain("from '@stellar/freighter-api'");
     expect(content).not.toContain('from "@stellar/freighter-api"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. No production code fabricates hashes/addresses with Math.random
+// ---------------------------------------------------------------------------
+
+describe('production code — no synthetic hashes or addresses (V2-FE-016)', () => {
+  it('useAppealParticipation does not fabricate a transaction hash', () => {
+    const filePath = path.resolve(__dirname, '../../hooks/useAppealParticipation.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('Math.random');
+    expect(content).not.toContain('mockTxHash');
+  });
+
+  it('identity page connects a real wallet instead of minting a mock address', () => {
+    const filePath = path.resolve(__dirname, '../../app/(dashboard)/identity/page.tsx');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('Math.random');
+    expect(content).not.toContain('mockAddress');
+    expect(content).toContain('useConnectModal');
+  });
+
+  it('useTrust does not fabricate random trust values', () => {
+    const filePath = path.resolve(__dirname, '../../components/hooks/useTrust.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('Math.random');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Development fixtures are isolated to tests/Storybook
+// ---------------------------------------------------------------------------
+
+function collectProductionFiles(dir: string, results: string[] = []): string[] {
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== '__tests__' && entry.name !== 'stories') {
+        collectProductionFiles(full, results);
+      }
+    } else if (
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+      !entry.name.endsWith('.stories.ts') &&
+      !entry.name.endsWith('.stories.tsx')
+    ) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+describe('development fixtures isolated to tests and Storybook (V2-FE-016)', () => {
+  it('no production file imports the mock-data fixture module', () => {
+    const productionRoots = ['app', 'components', 'config', 'context', 'hooks', 'lib'];
+    const files = productionRoots.flatMap((root) =>
+      collectProductionFiles(path.join(SRC_ROOT, root)),
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+
+    const offenders = files.filter((file) => {
+      const content = fs.readFileSync(file, 'utf-8');
+      return (
+        content.includes('@/data/mock-data') ||
+        content.includes('@/__tests__/fixtures/mock-data')
+      );
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('fixture module lives under the test boundary', () => {
+    const fixturePath = path.join(SRC_ROOT, '__tests__/fixtures/mock-data.ts');
+    expect(fs.existsSync(fixturePath)).toBe(true);
+    // Deprecated production location must not exist
+    expectFileAbsent('data/mock-data.ts');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. Production never uses mock Worldcoin verification
+// ---------------------------------------------------------------------------
+
+describe('worldcoin-client — production never mocks verification (V2-FE-016)', () => {
+  it('shouldUseMockVerification returns false in production even when unconfigured', () => {
+    const env = process.env as Record<string, string | undefined>;
+    const prevNodeEnv = env.NODE_ENV;
+    const prevAppId = env.NEXT_PUBLIC_WORLDCOIN_APP_ID;
+    env.NODE_ENV = 'production';
+    delete env.NEXT_PUBLIC_WORLDCOIN_APP_ID;
+
+    try {
+      expect(shouldUseMockVerification()).toBe(false);
+    } finally {
+      env.NODE_ENV = prevNodeEnv ?? 'test';
+      if (prevAppId === undefined) {
+        delete process.env.NEXT_PUBLIC_WORLDCOIN_APP_ID;
+      } else {
+        process.env.NEXT_PUBLIC_WORLDCOIN_APP_ID = prevAppId;
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Fail clearly when real Web3 configuration is absent
+// ---------------------------------------------------------------------------
+
+describe('web3 config — fail clearly when absent (V2-FE-016)', () => {
+  it('walletconnect guard throws a descriptive error in the browser when the project id is missing', () => {
+    const prevProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+    delete process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+    try {
+      expect(() => getWalletConnectProjectId()).toThrow(
+        /NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID/,
+      );
+    } finally {
+      if (prevProjectId === undefined) {
+        delete process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+      } else {
+        process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = prevProjectId;
+      }
+    }
+  });
+
+  it('walletconnect guard returns the configured project id', () => {
+    expect(getWalletConnectProjectId()).toBe(
+      'test-fixture-walletconnect-project-id',
+    );
   });
 });

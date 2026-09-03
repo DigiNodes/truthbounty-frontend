@@ -3,7 +3,7 @@
  * Tests: successful submission, validation errors, simulation, wrong network, revert scenarios
  */
 
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useAppealParticipation } from '../useAppealParticipation';
 import * as wagmi from 'wagmi';
 import {
@@ -12,6 +12,7 @@ import {
   AppealDeadline,
   AppealStakeBounds,
   AppealWalletPosition,
+  AppealSimulationResult,
 } from '@/app/types/appeal';
 
 // Mock Wagmi hooks
@@ -101,7 +102,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -126,7 +127,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -141,7 +142,7 @@ describe('useAppealParticipation', () => {
       expect(simulation?.data?.calldata).toContain('0xdef67890'); // Oppose selector
     });
 
-    it('should submit participation successfully', async () => {
+    it('fails clearly instead of fabricating a transaction hash on submit', async () => {
       const { result } = renderHook(() =>
         useAppealParticipation({
           contractAddress: mockContractAddress,
@@ -149,28 +150,28 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let transaction;
 
+      // Submission requires real wallet writeContract integration (V2-FE-016):
+      // no synthetic transaction hash may be emitted.
+      let caughtError: unknown;
       await act(async () => {
-        transaction = await result.current.submitParticipation(
-          mockContext,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          caughtError = e;
+        }
       });
 
-      expect(transaction).toBeDefined();
-      expect(transaction?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(transaction?.from).toBe(mockUserAddress);
-      expect(transaction?.to).toBe(mockContractAddress);
-      expect(transaction?.status).toBe('PENDING');
-      expect(transaction?.decision).toBe('SUPPORT');
-      expect(transaction?.appealId).toBe('appeal-123');
-      expect(transaction?.claimId).toBe('claim-456');
-      expect(transaction?.disputeId).toBe('dispute-789');
+      expect((caughtError as Error).message).toMatch(/writeContract/);
+      expect(result.current.lastTransaction).toBeNull();
+      expect(result.current.error).toMatch(/no synthetic transaction hash/);
     });
 
-    it('should track last transaction', async () => {
+    it('does not track a fabricated last transaction on submit', async () => {
       const { result } = renderHook(() =>
         useAppealParticipation({
           contractAddress: mockContractAddress,
@@ -179,17 +180,17 @@ describe('useAppealParticipation', () => {
 
       const mockContext = createMockContext();
 
-      await act(async () => {
-        await result.current.submitParticipation(
-          mockContext,
-          'OPPOSE',
-          '200000000000000000'
-        );
-      });
+      await expect(
+        act(async () => {
+          await result.current.submitParticipation(
+            mockContext,
+            'OPPOSE',
+            '200000000000000000'
+          );
+        })
+      ).rejects.toThrow();
 
-      expect(result.current.lastTransaction).toBeDefined();
-      expect(result.current.lastTransaction?.decision).toBe('OPPOSE');
-      expect(result.current.lastTransaction?.stakeAmount).toBe('200000000000000000');
+      expect(result.current.lastTransaction).toBeNull();
     });
   });
 
@@ -443,19 +444,19 @@ describe('useAppealParticipation', () => {
 
       const mockContext = createMockContext();
 
-      // Spy on simulateParticipation
-      const simulateSpy = jest.spyOn(result.current, 'simulateParticipation');
+      await expect(
+        act(async () => {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        })
+      ).rejects.toThrow(/writeContract/);
 
-      await act(async () => {
-        await result.current.submitParticipation(
-          mockContext,
-          'SUPPORT',
-          '500000000000000000'
-        );
-      });
-
-      // Note: In the actual implementation, submitParticipation calls simulateParticipation internally
-      expect(result.current.lastTransaction).toBeDefined();
+      // Submission path is validation + simulation only until writeContract
+      // is integrated; it must not fabricate a transaction.
+      expect(result.current.lastTransaction).toBeNull();
     });
 
     it('should not submit if simulation fails', async () => {
@@ -490,7 +491,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -512,7 +513,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -534,7 +535,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -558,7 +559,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -579,7 +580,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(

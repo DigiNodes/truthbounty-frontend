@@ -2,7 +2,7 @@
  * Tests for Optimism EVM explorer URL generation
  */
 
-import { describe, it, expect } from '@jest/globals';
+// NOTE: no @jest/globals import — jest globals are typed via @types/jest.
 import { getTransactionExplorerUrl, getAccountExplorerUrl } from '@/lib/explorer';
 
 describe('Optimism Explorer URLs', () => {

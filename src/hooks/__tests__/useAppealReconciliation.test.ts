@@ -8,6 +8,7 @@ import { useAppealReconciliation, canParticipateInAppeal, verifyStateIndependenc
 import * as wagmi from 'wagmi';
 import {
   AppealParticipationTransaction,
+  AppealReconciliationResult,
   StateSegregation,
 } from '@/app/types/appeal';
 
@@ -383,7 +384,7 @@ describe('useAppealReconciliation', () => {
         })
       );
 
-      let manualResult;
+      let manualResult: AppealReconciliationResult | null | undefined;
       await act(async () => {
         manualResult = await result.current.reconcile();
       });

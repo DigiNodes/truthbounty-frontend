@@ -330,21 +330,21 @@ export function useAppealContext(
 
   /**
    * Poll for context updates
+   * Runs unconditionally so configuration errors (disconnected wallet,
+   * invalid IDs) surface clearly instead of failing silently.
    */
   useEffect(() => {
-    if (!isConnected || !appealId) return;
-
     fetchContext();
     const interval = setInterval(fetchContext, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, appealId, fetchContext, pollInterval]);
+  }, [fetchContext, pollInterval]);
 
   /**
    * Refetch on block number changes (for deadline updates)
    */
   useEffect(() => {
-    if (!isConnected || !appealId || !context) return;
+    if (!appealId || !context) return;
 
     // Only update deadline, don't refetch everything
     if (context.snapshot) {

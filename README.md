@@ -44,6 +44,11 @@ localStorage.setItem('trustInfo', JSON.stringify({
 ```
 
 Reload the page to see how the warnings change.
+
+Trust signals are only ever sourced from authoritative data (the Worldcoin
+verification API, and the reputation backend once connected). Unbacked
+values render as unknown (`—`) and never trigger warnings — nothing is
+fabricated client-side.
 - 💎 **Token Rewards** - Track and claim ERC-20 rewards on Optimism
 - 🔐 **Worldcoin Authentication** - Sybil-resistant identity verification
 - 📁 **IPFS Evidence Viewer** - Decentralized evidence storage and retrieval
@@ -80,3 +85,20 @@ The UI is intentionally chain-agnostic, enabling seamless expansion across ecosy
 |------------|---------|
 | **Next.js 14+** | React framework with App Router |
 | **TypeScript** | Type-safe development |
+
+## 🔧 Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in real values.
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | ✅ | WalletConnect Cloud project ID (public, dapp-scoped). The app **fails clearly in the browser** when this is absent — no placeholder ID is substituted. |
+| `NEXT_PUBLIC_OPTIMISM_RPC_URL` | – | Optimism RPC endpoint (falls back to the chain default when unset). |
+| `NEXT_PUBLIC_OPTIMISM_SEPOLIA_RPC_URL` | – | Optimism Sepolia RPC endpoint (falls back to the chain default when unset). |
+| `NEXT_PUBLIC_WORLDCOIN_APP_ID` | – | Worldcoin IDKit app ID. When unset in production the verification button is disabled; mock verification is a development/test-only fixture. |
+| `NEXT_PUBLIC_WORLDCOIN_ACTION` / `NEXT_PUBLIC_WORLDCOIN_TEST_MODE` | – | Optional IDKit overrides. |
+
+> **V2-FE-016 (web3 cleanup):** the frontend never fabricates wallet
+> addresses, transaction hashes, rewards, balances, or verification
+> verdicts. Development fixtures live under `src/__tests__/fixtures/` and
+> are consumed only by tests and Storybook stories.

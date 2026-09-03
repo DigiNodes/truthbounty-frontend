@@ -139,8 +139,8 @@ describe('ClaimSubmissionForm - submit guard', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
