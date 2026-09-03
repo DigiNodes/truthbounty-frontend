@@ -1,10 +1,121 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
+import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
+import { keccak256, stringToHex, parseAbi } from "viem";
+
+const claimAbi = parseAbi([
+  "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
+]);
+const erc20Abi = parseAbi([
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+]);
+
+function getClaimConfig() {
+  const address = process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS;
+  const asset = process.env.NEXT_PUBLIC_BOUNTY_ASSET;
+  const amount = process.env.NEXT_PUBLIC_CLAIM_AMOUNT;
+  const configHash = process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH;
+  const chainId = process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID;
+  if (!address || !asset || !amount || !configHash || !chainId) {
+    return null;
+  }
+  return {
+    address: address as `0x${string}`,
+    asset: asset as `0x${string}`,
+    amount: BigInt(amount),
+    configHash: configHash as `0x${string}`,
+    chainId: Number(chainId),
+  };
+}
+
+function useCreateClaimTransaction() {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
+  const account = useAccount();
+  const address = account?.address;
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const config = getClaimConfig();
+  const contractAddress = config?.address;
+  const asset = config?.asset;
+  const amount = config?.amount ?? 0n;
+  const configHash = config?.configHash;
+  const expectedChainId = config?.chainId;
+
+  const { data: allowance = 0n } = useReadContract({
+    address: asset,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: address && contractAddress ? [address, contractAddress] : undefined,
+    query: {
+      enabled: !!address && !!contractAddress && !!asset,
+    },
+  });
+
+  const { writeContractAsync: writeAllowanceAsync } = useWriteContract();
+  const { writeContractAsync: writeClaimAsync } = useWriteContract();
+
+  const submitClaim = async (contentDigest: `0x${string}`) => {
+    if (!address) {
+      throw new Error("Wallet not connected");
+    }
+    if (!config || !contractAddress || !asset || !configHash) {
+      throw new Error("Claim contract configuration is incomplete.");
+    }
+    const targetContract = contractAddress;
+    const targetAsset = asset;
+    const targetConfigHash = configHash;
+
+    if (chainId !== expectedChainId) {
+      throw new Error("Wrong network connected.");
+    }
+    if (!publicClient) {
+      throw new Error("Public client not available");
+    }
+
+    setIsPending(true);
+    setError(null);
+
+    try {
+      if (amount > 0n && allowance < amount) {
+        const approvalHash = await writeAllowanceAsync({
+          address: targetAsset,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [targetContract, amount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      }
+
+      const { request } = await publicClient.simulateContract({
+        address: targetContract,
+        abi: claimAbi,
+        functionName: "createClaim",
+        args: [contentDigest, targetAsset, amount, targetConfigHash],
+        account: address,
+      });
+
+      const hash = await writeClaimAsync(request);
+      setTransactionHash(hash);
+      await publicClient.waitForTransactionReceipt({ hash });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Claim creation failed";
+      setError(message);
+      throw err;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return { submitClaim, isPending, error, transactionHash };
+}
 import { useAccount } from "@/hooks/useAccount";
 
 export interface ClaimFormData {
@@ -41,12 +152,17 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const { openConnectModal } = useConnectModal();
   const trust = useTrust();
   const account = useAccount();
   const isWalletConnected = !!account?.address;
 
-  const { mutateAsync, isPending } = useSubmitClaim();
+  const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
+  const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
+  const isPending = isSubmittingApi || isSubmittingTx;
+
+  // EVM connector list for the "Connect Wallet" flow.
+  const connectors = useConnectors();
+  const { connect } = useConnect();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -157,13 +273,22 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     if (!validate()) return;
 
     try {
-      await mutateAsync({
-        title,
-        category,
-        impact,
-        source,
-        description,
-      });
+      if (process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS) {
+        const contentDigest = keccak256(
+          stringToHex(`${title}|${category}|${impact}|${source}|${description}`)
+        );
+        await submitClaim(contentDigest);
+      }
+
+      if (mutateAsync) {
+        await mutateAsync({
+          title,
+          category,
+          impact,
+          source,
+          description,
+        });
+      }
 
       onSubmit?.({ title, category, impact, source, description });
 
@@ -201,12 +326,19 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleConnectWallet = () => {
-    if (openConnectModal) {
-      openConnectModal();
-    } else {
+  const handleConnectWallet = async () => {
+    try {
+      // Use the first available EVM connector (injected / WalletConnect / etc.).
+      const connector = connectors[0];
+      if (!connector) {
+        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
+        return;
+      }
+      connect({ connector });
+    } catch (err) {
+      console.error("Failed to open wallet connector:", err);
       setSubmitError(
-        "Wallet connection is not available. Please refresh the page and try again."
+        "Could not open the wallet. Please install a browser wallet and try again."
       );
     }
   };
