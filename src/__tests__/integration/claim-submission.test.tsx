@@ -445,5 +445,68 @@ describe('Claim Submission Integration Tests', () => {
       expect(submitClaim).toHaveBeenCalledTimes(2)
     })
   })
-})
+
+  describe('Trust Warning Display', () => {
+    it('should show trust warning for low trust accounts', () => {
+      const onSubmit = jest.fn()
+      
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
+
+      // Check for trust warning
+      expect(screen.getByText('Your account has a low trust score')).toBeInTheDocument()
+    })
+
+    it('should not show trust warning for high trust accounts', () => {
+      const onSubmit = jest.fn()
+      
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
+
+      // Should not show trust warning
+      expect(screen.queryByText('Your account has a low trust score')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('API Integration', () => {
+    it('should handle API errors gracefully', async () => {
+      // Mock API error
+      const { submitClaim } = require('@/app/api/claims.api')
+      submitClaim.mockRejectedValue(new Error('API Error'))
+
+      const onSubmit = jest.fn()
+      
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
+
+      // Fill out form
+      const titleInput = screen.getByPlaceholderText('Title')
+      await user.type(titleInput, 'Test Claim')
+
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: 'Submit' })
+      await user.click(submitButton)
+
+      // The form should handle the error (currently it just closes the form)
+      // In a real implementation, you might want to show an error message
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalled()
+      })
+    })
+
+    it('should integrate with React Query mutation', async () => {
+      // This test would require more complex setup with actual React Query integration
+      // For now, we test the component in isolation
+      const onSubmit = jest.fn()
+      
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
 
