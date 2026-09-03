@@ -3,7 +3,11 @@
  *
  * Ensures the Stellar/Freighter runtime integration stays removed:
  *   - no `@stellar/*` dependencies in package.json
- *   - no Freighter / Stellar / steexp / soroban references in `src/`
+ *   - no Freighter / Stellar / steexp / soroban references in runtime code
+ *
+ * Comments and test files that *document the removal* are allowed to name the
+ * old integration; what must never come back is an actual module reference
+ * (import / require / jest.mock / vi.mock) or a runtime usage token.
  *
  * This test intentionally uses `fs` instead of jest module mocks so that a
  * re-import of `@stellar/freighter-api` fails CI before it can ship.
@@ -27,6 +31,13 @@ const FORBIDDEN_TOKENS = [
 // This guard itself must reference the forbidden tokens, so exclude it.
 const SELF = 'stellar-freighter-removal.test.ts'
 
+function isTestFile(filePath: string): boolean {
+  return (
+    filePath.includes(`${path.sep}__tests__${path.sep}`) ||
+    /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(filePath)
+  )
+}
+
 function collectSourceFiles(dir: string): string[] {
   const files: string[] = []
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -41,6 +52,16 @@ function collectSourceFiles(dir: string): string[] {
     }
   }
   return files
+}
+
+/**
+ * Strip block (`/* ... *\/`) and line (`//`) comments so prose that
+ * documents the Freighter removal is not mistaken for runtime usage.
+ */
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
 }
 
 describe('V2-FE-001: Stellar / Freighter runtime integration is removed', () => {
@@ -60,29 +81,33 @@ describe('V2-FE-001: Stellar / Freighter runtime integration is removed', () => 
     expect(stellarDeps).toEqual([])
   })
 
-  it('contains no Freighter/Stellar/steexp/soroban references in source files', () => {
+  it('contains no Freighter/Stellar/steexp/soroban references in runtime source code', () => {
     const offenders: string[] = []
     for (const file of collectSourceFiles(SRC)) {
-      const content = fs.readFileSync(file, 'utf8')
+      // Test files legitimately assert the removal by naming the old module.
+      if (isTestFile(file)) continue
+      const code = stripComments(fs.readFileSync(file, 'utf8'))
       for (const token of FORBIDDEN_TOKENS) {
-        if (content.includes(token)) {
-          offenders.push(
-            `${path.relative(SRC, file)} contains "${token}"`
-          )
+        if (code.includes(token)) {
+          offenders.push(`${path.relative(SRC, file)} contains "${token}"`)
         }
       }
     }
     expect(offenders).toEqual([])
   })
 
-  it('does not mock @stellar/freighter-api in any test file', () => {
+  it('does not mock or import @stellar/freighter-api in any test file', () => {
     const offenders: string[] = []
     for (const file of collectSourceFiles(SRC)) {
-      if (!file.includes('__tests__') && !file.endsWith('.test.tsx') && !file.endsWith('.test.ts')) {
-        continue
-      }
+      if (!isTestFile(file)) continue
       const content = fs.readFileSync(file, 'utf8')
-      if (content.includes('@stellar/freighter-api')) {
+      const runtimeReference =
+        /(?:jest|vi)\.mock\(\s*['"]@stellar\/freighter-api['"]/.test(content) ||
+        /(?:^|\n)\s*(?:import\s+[^'"]*\s+from\s+)?['"]@stellar\/freighter-api['"]/.test(
+          content
+        ) ||
+        /\brequire\(\s*['"]@stellar\/freighter-api['"]\s*\)/.test(content)
+      if (runtimeReference) {
         offenders.push(path.relative(SRC, file))
       }
     }

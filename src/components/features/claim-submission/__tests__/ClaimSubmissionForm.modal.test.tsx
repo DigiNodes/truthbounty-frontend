@@ -1,11 +1,13 @@
+/**
+ * ClaimSubmissionForm — modal layout tests.
+ *
+ * Regression: @stellar/freighter-api is no longer imported by the form.
+ */
+
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
-
-jest.mock('@rainbow-me/rainbowkit', () => ({
-  useConnectModal: () => ({ openConnectModal: jest.fn() }),
-}));
 
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => ({
@@ -17,11 +19,20 @@ jest.mock('@/components/hooks/useTrust', () => ({
 }));
 
 jest.mock('@/hooks/useAccount', () => ({
-  useAccount: () => ({ address: 'GABC1234', displayName: 'GABC...1234' }),
+  useAccount: () => ({
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    displayName: '0xf39F…2266',
+    chainId: 11155420,
+  }),
 }));
 
 jest.mock('@/app/queries/claims.queries', () => ({
-  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isLoading: false }),
+  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: false }),
+}));
+
+jest.mock('wagmi', () => ({
+  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
+  useConnect: () => ({ connect: jest.fn() }),
 }));
 
 describe('ClaimSubmissionForm modal layout', () => {

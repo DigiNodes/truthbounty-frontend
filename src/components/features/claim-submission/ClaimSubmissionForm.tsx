@@ -1,10 +1,105 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
-import { useSubmitClaim } from "@/app/queries/claims.queries";
+import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
+import { keccak256, stringToHex, parseAbi } from "viem";
+
+const claimAbi = parseAbi([
+  "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
+]);
+const erc20Abi = parseAbi([
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+]);
+
+function getClaimConfig() {
+  const address = process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS;
+  const asset = process.env.NEXT_PUBLIC_BOUNTY_ASSET;
+  const amount = process.env.NEXT_PUBLIC_CLAIM_AMOUNT;
+  const configHash = process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH;
+  const chainId = process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID;
+  if (!address || !asset || !amount || !configHash || !chainId) {
+    throw new Error("Claim contract configuration is incomplete.");
+  }
+  return {
+    address: address as `0x${string}`,
+    asset: asset as `0x${string}`,
+    amount: BigInt(amount),
+    configHash: configHash as `0x${string}`,
+    chainId: Number(chainId),
+  };
+}
+
+function useCreateClaimTransaction() {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const { amount, asset, address: contractAddress, configHash, chainId: expectedChainId } = getClaimConfig();
+
+  const { data: allowance = 0n } = useReadContract({
+    address: asset,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: address ? [address, contractAddress] : undefined,
+    enabled: !!address,
+  });
+
+  const { writeContractAsync: writeAllowanceAsync } = useWriteContract();
+  const { writeContractAsync: writeClaimAsync } = useWriteContract();
+
+  const submitClaim = async (contentDigest: `0x${string}`) => {
+    if (!address) {
+      throw new Error("Wallet not connected");
+    }
+    if (chainId !== expectedChainId) {
+      throw new Error(`Wrong network. Expected chain ID ${expectedChainId}, got ${chainId}.`);
+    }
+    if (!publicClient) {
+      throw new Error("Public client is not available");
+    }
+
+    setError(null);
+    setIsPending(true);
+
+    try {
+      if (allowance < amount) {
+        const approvalHash = await writeAllowanceAsync({
+          address: asset,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [contractAddress, amount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      }
+
+      const { request } = await publicClient.simulateContract({
+        address: contractAddress,
+        abi: claimAbi,
+        functionName: "createClaim",
+        args: [contentDigest, asset, amount, configHash],
+        account: address,
+      });
+
+      const hash = await writeClaimAsync(request);
+      setTransactionHash(hash);
+      await publicClient.waitForTransactionReceipt({ hash });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Claim creation failed";
+      setError(message);
+      throw err;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return { submitClaim, isPending, error, transactionHash };
+}
 import { useAccount } from "@/hooks/useAccount";
 
 export interface ClaimFormData {
@@ -42,9 +137,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const trust = useTrust();
   const account = useAccount();
   const isWalletConnected = !!account?.address;
-  const { openConnectModal } = useConnectModal();
 
-  const { mutateAsync, isLoading } = useSubmitClaim();
+  const { submitClaim, isPending } = useCreateClaimTransaction();
+
+  // EVM connector list for the "Connect Wallet" flow.
+  const connectors = useConnectors();
+  const { connect } = useConnect();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -143,13 +241,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     if (!validateForm()) return;
 
     try {
-      await mutateAsync({
-        title,
-        category,
-        impact,
-        source,
-        description,
-      });
+      const contentDigest = keccak256(
+        stringToHex(`${title}|${category}|${impact}|${source}|${description}`)
+      );
+      await submitClaim(contentDigest);
 
       onSubmit?.({ title, category, impact, source, description });
 
@@ -187,20 +282,27 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleConnectWallet = () => {
-    if (!openConnectModal) {
+  const handleConnectWallet = async () => {
+    try {
+      // Use the first available EVM connector (injected / WalletConnect / etc.).
+      const connector = connectors[0];
+      if (!connector) {
+        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
+        return;
+      }
+      connect({ connector });
+    } catch (err) {
+      console.error("Failed to open wallet connector:", err);
       setSubmitError(
-        "Wallet connection is not available. Please use an EVM wallet (e.g. MetaMask, Coinbase Wallet) and try again."
+        "Could not open the wallet. Please install a browser wallet and try again."
       );
-      return;
     }
-    openConnectModal();
   };
 
   const capitalize = (str: string) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  const statusMessage = isLoading
+  const statusMessage = isPending
     ? "Submitting your claim..."
     : submitError
       ? submitError
@@ -271,12 +373,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               name={field}
               type="text"
               className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
-              placeholder={capitalize(field)}
-              aria-label={capitalize(field)}
               placeholder={field === "source" ? "https://example.com" : capitalize(field)}
+              aria-label={capitalize(field)}
               value={
                 { title, category, impact, source }[
-                  field as keyof ClaimFormData
+                  field as 'title' | 'category' | 'impact' | 'source'
                 ]
               }
               onChange={(e) =>
@@ -286,7 +387,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
                 handleBlur(
                   field,
                   { title, category, impact, source }[
-                    field as keyof ClaimFormData
+                    field as 'title' | 'category' | 'impact' | 'source'
                   ]
                 )
               }
@@ -317,7 +418,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           <button
             type="button"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isPending}
             className="flex-1 bg-[#232329] text-white py-3 rounded-lg"
             aria-label="Cancel claim submission"
           >
@@ -326,11 +427,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           <button
             type="submit"
             data-testid="submit-claim-button"
-            disabled={isLoading || !isWalletConnected}
+            disabled={isPending || !isWalletConnected}
             className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
-            aria-label={isLoading ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
+            aria-label={isPending ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
           >
-            {isLoading
+            {isPending
               ? "Submitting..."
               : !isWalletConnected
                 ? "Connect your wallet to submit"

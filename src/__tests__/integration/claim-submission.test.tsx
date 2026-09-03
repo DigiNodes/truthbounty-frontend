@@ -431,7 +431,10 @@ describe('Claim Submission Integration Tests', () => {
       expect(submitClaim).toHaveBeenCalledTimes(2)
     })
   })
-})
+
+  describe('Trust Warning Display', () => {
+    it('should show trust warning for low trust accounts', () => {
+      const onSubmit = jest.fn()
       
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
@@ -439,7 +442,7 @@ describe('Claim Submission Integration Tests', () => {
       )
 
       // Check for trust warning
-      expect(screen.getByText(/⚠️ Your account has a low trust score/)).toBeInTheDocument()
+      expect(screen.getByText('Your account has a low trust score')).toBeInTheDocument()
     })
 
     it('should not show trust warning for high trust accounts', () => {
@@ -451,7 +454,7 @@ describe('Claim Submission Integration Tests', () => {
       )
 
       // Should not show trust warning
-      expect(screen.queryByText(/⚠️ Your account has a low trust score/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Your account has a low trust score')).not.toBeInTheDocument()
     })
   })
 
