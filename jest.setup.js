@@ -114,6 +114,8 @@ jest.mock('wagmi', () => ({
   useWriteContract: jest.fn(() => ({ writeContractAsync: jest.fn().mockResolvedValue('0x' + '1'.repeat(64)) })),
   useWaitForTransactionReceipt: jest.fn(() => ({ data: null, isLoading: false })),
   useBalance: jest.fn(() => ({ data: { value: 1000000000000000000n, formatted: '1.0' }, isLoading: false })),
+  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
+  useConnect: () => ({ connect: jest.fn(), connectAsync: jest.fn().mockResolvedValue(undefined) }),
   WagmiProvider: ({ children }) => children,
   createStorage: jest.fn(() => ({})),
   cookieStorage: {},
