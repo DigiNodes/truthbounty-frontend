@@ -5,7 +5,11 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { useSettlementSubmission } from '@/hooks/useSettlementSubmission';
-import { SettlementAction } from '@/app/types/settlement';
+import {
+  SettlementAction,
+  SimulationResult,
+  SettlementSubmission,
+} from '@/app/types/settlement';
 import * as wagmi from 'wagmi';
 
 jest.mock('wagmi', () => ({
@@ -37,7 +41,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -63,7 +67,7 @@ describe('useSettlementSubmission', () => {
         reason: 'Voting period not ended',
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -89,7 +93,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -111,7 +115,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -122,7 +126,7 @@ describe('useSettlementSubmission', () => {
   });
 
   describe('submission', () => {
-    it('should submit settlement transaction', async () => {
+    it('should fail clearly instead of fabricating a transaction', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -135,21 +139,23 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let submission;
+      // Submission requires wallet writeContract; the hook fails clearly
+      // instead of emitting a synthetic transaction hash (V2-FE-016).
+      let caught: unknown;
       await act(async () => {
-        submission = await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch (err) {
+          caught = err;
+        }
       });
 
-      expect(submission).toBeDefined();
-      expect(submission?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(submission?.status).toBe('pending');
-      expect(submission?.type).toBe('SETTLE_PROVISIONAL');
-      expect(submission?.claimId).toBe('claim-123');
-      expect(submission?.from).toBe(mockUserAddress);
-      expect(submission?.to).toBe(mockContractAddress);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toMatch(/writeContract/);
+      expect(result.current.lastSubmission).toBeNull();
     });
 
-    it('should track last submission', async () => {
+    it('should not track a submission until writeContract integration exists', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -163,13 +169,19 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
+      let caught: unknown;
       await act(async () => {
-        await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch (err) {
+          caught = err;
+        }
       });
 
-      expect(result.current.lastSubmission).toBeDefined();
-      expect(result.current.lastSubmission?.type).toBe('SETTLE_APPEAL');
-      expect(result.current.lastSubmission?.disputeId).toBe('dispute-789');
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toMatch(/writeContract/);
+      expect(result.current.lastSubmission).toBeNull();
+      expect(result.current.error).toMatch(/writeContract/);
     });
 
     it('should handle submission errors', async () => {
@@ -214,12 +226,14 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('12345678');
+      // Function selector of settleProvisional(bytes32) from the frozen
+      // artifact, followed by the claimId bytes.
+      expect(simulationResult?.data?.calldata).toMatch(/^0xf6ac795f/);
     });
 
     it('should encode FINALIZE correctly', async () => {
@@ -235,12 +249,13 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('34567890');
+      // Function selector of finalize(bytes32) from the frozen artifact.
+      expect(simulationResult?.data?.calldata).toMatch(/^0x92584d80/);
     });
   });
 

@@ -207,15 +207,15 @@ export function useSettlementDetection(
 
   /**
    * Poll for settlement actions
+   * Runs unconditionally so chain/wallet validation failures surface
+   * clearly instead of failing silently when disconnected.
    */
   useEffect(() => {
-    if (!isConnected) return;
-
     detectActions();
     const interval = setInterval(detectActions, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, detectActions, pollInterval]);
+  }, [detectActions, pollInterval]);
 
   return {
     provisionalAction,

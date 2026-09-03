@@ -1,16 +1,35 @@
 import React, { useRef, useState } from "react";
-import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { useDebounce } from "@/hooks/useDebounce";
 
+/**
+ * One row of the active-claims table, sourced from the claims API/indexer.
+ * Fixtures for this shape live in tests/Storybook only (V2-FE-016).
+ */
+export interface ActiveClaimRow {
+  category: string;
+  impact: string;
+  title: string;
+  source: string;
+  status: string;
+  confidence: string;
+  votes: string;
+  stake: string;
+  time: string;
+  actions: string;
+}
+
 interface ActiveClaimsTableProps {
+  /** Real claim rows from the claims API. Defaults to [] — an honest empty
+   *  state rather than fabricated claims. */
+  claims?: ActiveClaimRow[];
   isLoading?: boolean;
 }
 
 const DEBOUNCE_DELAY = 300;
 
-const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
+const ActiveClaimsTable = ({ claims = [], isLoading = false }: ActiveClaimsTableProps) => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
@@ -26,7 +45,7 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
-  const filteredClaims = activeClaims.filter((claim) => {
+  const filteredClaims = claims.filter((claim) => {
     const matchesFilter =
       activeFilter === "All"
         ? true
@@ -162,7 +181,9 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
           ) : (
             <tr>
               <td colSpan={6} className="py-8 text-center text-sm text-[#a1a1aa]">
-                No claims match the current search or filter. Try clearing your search or choosing a different filter.
+                {claims.length === 0
+                  ? "No claims available yet."
+                  : "No claims match the current search or filter. Try clearing your search or choosing a different filter."}
               </td>
             </tr>
           )}

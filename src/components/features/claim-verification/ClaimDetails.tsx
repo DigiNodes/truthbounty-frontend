@@ -18,6 +18,11 @@ export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNo
   const [internalLoading, setInternalLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // Rules-of-hooks: called unconditionally. When the claim has not loaded
+  // yet the address is unknown, so the hook falls back to the current user;
+  // the result is only rendered once `claim` exists.
+  const claimantTrust = useTrustForAddress(claim?.claimantAddress);
+
   useEffect(() => {
     setInternalLoading(true);
     setNotFound(false);
@@ -54,17 +59,24 @@ export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNo
     return <ClaimDetailsSkeleton />;
   }
 
-  const claimantTrust = useTrustForAddress(claim.claimantAddress);
-  const lowRep = claimantTrust.reputation < 20;
-  const newAcct = claimantTrust.accountAgeDays < 7;
-  const lowTrustClaimant = !claimantTrust.isVerified || lowRep || newAcct || claimantTrust.suspicious;
+  // Only warn from authoritative signals; unknown (null) never triggers a
+  // warning (V2-FE-016: no fabricated verdicts).
+  const lowRep =
+    claimantTrust.reputation !== null && claimantTrust.reputation < 20;
+  const newAcct =
+    claimantTrust.accountAgeDays !== null && claimantTrust.accountAgeDays < 7;
+  const lowTrustClaimant =
+    !claimantTrust.isVerified ||
+    lowRep ||
+    newAcct ||
+    claimantTrust.suspicious === true;
 
   return (
     <div className="space-y-3 sm:space-y-4">
       {lowTrustClaimant && (
         <div className="bg-yellow-500 text-black p-2.5 sm:p-3 rounded text-sm sm:text-base">
           ⚠️ This claim was submitted by a low‑trust account (score{' '}
-          {claimantTrust.reputation}).{' '}
+          {claimantTrust.reputation ?? 'unknown'}).{' '}
           <TrustScoreTooltip />
         </div>
       )}

@@ -6,20 +6,19 @@ import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { StatsCardsSkeleton } from "@/components/skeletons";
 
-import { platformStats } from "@/data/mock-data";
-
 interface StatsCardsProps {
   isLoading?: boolean;
 }
 
 const StatsCards = memo(function StatsCards({ isLoading = false }: StatsCardsProps) {
   const trust = useTrust();
-  const userTrustValue = trust.reputation.toString();
+  // Reputation is null until the backend/indexer provides it (V2-FE-016:
+  // no fabricated protocol metrics in production).
+  const userTrustValue = trust.reputation === null ? "—" : trust.reputation.toString();
 
-  const stats = [
-    { label: "My Trust", value: userTrustValue, tooltip: true },
-    ...platformStats,
-  ];
+  // Only data-backed cards are rendered here. Fabricated platform metrics
+  // were removed; the indexer will supply them once available.
+  const stats = [{ label: "My Trust", value: userTrustValue, tooltip: true }];
 
   if (isLoading) {
     return <StatsCardsSkeleton />;
