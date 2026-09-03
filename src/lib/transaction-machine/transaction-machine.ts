@@ -370,3 +370,290 @@ export function transitionTxState(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// V2-FE-011 — Claim Creation Transaction Hook
+// ---------------------------------------------------------------------------
+
+export type ClaimCreationErrorCode =
+  | 'INVALID_CHAIN'
+  | 'INVALID_WALLET_ACCOUNT'
+  | 'INVALID_ARTIFACT_VERSION'
+  | 'INVALID_CONTENT_DIGEST'
+  | 'INVALID_BOUNTY_ASSET'
+  | 'INVALID_BOUNTY_AMOUNT'
+  | 'INVALID_FROZEN_CONFIG'
+  | 'USER_REJECTED'
+  | 'ALLOWANCE_INSUFFICIENT'
+  | 'SIMULATION_REVERTED'
+  | 'TRANSACTION_REVERTED'
+  | 'CLAIM_NOT_INDEXED'
+  | 'STALE_RECONCILIATION'
+  | 'STALE_RECEIPT';
+
+export class ClaimCreationError extends Error {
+  readonly code: ClaimCreationErrorCode;
+
+  constructor(code: ClaimCreationErrorCode, message: string) {
+    super(message);
+    this.name = 'ClaimCreationError';
+    this.code = code;
+  }
+}
+
+export type ClaimCreationAddress = `0x${string}`;
+export type ClaimCreationHash = `0x${string}`;
+
+export interface ClaimCreationInput {
+  chainId: number;
+  walletAccount: ClaimCreationAddress;
+  artifactVersion: string;
+  contentDigest: ClaimCreationHash;
+  bountyAsset: ClaimCreationAddress;
+  bountyAmount: bigint;
+  frozenConfig: Readonly<Record<string, unknown>>;
+}
+
+export interface ClaimCreationCall {
+  to: ClaimCreationAddress;
+  data: ClaimCreationHash;
+  value: bigint;
+}
+
+export interface ClaimCreationIndexedClaim {
+  id: string;
+  txHash: ClaimCreationHash;
+  contentDigest: ClaimCreationHash;
+}
+
+export interface ClaimCreationAdapters {
+  encodeClaimCall(input: ClaimCreationInput): ClaimCreationCall;
+  getAllowance(input: ClaimCreationInput, call: ClaimCreationCall): Promise<bigint>;
+  simulate(
+    input: ClaimCreationInput,
+    call: ClaimCreationCall,
+  ): Promise<{ ok: true } | { ok: false; reason: string }>;
+  submit(input: ClaimCreationInput, call: ClaimCreationCall): Promise<ClaimCreationHash>;
+  waitForConfirmation(
+    txHash: ClaimCreationHash,
+    chainId: number,
+  ): Promise<{
+    status: 'success' | 'reverted';
+    chainId: number;
+    blockNumber: number;
+    confirmations: number;
+  }>;
+  getIndexedClaim(
+    txHash: ClaimCreationHash,
+    contentDigest: ClaimCreationHash,
+  ): Promise<ClaimCreationIndexedClaim | null>;
+}
+
+function isHexAddress(value: string): value is ClaimCreationAddress {
+  return /^0x[a-fA-F0-9]{40}$/.test(value);
+}
+
+function isBytes32(value: string): value is ClaimCreationHash {
+  return /^0x[a-fA-F0-9]{64}$/.test(value);
+}
+
+export function validateClaimCreationInput(
+  input: ClaimCreationInput,
+  opts: { allowLocalDev?: boolean; supportedArtifactVersion: string },
+): ClaimCreationInput {
+  const allowLocalDev = opts.allowLocalDev ?? false;
+
+  if (!isValidChain(input.chainId, allowLocalDev)) {
+    throw new ClaimCreationError(
+      'INVALID_CHAIN',
+      `chainId ${input.chainId} is not an allowed Optimism chain`,
+    );
+  }
+  if (!isHexAddress(input.walletAccount)) {
+    throw new ClaimCreationError(
+      'INVALID_WALLET_ACCOUNT',
+      'walletAccount must be a 40-hex-character address',
+    );
+  }
+  if (!isHexAddress(input.bountyAsset)) {
+    throw new ClaimCreationError(
+      'INVALID_BOUNTY_ASSET',
+      'bountyAsset must be a 40-hex-character address',
+    );
+  }
+  if (input.artifactVersion !== opts.supportedArtifactVersion) {
+    throw new ClaimCreationError(
+      'INVALID_ARTIFACT_VERSION',
+      `unsupported artifact version ${input.artifactVersion}`,
+    );
+  }
+  if (!isBytes32(input.contentDigest)) {
+    throw new ClaimCreationError(
+      'INVALID_CONTENT_DIGEST',
+      'contentDigest must be 32 bytes',
+    );
+  }
+  if (input.bountyAmount <= 0n) {
+    throw new ClaimCreationError(
+      'INVALID_BOUNTY_AMOUNT',
+      'bountyAmount must be a positive exact integer',
+    );
+  }
+  if (
+    typeof input.frozenConfig !== 'object' ||
+    input.frozenConfig === null ||
+    Array.isArray(input.frozenConfig)
+  ) {
+    throw new ClaimCreationError(
+      'INVALID_FROZEN_CONFIG',
+      'frozenConfig must be an object',
+    );
+  }
+
+  return input;
+}
+
+export function encodeClaimCreationCall(
+  input: ClaimCreationInput,
+  adapters: Pick<ClaimCreationAdapters, 'encodeClaimCall'>,
+  opts: { allowLocalDev?: boolean; supportedArtifactVersion: string },
+): ClaimCreationCall {
+  return adapters.encodeClaimCall(validateClaimCreationInput(input, opts));
+}
+
+function isUserRejected(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  return (
+    candidate.code === 4001 ||
+    (typeof candidate.message === 'string' &&
+      /user rejected|request rejected|denied by user/i.test(candidate.message))
+  );
+}
+
+export interface ClaimCreationTransactionHook {
+  createClaim(
+    input: ClaimCreationInput,
+    opts: {
+      allowLocalDev?: boolean;
+      supportedArtifactVersion: string;
+      onTransition?: (state: TransactionState) => void;
+    },
+  ): Promise<ClaimCreationIndexedClaim>;
+}
+
+export function createClaimCreationTransactionHook(
+  adapters: ClaimCreationAdapters,
+): ClaimCreationTransactionHook {
+  async function createClaim(
+    input: ClaimCreationInput,
+    opts: {
+      allowLocalDev?: boolean;
+      supportedArtifactVersion: string;
+      onTransition?: (state: TransactionState) => void;
+    },
+  ): Promise<ClaimCreationIndexedClaim> {
+    const allowLocalDev = opts.allowLocalDev ?? false;
+    const onTransition = opts.onTransition ?? (() => {});
+    const validated = validateClaimCreationInput(input, opts);
+
+    const call = adapters.encodeClaimCall(validated);
+    let state: TransactionState = createIdleState();
+    onTransition(state);
+
+    state = transitionTxState(
+      state,
+      { type: 'PREPARE', chainId: validated.chainId },
+      { allowLocalDev },
+    );
+    onTransition(state);
+
+    const allowance = await adapters.getAllowance(validated, call);
+    if (allowance < validated.bountyAmount) {
+      throw new ClaimCreationError(
+        'ALLOWANCE_INSUFFICIENT',
+        `allowance ${allowance} below bountyAmount ${validated.bountyAmount}`,
+      );
+    }
+
+    const simulation = await adapters.simulate(validated, call);
+    if (!simulation.ok) {
+      throw new ClaimCreationError('SIMULATION_REVERTED', simulation.reason);
+    }
+
+    state = transitionTxState(state, { type: 'REQUEST_SIGNATURE' });
+    onTransition(state);
+
+    let txHash: ClaimCreationHash;
+    try {
+      txHash = await adapters.submit(validated, call);
+    } catch (error) {
+      if (isUserRejected(error)) {
+        state = transitionTxState(state, { type: 'USER_REJECTED' });
+        onTransition(state);
+        throw new ClaimCreationError(
+          'USER_REJECTED',
+          'User rejected the claim transaction',
+        );
+      }
+      throw error;
+    }
+
+    state = transitionTxState(state, { type: 'SUBMIT', txHash });
+    onTransition(state);
+
+    const receipt = await adapters.waitForConfirmation(txHash, validated.chainId);
+
+    state = transitionTxState(state, {
+      type: 'CONFIRM',
+      receiptChainId: receipt.chainId,
+      blockNumber: receipt.blockNumber,
+      confirmations: receipt.confirmations,
+    });
+    onTransition(state);
+
+    if (receipt.status === 'reverted') {
+      state = transitionTxState(state, { type: 'REVERT' });
+      onTransition(state);
+      throw new ClaimCreationError(
+        'TRANSACTION_REVERTED',
+        `transaction ${txHash} reverted`,
+      );
+    }
+
+    state = transitionTxState(state, { type: 'MARK_SAFE' });
+    onTransition(state);
+    state = transitionTxState(state, { type: 'INDEXING' });
+    onTransition(state);
+
+    const indexedClaim = await adapters.getIndexedClaim(txHash, validated.contentDigest);
+    if (!indexedClaim) {
+      throw new ClaimCreationError(
+        'CLAIM_NOT_INDEXED',
+        `no indexed claim found for ${txHash}`,
+      );
+    }
+    if (indexedClaim.contentDigest.toLowerCase() !== validated.contentDigest.toLowerCase()) {
+      throw new ClaimCreationError(
+        'STALE_RECONCILIATION',
+        'indexed claim contentDigest mismatch',
+      );
+    }
+    if (indexedClaim.txHash.toLowerCase() !== txHash.toLowerCase()) {
+      throw new ClaimCreationError(
+        'STALE_RECONCILIATION',
+        'indexed claim txHash mismatch',
+      );
+    }
+
+    state = transitionTxState(state, { type: 'FINALIZE' });
+    onTransition(state);
+
+    return indexedClaim;
+  }
+
+  return { createClaim };
+}
