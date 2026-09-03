@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -42,9 +42,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const trust = useTrust();
   const account = useAccount();
   const isWalletConnected = !!account?.address;
-  const { openConnectModal } = useConnectModal();
 
   const { mutateAsync, isPending } = useSubmitClaim();
+
+  // EVM connector list for the "Connect Wallet" flow.
+  const connectors = useConnectors();
+  const { connect } = useConnect();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -187,12 +190,19 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleConnectWallet = () => {
-    if (openConnectModal) {
-      openConnectModal();
-    } else {
+  const handleConnectWallet = async () => {
+    try {
+      // Use the first available EVM connector (injected / WalletConnect / etc.).
+      const connector = connectors[0];
+      if (!connector) {
+        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
+        return;
+      }
+      connect({ connector });
+    } catch (err) {
+      console.error("Failed to open wallet connector:", err);
       setSubmitError(
-        "Wallet connection is not available. Please refresh the page and try again."
+        "Could not open the wallet. Please install a browser wallet and try again."
       );
     }
   };
