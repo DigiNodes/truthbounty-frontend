@@ -14,6 +14,9 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testEnvironment: 'jest-environment-jsdom',
+  // Only pick up unit tests (`*.test.*`). Playwright (`e2e/*.spec.ts`) and
+  // Vitest (`*.spec.ts`) specs run through their own runners.
+  testMatch: ['<rootDir>/**/*.test.{js,jsx,ts,tsx}'],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
@@ -32,4 +35,17 @@ const customJestConfig = {
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig)
+const baseJestConfig = createJestConfig(customJestConfig)
+
+// wagmi/viem/@wagmi/abitype/@tanstack ship ESM (and pnpm installs them under
+// node_modules/.pnpm), so transform them explicitly instead of ignoring them.
+// next/jest's default ignores every .pnpm package, which breaks their parsing.
+module.exports = async () => {
+  const config = await baseJestConfig()
+  config.transformIgnorePatterns = [
+    '/node_modules/(?!.pnpm)(?!(wagmi|@wagmi|viem|abitype|@tanstack)/)',
+    '/node_modules/.pnpm/(?!(wagmi|@wagmi|viem|abitype|@tanstack)(@|\\+))',
+    '^.+\\.module\\.(css|sass|scss)$',
+  ]
+  return config
+}

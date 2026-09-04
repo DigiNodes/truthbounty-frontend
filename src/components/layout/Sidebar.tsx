@@ -112,6 +112,7 @@ const Sidebar = () => {
         />
       )}
 
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- focus-trap keydown handling on the mobile navigation container */}
       <aside
         id="sidebar-navigation"
         className={`

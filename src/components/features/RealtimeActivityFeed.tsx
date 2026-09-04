@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
 import type { WebSocketEvent } from '@/app/types/websocket';
 
@@ -18,12 +18,16 @@ export function RealtimeActivityFeed() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const feedRef = useRef<HTMLDivElement>(null);
 
+  const addActivity = useCallback((activity: ActivityItem) => {
+    setActivities((prev) => [activity, ...prev].slice(0, 50)); // Keep last 50
+  }, []);
+
   useEffect(() => {
     if (!isConnected) return;
 
     // Subscribe to various events and create activity items
     const unsubscribers = [
-      subscribe('CLAIM_CREATED', (payload: any) => {
+      subscribe('CLAIM_CREATED', (payload) => {
         const activity: ActivityItem = {
           id: `claim-${payload.claim.id}-${Date.now()}`,
           type: 'claim_created',
@@ -32,7 +36,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('CLAIM_STATUS_CHANGED', (payload: any) => {
+      subscribe('CLAIM_STATUS_CHANGED', (payload) => {
         const activity: ActivityItem = {
           id: `status-${payload.claimId}-${Date.now()}`,
           type: 'status_changed',
@@ -41,7 +45,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('VERIFICATION_ADDED', (payload: any) => {
+      subscribe('VERIFICATION_ADDED', (payload) => {
         const activity: ActivityItem = {
           id: `verify-${payload.verification.id}-${Date.now()}`,
           type: 'verification',
@@ -50,7 +54,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_CREATED', (payload: any) => {
+      subscribe('DISPUTE_CREATED', (payload) => {
         const activity: ActivityItem = {
           id: `dispute-${payload.dispute.id}-${Date.now()}`,
           type: 'dispute',
@@ -59,7 +63,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_RESOLVED', (payload: any) => {
+      subscribe('DISPUTE_RESOLVED', (payload) => {
         const activity: ActivityItem = {
           id: `resolved-${payload.disputeId}-${Date.now()}`,
           type: 'dispute_resolved',
@@ -82,11 +86,7 @@ export function RealtimeActivityFeed() {
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [isConnected, subscribe]);
-
-  const addActivity = (activity: ActivityItem) => {
-    setActivities((prev) => [activity, ...prev].slice(0, 50)); // Keep last 50
-  };
+  }, [isConnected, subscribe, addActivity]);
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);

@@ -209,11 +209,11 @@ export function useSettlementDetection(
    * Poll for settlement actions
    */
   useEffect(() => {
+    // Always run once so a disconnected wallet surfaces the validation error.
+    detectActions();
     if (!isConnected) return;
 
-    detectActions();
     const interval = setInterval(detectActions, pollInterval);
-
     return () => clearInterval(interval);
   }, [isConnected, detectActions, pollInterval]);
 

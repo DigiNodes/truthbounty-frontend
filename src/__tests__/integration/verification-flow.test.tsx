@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React from 'react'
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -5,8 +6,8 @@ import { QueryClient } from '@tanstack/react-query'
 import { render, createMockClaim, createMockVerification, mockSubmitVerification } from '../utils/test-utils'
 import { setupMockServer } from '../mocks/server'
 import VerificationActions from '@/components/features/claim-verification/VerificationActions'
-import StakeForm from '@/components/features/claim-verification/StakeForm'
-import ClaimDetails from '@/components/features/claim-verification/ClaimDetails'
+import { StakeForm } from '@/components/features/claim-verification/StakeForm'
+import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails'
 
 // Setup mock server
 const server = setupMockServer()
@@ -19,6 +20,34 @@ jest.mock('@/app/lib/wallet', () => ({
 // Mock the API functions
 jest.mock('@/app/lib/api', () => ({
   submitVerification: jest.fn(),
+  getClaimById: jest.fn(),
+}))
+
+// Components under test pull in wagmi via @/hooks/useAccount; provide inert stubs.
+jest.mock('wagmi', () => ({
+  useAccount: () => ({ address: '0x1234567890123456789012345678901234567890', isConnected: true, chainId: 11155420 }),
+  useConnectors: () => [],
+  useConnect: () => ({ connect: jest.fn() }),
+}))
+
+jest.mock('@/components/hooks/useTrust', () => ({
+  useTrust: () => ({
+    reputation: 50,
+    isVerified: true,
+    accountAgeDays: 30,
+    suspicious: false,
+  }),
+  useTrustForAddress: () => ({
+    reputation: 50,
+    isVerified: true,
+    accountAgeDays: 30,
+    suspicious: false,
+  }),
+}))
+
+jest.mock('@/lib/pending-transactions', () => ({
+  trackPendingTransaction: jest.fn(),
+  clearPendingTransaction: jest.fn(),
 }))
 
 describe('Verification Flow Integration Tests', () => {
@@ -33,13 +62,15 @@ describe('Verification Flow Integration Tests', () => {
       },
     })
     user = userEvent.setup()
+    const { getClaimById } = require('@/app/lib/api')
+    getClaimById.mockResolvedValue(createMockClaim())
   })
 
   describe('Verification Actions', () => {
     it('should verify a claim successfully', async () => {
       const mockVerification = createMockVerification({ decision: 'VERIFY' })
       const { submitVerification } = require('@/app/lib/api')
-      submitVerification.mockResolvedValue(mockVerification)
+      submitVerification.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(mockVerification), 50)))
 
       render(
         <VerificationActions claimId="claim-1" stakeAmount={50} />,
@@ -68,7 +99,7 @@ describe('Verification Flow Integration Tests', () => {
     it('should reject a claim successfully', async () => {
       const mockVerification = createMockVerification({ decision: 'REJECT' })
       const { submitVerification } = require('@/app/lib/api')
-      submitVerification.mockResolvedValue(mockVerification)
+      submitVerification.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(mockVerification), 50)))
 
       render(
         <VerificationActions claimId="claim-1" stakeAmount={50} />,
@@ -109,7 +140,7 @@ describe('Verification Flow Integration Tests', () => {
 
       // Check for error status
       await waitFor(() => {
-        expect(screen.getByText(/error/i)).toBeInTheDocument()
+        expect(screen.getByText(/transaction failed/i)).toBeInTheDocument()
       })
     })
 
@@ -182,7 +213,7 @@ describe('Verification Flow Integration Tests', () => {
 
       // Input should be empty initially
       const stakeInput = screen.getByPlaceholderText('Enter stake amount')
-      expect(stakeInput).toHaveValue('')
+      expect(stakeInput).toHaveValue(null)
 
       // Should not show insufficient balance warning
       expect(screen.queryByText(/Insufficient balance/)).not.toBeInTheDocument()
@@ -190,7 +221,7 @@ describe('Verification Flow Integration Tests', () => {
   })
 
   describe('Claim Details', () => {
-    it('should display claim information', () => {
+    it('should display claim information', async () => {
       const mockClaim = createMockClaim({
         id: 'claim-1',
         title: 'Test Claim Title',
@@ -199,44 +230,50 @@ describe('Verification Flow Integration Tests', () => {
         bountyAmount: 100,
         totalStaked: 50
       })
+      const { getClaimById } = require('@/app/lib/api')
+      getClaimById.mockResolvedValue(mockClaim)
 
       render(
-        <ClaimDetails claim={mockClaim} />,
+        <ClaimDetails claimId={mockClaim.id} />,
         { queryClient }
       )
 
-      expect(screen.getByText('Test Claim Title')).toBeInTheDocument()
+      expect(await screen.findByText('Test Claim Title')).toBeInTheDocument()
       expect(screen.getByText('Test claim description')).toBeInTheDocument()
       expect(screen.getByText('OPEN')).toBeInTheDocument()
     })
 
-    it('should display claim with evidence', () => {
+    it('should display claim with evidence', async () => {
       const mockClaim = createMockClaim({
         evidence: [
           { id: 'evidence-1', type: 'link', value: 'https://example.com', createdAt: '2024-01-01T00:00:00Z' },
           { id: 'evidence-2', type: 'text', value: 'Some text evidence', createdAt: '2024-01-01T00:00:00Z' }
         ]
       })
+      const { getClaimById } = require('@/app/lib/api')
+      getClaimById.mockResolvedValue(mockClaim)
 
       render(
-        <ClaimDetails claim={mockClaim} />,
+        <ClaimDetails claimId={mockClaim.id} />,
         { queryClient }
       )
 
-      expect(screen.getByText('https://example.com')).toBeInTheDocument()
+      expect(await screen.findByText('https://example.com')).toBeInTheDocument()
       expect(screen.getByText('Some text evidence')).toBeInTheDocument()
     })
 
-    it('should handle claim with no evidence', () => {
+    it('should handle claim with no evidence', async () => {
       const mockClaim = createMockClaim({ evidence: [] })
+      const { getClaimById } = require('@/app/lib/api')
+      getClaimById.mockResolvedValue(mockClaim)
 
       render(
-        <ClaimDetails claim={mockClaim} />,
+        <ClaimDetails claimId={mockClaim.id} />,
         { queryClient }
       )
 
       // Should not crash and should display claim info
-      expect(screen.getByText(mockClaim.title)).toBeInTheDocument()
+      expect(await screen.findByText(mockClaim.title)).toBeInTheDocument()
     })
   })
 
@@ -245,18 +282,20 @@ describe('Verification Flow Integration Tests', () => {
       // Mock successful verification
       const mockVerification = createMockVerification()
       const { submitVerification } = require('@/app/lib/api')
-      submitVerification.mockResolvedValue(mockVerification)
+      submitVerification.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(mockVerification), 50)))
 
       const mockClaim = createMockClaim({
         id: 'claim-1',
         title: 'Claim to Verify',
         status: 'OPEN'
       })
+      const { getClaimById } = require('@/app/lib/api')
+      getClaimById.mockResolvedValue(mockClaim)
 
       // Render full verification components
       const { rerender } = render(
         <div>
-          <ClaimDetails claim={mockClaim} />
+          <ClaimDetails claimId={mockClaim.id} />
           <StakeForm claimId="claim-1" />
           <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
@@ -264,7 +303,7 @@ describe('Verification Flow Integration Tests', () => {
       )
 
       // 1. View claim details
-      expect(screen.getByText('Claim to Verify')).toBeInTheDocument()
+      expect(await screen.findByText('Claim to Verify')).toBeInTheDocument()
       expect(screen.getByText('OPEN')).toBeInTheDocument()
 
       // 2. Check stake form
@@ -293,7 +332,7 @@ describe('Verification Flow Integration Tests', () => {
     it('should handle verification with rejection', async () => {
       const mockVerification = createMockVerification({ decision: 'REJECT' })
       const { submitVerification } = require('@/app/lib/api')
-      submitVerification.mockResolvedValue(mockVerification)
+      submitVerification.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(mockVerification), 50)))
 
       const mockClaim = createMockClaim({
         id: 'claim-1',
@@ -303,7 +342,7 @@ describe('Verification Flow Integration Tests', () => {
 
       render(
         <div>
-          <ClaimDetails claim={mockClaim} />
+          <ClaimDetails claimId={mockClaim.id} />
           <StakeForm claimId="claim-1" />
           <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,
@@ -338,7 +377,7 @@ describe('Verification Flow Integration Tests', () => {
       await user.click(verifyButton)
 
       await waitFor(() => {
-        expect(screen.getByText(/error/i)).toBeInTheDocument()
+        expect(screen.getByText(/transaction failed/i)).toBeInTheDocument()
       })
     })
 
@@ -351,9 +390,9 @@ describe('Verification Flow Integration Tests', () => {
         { queryClient }
       )
 
-      // Should handle error gracefully (may not show balance)
+      // Balance fetch failure is swallowed — the form still renders with 0 balance
       await waitFor(() => {
-        expect(screen.queryByText(/Balance:/)).not.toBeInTheDocument()
+        expect(screen.getByText(/Balance: 0 TBNT/)).toBeInTheDocument()
       })
     })
   })
@@ -382,7 +421,7 @@ describe('Verification Flow Integration Tests', () => {
     it('should have proper ARIA labels', () => {
       render(
         <div>
-          <ClaimDetails claim={createMockClaim()} />
+          <ClaimDetails claimId={createMockClaim().id} />
           <StakeForm claimId="claim-1" />
           <VerificationActions claimId="claim-1" stakeAmount={50} />
         </div>,

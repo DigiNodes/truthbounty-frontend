@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 /**
  * Integration Tests: Claim Submission Flow
  * 
@@ -17,17 +18,40 @@ import { QueryClient } from '@tanstack/react-query'
 import { useSubmitClaim } from '@/app/queries/claims.queries'
 import { render, createMockClaim } from '../utils/test-utils'
 import { setupMockServer } from '../mocks/server'
+import ClaimSubmissionForm from '@/components/features/claim-submission/ClaimSubmissionForm'
 
 const server = setupMockServer()
 
+let mockTrustInfo = {
+  isVerified: true,
+  reputation: 50,
+  accountAgeDays: 30,
+  suspicious: false,
+}
+
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: () => ({
-    isVerified: true,
-    reputation: 50,
-    accountAgeDays: 30,
-    suspicious: false,
-  }),
+  useTrust: () => mockTrustInfo,
 }))
+
+jest.mock('wagmi', () => ({
+  useAccount: () => ({ address: '0x1234567890123456789012345678901234567890', isConnected: true }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({
+    waitForTransactionReceipt: jest.fn().mockResolvedValue(undefined),
+    simulateContract: jest.fn().mockResolvedValue({ request: {} }),
+  }),
+  useReadContract: () => ({ data: 0n }),
+  useWriteContract: jest.fn(() => ({ writeContractAsync: jest.fn().mockResolvedValue('0xhash') })),
+  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
+  useConnect: () => ({ connect: jest.fn() }),
+}))
+
+// Claim contract config is required by useCreateClaimTransaction during render.
+process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+process.env.NEXT_PUBLIC_BOUNTY_ASSET = '0x1234567890123456789012345678901234567890';
+process.env.NEXT_PUBLIC_CLAIM_AMOUNT = '1000000000000000000';
+process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH = '0xabc';
+process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID = '11155420';
 
 jest.mock('@/app/api/claims.api', () => ({
   submitClaim: jest.fn(),
@@ -50,6 +74,16 @@ describe('Claim Submission Integration Tests', () => {
     })
     user = userEvent.setup()
     jest.clearAllMocks()
+    mockTrustInfo = {
+      isVerified: true,
+      reputation: 50,
+      accountAgeDays: 30,
+      suspicious: false,
+    }
+    // Restore the default successful write path (individual tests may override).
+    ;(require('wagmi').useWriteContract as jest.Mock).mockReturnValue({
+      writeContractAsync: jest.fn().mockResolvedValue('0xhash'),
+    })
   })
 
   afterEach(() => {
@@ -273,8 +307,10 @@ describe('Claim Submission Integration Tests', () => {
           const form = e.currentTarget as HTMLFormElement
           const newErrors: Record<string, string> = {}
 
-          if (!form.title.value) newErrors.title = 'Title is required'
-          if (!form.description.value) newErrors.description = 'Description is required'
+          const titleInput = form.elements.namedItem('title') as HTMLInputElement | null
+          const descriptionInput = form.elements.namedItem('description') as HTMLTextAreaElement | null
+          if (titleInput && !titleInput.value) newErrors.title = 'Title is required'
+          if (descriptionInput && !descriptionInput.value) newErrors.description = 'Description is required'
 
           setErrors(newErrors)
         }
@@ -435,6 +471,12 @@ describe('Claim Submission Integration Tests', () => {
   describe('Trust Warning Display', () => {
     it('should show trust warning for low trust accounts', () => {
       const onSubmit = jest.fn()
+      mockTrustInfo = {
+        isVerified: true,
+        reputation: 5,
+        accountAgeDays: 30,
+        suspicious: false,
+      }
       
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
@@ -442,7 +484,7 @@ describe('Claim Submission Integration Tests', () => {
       )
 
       // Check for trust warning
-      expect(screen.getByText('Your account has a low trust score')).toBeInTheDocument()
+      expect(screen.getByText(/low trust score/i)).toBeInTheDocument()
     })
 
     it('should not show trust warning for high trust accounts', () => {
@@ -454,36 +496,44 @@ describe('Claim Submission Integration Tests', () => {
       )
 
       // Should not show trust warning
-      expect(screen.queryByText('Your account has a low trust score')).not.toBeInTheDocument()
+      expect(screen.queryByText(/low trust score/i)).not.toBeInTheDocument()
     })
   })
 
   describe('API Integration', () => {
-    it('should handle API errors gracefully', async () => {
-      // Mock API error
-      const { submitClaim } = require('@/app/api/claims.api')
-      submitClaim.mockRejectedValue(new Error('API Error'))
+    it('should handle submission errors gracefully', async () => {
+      // Simulate an on-chain write failure: the form must surface the error
+      // without closing or crashing.
+      const { useWriteContract } = require('wagmi')
+      useWriteContract.mockReturnValue({
+        writeContractAsync: jest.fn().mockRejectedValue(new Error('Transaction failed')),
+      })
 
       const onSubmit = jest.fn()
+      const onClose = jest.fn()
       
       render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={onClose} />,
         { queryClient }
       )
 
-      // Fill out form
-      const titleInput = screen.getByPlaceholderText('Title')
-      await user.type(titleInput, 'Test Claim')
+      // Fill out complete valid form
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim')
+      await user.type(screen.getByPlaceholderText('Category'), 'Politics')
+      await user.type(screen.getByPlaceholderText('Impact'), 'High')
+      await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
+      await user.type(screen.getByPlaceholderText('Description'), 'A sufficiently long description.')
 
       // Submit form
-      const submitButton = screen.getByRole('button', { name: 'Submit' })
+      const submitButton = screen.getByRole('button', { name: /submit claim/i })
       await user.click(submitButton)
 
-      // The form should handle the error (currently it just closes the form)
-      // In a real implementation, you might want to show an error message
+      // The form should surface the error and neither fire onSubmit nor close.
       await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalled()
+        expect(screen.getAllByText(/transaction failed/i).length).toBeGreaterThan(0)
       })
+      expect(onSubmit).not.toHaveBeenCalled()
+      expect(onClose).not.toHaveBeenCalled()
     })
 
     it('should integrate with React Query mutation', async () => {
@@ -497,10 +547,13 @@ describe('Claim Submission Integration Tests', () => {
       )
 
       // Fill and submit form
-      const titleInput = screen.getByPlaceholderText('Title')
-      await user.type(titleInput, 'Test Claim')
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim')
+      await user.type(screen.getByPlaceholderText('Category'), 'Politics')
+      await user.type(screen.getByPlaceholderText('Impact'), 'High')
+      await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
+      await user.type(screen.getByPlaceholderText('Description'), 'A sufficiently long description.')
 
-      const submitButton = screen.getByRole('button', { name: 'Submit' })
+      const submitButton = screen.getByRole('button', { name: /submit claim/i })
       await user.click(submitButton)
 
       await waitFor(() => {
@@ -531,7 +584,7 @@ describe('Claim Submission Integration Tests', () => {
       expect(screen.getByPlaceholderText('Category')).toHaveFocus()
 
       await user.tab()
-      expect(screen.getByPlaceholderText('Impact (e.g. High Impact)')).toHaveFocus()
+      expect(screen.getByPlaceholderText('Impact')).toHaveFocus()
 
       await user.tab()
       expect(screen.getByPlaceholderText('https://example.com')).toHaveFocus()
@@ -541,11 +594,11 @@ describe('Claim Submission Integration Tests', () => {
 
       // Tab to cancel button
       await user.tab()
-      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus()
 
       // Tab to submit button
       await user.tab()
-      expect(screen.getByRole('button', { name: 'Submit' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: /submit claim/i })).toHaveFocus()
     })
 
     it('should have proper ARIA labels', () => {

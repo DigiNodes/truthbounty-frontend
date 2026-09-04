@@ -15,6 +15,7 @@ import type {
   DisputeResolvedEvent,
   LeaderboardUpdatedEvent,
 } from '@/app/types/websocket';
+import type { Claim } from '@/app/types/claim';
 import { sortAndNormalizeLeaderboard } from '@/lib/leaderboard';
 
 /**
@@ -56,7 +57,7 @@ export function useRealtimeData() {
       // Also update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: any) =>
+          return old.map((claim: Claim) =>
             claim.id === payload.claimId
               ? { ...claim, ...payload.updates }
               : claim
@@ -89,7 +90,7 @@ export function useRealtimeData() {
       // Update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: any) =>
+          return old.map((claim: Claim) =>
             claim.id === payload.claimId
               ? { ...claim, status: payload.newStatus }
               : claim

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 /**
  * Unit tests for useDisputeReconciliation hook
  * Tests transaction confirmation, bond lock tracking, and dispute ID extraction
@@ -388,12 +389,14 @@ describe('useDisputeReconciliation', () => {
         })
       );
 
-      expect(mockTrackPendingTransaction).toHaveBeenCalledWith({
-        id: mockTransaction.transactionHash,
-        kind: 'dispute',
-        title: 'Opening Dispute',
-        description: expect.stringContaining('claim-123'),
-      });
+      expect(mockTrackPendingTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockTransaction.transactionHash,
+          kind: 'dispute',
+          title: 'Opening Dispute',
+          description: expect.stringContaining('claim-123'),
+        })
+      );
     });
 
     it('should clear pending transaction on confirmation', async () => {

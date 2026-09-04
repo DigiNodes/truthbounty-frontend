@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React from 'react'
 import { render } from '../utils/test-utils'
 import { assertAccessible } from '../utils/axe'
 
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: () => ({
+  useTrust: jest.fn(() => ({
     reputation: 50,
     isVerified: true,
     accountAgeDays: 30,
     suspicious: false,
-  }),
+  })),
 }))
 
 jest.mock('@/components/providers/FeatureFlagProvider', () => ({

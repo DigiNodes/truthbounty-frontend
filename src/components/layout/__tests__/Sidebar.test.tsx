@@ -31,6 +31,9 @@ describe('Sidebar', () => {
       kind: 'verification',
       title: 'Verification stake pending',
       description: 'Claim claim-1 is waiting for wallet confirmation.',
+      txHash: null,
+      chainId: null,
+      machineState: 'idle',
     });
 
     render(<Sidebar />);

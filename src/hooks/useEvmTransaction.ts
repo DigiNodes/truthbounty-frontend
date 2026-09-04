@@ -200,14 +200,16 @@ export function useEvmTransaction(
         // Drive: preparing → signature-requested
         send({ type: 'REQUEST_SIGNATURE' });
 
-        // Wagmi handles wallet popup
+        // Wagmi handles wallet popup. The ABI is caller-provided (untyped), so
+        // cast to wagmi's expected parameter shape instead of narrowing the
+        // optional `value` out of the overload set.
         const txHash = await writeContractAsync({
           address: params.address,
           abi: params.abi,
           functionName: params.functionName,
           args: params.args,
-          value: params.value,
-        });
+          ...(params.value !== undefined ? { value: params.value } : {}),
+        } as Parameters<typeof writeContractAsync>[0]);
 
         // Drive: signature-requested → submitted
         send({ type: 'SUBMIT', txHash });

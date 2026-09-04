@@ -16,6 +16,11 @@ const publicClient = createPublicClient({
   transport: http(),
 });
 
+interface RewardItem {
+  amount: number | string;
+  reason: string;
+}
+
 export default function RewardsPage() {
   const { address } = useAccount();
   const contractAddress = getContractAddress("TruthBountyWeighted");
@@ -23,7 +28,7 @@ export default function RewardsPage() {
   const chainId = getReleaseChainId();
 
   const [balance, setBalance] = useState<string>("0");
-  const [rewards, setRewards] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const { data: hash, writeContract, isPending } = useWriteContract();

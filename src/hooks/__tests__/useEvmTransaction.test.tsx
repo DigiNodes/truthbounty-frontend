@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAccount, useChainId, useSendTransaction, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { useEvmTransaction } from '../useEvmTransaction';
@@ -44,6 +45,9 @@ const CONTRACT_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678' as `0x${st
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // The transaction machine persists to localStorage and hydrates on mount;
+  // clear it so each test starts from the idle state.
+  localStorage.clear();
 
   mockedUseAccount.mockReturnValue({
     address: MOCK_ADDRESS_1,

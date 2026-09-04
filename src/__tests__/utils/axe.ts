@@ -1,4 +1,5 @@
 import { configureAxe } from "jest-axe"
+import "jest-axe/extend-expect"
 
 export const axe = configureAxe({
   rules: {

@@ -161,6 +161,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
       role="presentation"
       onKeyDown={handleFocusTrap}
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/focus-trap keydown handling on the dialog container */}
       <div
         ref={modalRef}
         className="modal-panel border border-zinc-800 bg-[#111111] shadow-2xl"

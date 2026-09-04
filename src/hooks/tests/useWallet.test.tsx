@@ -22,22 +22,25 @@ import { createConfig, mock } from 'wagmi';
 import { useWallet } from '../useWallet';
 
 // ── Test Wagmi config using the built-in mock connector ──────────────────────
-const testConfig = createConfig({
-  chains: [optimismSepolia],
-  transports: { [optimismSepolia.id]: http() },
-  connectors: [
-    mock({
-      accounts: [
-        '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      ],
-    }),
-  ],
-});
+// The config holds mutable connection state, so a fresh instance is created per
+// test to avoid leaking connections/accounts between tests.
+function createTestConfig() {
+  return createConfig({
+    chains: [optimismSepolia],
+    transports: { [optimismSepolia.id]: http() },
+    connectors: [
+      mock({
+        accounts: [
+          '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        ],
+      }),
+    ],
+  });
+}
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-});
+let testConfig = createTestConfig();
+let queryClient: QueryClient;
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -47,10 +50,13 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Clear connector preference between tests
+// Clear connector preference and reset wagmi/query state between tests
 beforeEach(() => {
   localStorage.clear();
-  queryClient.clear();
+  testConfig = createTestConfig();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
 });
 
 afterEach(() => {
@@ -258,9 +264,9 @@ describe('useWallet — account change', () => {
     const firstAddress = result.current.address;
     expect(firstAddress).toBeTruthy();
 
-    // Simulate an account switch via the mock connector
-    await act(async () => {
-      await connector.switchAccount?.({ accounts: ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8'] });
+    // Simulate an account switch by emitting the connector's accountsChanged event
+    act(() => {
+      connector.onAccountsChanged(['0x70997970C51812dc3A010C7d01b50e0d17dc79C8']);
     });
 
     await waitFor(() => {
