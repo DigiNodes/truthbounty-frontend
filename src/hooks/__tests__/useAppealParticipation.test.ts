@@ -12,6 +12,8 @@ import {
   AppealDeadline,
   AppealStakeBounds,
   AppealWalletPosition,
+  AppealSimulationResult,
+  AppealParticipationTransaction,
 } from '@/app/types/appeal';
 
 // Mock Wagmi hooks
@@ -101,7 +103,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -126,7 +128,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -149,7 +151,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let transaction;
+      let transaction: AppealParticipationTransaction | undefined;
 
       await act(async () => {
         transaction = await result.current.submitParticipation(
@@ -490,7 +492,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -512,7 +514,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -534,7 +536,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -558,7 +560,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -579,7 +581,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: AppealSimulationResult | undefined;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(

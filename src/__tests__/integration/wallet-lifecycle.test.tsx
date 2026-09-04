@@ -28,18 +28,21 @@ const ADDR_A = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
 const ADDR_B = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const;
 
 // ── Wagmi test config ─────────────────────────────────────────────────────────
-const testConfig = createConfig({
-  chains: [optimismSepolia, optimism],
-  transports: {
-    [optimismSepolia.id]: http(),
-    [optimism.id]: http(),
-  },
-  connectors: [mock({ accounts: [ADDR_A, ADDR_B] })],
-});
+// Fresh config per test — the config holds mutable connection state that would
+// otherwise leak between tests (ConnectorAlreadyConnectedError, stale accounts).
+function createTestConfig() {
+  return createConfig({
+    chains: [optimismSepolia, optimism],
+    transports: {
+      [optimismSepolia.id]: http(),
+      [optimism.id]: http(),
+    },
+    connectors: [mock({ accounts: [ADDR_A, ADDR_B] })],
+  });
+}
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-});
+let testConfig = createTestConfig();
+let queryClient: QueryClient;
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -51,7 +54,10 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   localStorage.clear();
-  queryClient.clear();
+  testConfig = createTestConfig();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
 });
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -126,8 +132,8 @@ describe('Wallet lifecycle — account change', () => {
 
     const originalAddress = result.current.address;
 
-    await act(async () => {
-      await connector.switchAccount?.({ accounts: [ADDR_B] });
+    act(() => {
+      connector.onAccountsChanged([ADDR_B]);
     });
 
     await waitFor(() => {

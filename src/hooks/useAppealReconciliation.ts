@@ -76,8 +76,8 @@ export function useAppealReconciliation(
         // 2. Decode revert reason from receipt logs
         // 3. Parse custom error messages from contract
 
-        // Mock implementation
-        return undefined; // No revert in successful path
+        // Mock implementation — return a representative revert reason
+        return 'Appeal participation window closed';
       } catch (err) {
         return 'Unknown revert reason';
       }

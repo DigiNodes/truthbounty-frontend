@@ -33,7 +33,22 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
   useConnect: () => ({ connect: jest.fn() }),
+  useAccount: () => ({ address: '0x123', isConnected: true }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({
+    waitForTransactionReceipt: jest.fn(),
+    simulateContract: jest.fn(),
+  }),
+  useReadContract: () => ({ data: 0n }),
+  useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
+
+// Claim contract config is required by useCreateClaimTransaction during render.
+process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+process.env.NEXT_PUBLIC_BOUNTY_ASSET = '0x1234567890123456789012345678901234567890';
+process.env.NEXT_PUBLIC_CLAIM_AMOUNT = '1000000000000000000';
+process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH = '0xabc';
+process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID = '11155420';
 
 describe('ClaimSubmissionForm modal layout', () => {
   it('uses modal shell and panel classes for mobile-safe spacing', () => {

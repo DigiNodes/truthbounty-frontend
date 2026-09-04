@@ -13,6 +13,11 @@ import type {
   RollbackEvent,
   ReplacementEvent,
 } from '@/app/types/websocket';
+import {
+  getAuthSessionHeaders,
+  scopeKey,
+  type WalletSessionScope,
+} from '@/lib/session-store';
 
 const DEFAULT_RECONNECT_ATTEMPTS = 10;
 const DEFAULT_INITIAL_RECONNECT_INTERVAL = 1000; // 1 second initial delay
@@ -20,7 +25,7 @@ const DEFAULT_MAX_RECONNECT_INTERVAL = 30000; // 30 seconds max delay
 const DEFAULT_HEARTBEAT_INTERVAL = 30000;
 const DEFAULT_BACKOFF_MULTIPLIER = 2; // Exponential backoff multiplier
 const DEFAULT_MESSAGE_CACHE_SIZE = 1000; // Max number of messages to keep for deduplication
-const DEFAULT_CURSOR_STORAGE_KEY = 'truthbounty:ws:cursor';
+export const DEFAULT_CURSOR_STORAGE_KEY = 'truthbounty:ws:cursor';
 const DEFAULT_HTTP_CATCHUP_URL = '/api/claims/catchup';
 
 type TimeoutId = ReturnType<typeof setTimeout>;
@@ -41,12 +46,14 @@ export function useWebSocket(config?: WebSocketConfig) {
   const heartbeatIntervalRef = useRef<IntervalId | null>(null);
   const reconnectTimeoutRef = useRef<TimeoutId | null>(null);
   const listenersRef = useRef<
-    Map<WebSocketEventType, Set<WebSocketEventHandler<any>>>
+    Map<WebSocketEventType, Set<WebSocketEventHandler<WebSocketEventType>>>
   >(new Map());
   const isMountedRef = useRef(true);
   const processedMessagesRef = useRef<Set<string>>(new Set());
   const lastCursorRef = useRef<string | null>(null);
   const authTokenRef = useRef<string | null>(null);
+  const sessionScopeRef = useRef<WalletSessionScope | null>(null);
+  const lastScopeKeyRef = useRef<string | null>(null);
 
   const [connectionState, setConnectionState] = useState<WebSocketConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketEvent | null>(null);
@@ -56,6 +63,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   const {
     url,
     authToken,
+    sessionScope,
     reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS,
     reconnectInterval, // Deprecated
     initialReconnectInterval: initialInterval,
@@ -77,6 +85,11 @@ export function useWebSocket(config?: WebSocketConfig) {
   useEffect(() => {
     authTokenRef.current = authToken || null;
   }, [authToken]);
+
+  // Track the wallet scope that authenticates this socket
+  useEffect(() => {
+    sessionScopeRef.current = sessionScope || null;
+  }, [sessionScope]);
 
   // Use deprecated reconnectInterval if provided for backward compatibility, otherwise use default
   const initialReconnectInterval = initialInterval ?? reconnectInterval ?? DEFAULT_INITIAL_RECONNECT_INTERVAL;
@@ -132,17 +145,31 @@ export function useWebSocket(config?: WebSocketConfig) {
     return `${event.type}:${event.timestamp}:${JSON.stringify(event.payload).slice(0, 100)}`;
   };
 
+  /**
+   * Authorization header for authenticated requests.
+   * When a wallet sessionScope is configured, the token is only sent when the
+   * stored session is still valid for that scope (V2-FE-008). Without a scope,
+   * the legacy `authToken` config is used unchanged.
+   */
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    if (sessionScopeRef.current) {
+      return getAuthSessionHeaders(sessionScopeRef.current);
+    }
+    return authTokenRef.current ? { Authorization: `Bearer ${authTokenRef.current}` } : {};
+  }, []);
+
   // HTTP catch-up mechanism to fetch missed messages when reconnecting
   const fetchCatchupMessages = useCallback(async (fromCursor: string | null) => {
     if (!fromCursor) return;
     
     try {
       const response = await fetch(`${httpCatchupUrl}?from=${encodeURIComponent(fromCursor)}`, {
-        headers: authTokenRef.current ? { 'Authorization': `Bearer ${authTokenRef.current}` } : {},
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
-        const messages: WebSocketEvent[] = await response.json();
+        const messages: WebSocketEvent<WebSocketEventPayloadMap[WebSocketEventType]>[] =
+          await response.json();
         // Process missed messages in order
         for (const message of messages) {
           const messageId = generateMessageId(message);
@@ -166,7 +193,7 @@ export function useWebSocket(config?: WebSocketConfig) {
             // Dispatch message
             const listeners = listenersRef.current.get(message.type);
             if (listeners) {
-              listeners.forEach((handler: WebSocketEventHandler<any>) => {
+              listeners.forEach((handler: WebSocketEventHandler<WebSocketEventType>) => {
                 if (isMountedRef.current) {
                   handler(message.payload);
                 }
@@ -182,7 +209,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   }, [httpCatchupUrl, messageCacheSize, onMessage]);
 
   // Process incoming message with deduplication and cursor tracking
-  const processMessage = useCallback((data: WebSocketEvent) => {
+  const processMessage = useCallback((data: WebSocketEvent<WebSocketEventPayloadMap[WebSocketEventType]>) => {
     const messageId = generateMessageId(data);
     
     // Skip if already processed
@@ -223,7 +250,7 @@ export function useWebSocket(config?: WebSocketConfig) {
     // Dispatch to registered listeners
     const listeners = listenersRef.current.get(data.type);
     if (listeners) {
-      listeners.forEach((handler: WebSocketEventHandler<any>) => {
+      listeners.forEach((handler: WebSocketEventHandler<WebSocketEventType>) => {
         if (isMountedRef.current) {
           handler(data.payload);
         }
@@ -264,11 +291,12 @@ export function useWebSocket(config?: WebSocketConfig) {
         reconnectAttemptsRef.current = 0;
         onConnect?.();
 
-        // Authenticate if token is available
-        if (authTokenRef.current) {
+        // Authenticate if a still-valid token is available for the current scope
+        const authHeaders = getAuthHeaders();
+        if (authHeaders.Authorization) {
           socket.send(JSON.stringify({ 
             type: 'AUTHENTICATE', 
-            token: authTokenRef.current 
+            token: authHeaders.Authorization.replace(/^Bearer\s+/i, '') 
           }));
         }
 
@@ -289,7 +317,9 @@ export function useWebSocket(config?: WebSocketConfig) {
         if (!isMountedRef.current) return;
         
         try {
-          const data: WebSocketEvent = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as WebSocketEvent<
+            WebSocketEventPayloadMap[WebSocketEventType]
+          >;
           processMessage(data);
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err);
@@ -363,11 +393,14 @@ export function useWebSocket(config?: WebSocketConfig) {
     if (!listeners.has(eventType)) {
       listeners.set(eventType, new Set());
     }
-    listeners.get(eventType)!.add(handler);
+    // Handlers are keyed by event type and only ever invoked with their own
+    // payload, so widening to the union handler type here is safe.
+    const registered = handler as WebSocketEventHandler<WebSocketEventType>;
+    listeners.get(eventType)!.add(registered);
 
     // Return unsubscribe function
     return () => {
-      listeners.get(eventType)?.delete(handler);
+      listeners.get(eventType)?.delete(registered);
     };
   }, []);
 
@@ -409,6 +442,20 @@ export function useWebSocket(config?: WebSocketConfig) {
       console.warn('Failed to clear persisted WebSocket cursor:', e);
     }
   }, [cursorStorageKey]);
+
+  // Re-establish the socket when the wallet scope changes while connected, so
+  // authentication reflects the new scope (or is dropped entirely when the
+  // stored session is stale). Prevents a previous account/chain session from
+  // keeping a live authenticated stream (V2-FE-008).
+  const sessionScopeKey = sessionScope ? scopeKey(sessionScope) : null;
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (lastScopeKeyRef.current === sessionScopeKey) return;
+    lastScopeKeyRef.current = sessionScopeKey;
+    if (connectionState === 'connected' && socketRef.current) {
+      connect();
+    }
+  }, [sessionScopeKey, connectionState, connect]);
 
   // Return the hook interface
   return useMemo(

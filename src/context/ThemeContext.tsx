@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "light" | "dark";
 
@@ -22,7 +22,7 @@ const getStoredTheme = (): Theme | null => {
   return localStorage.getItem("theme") as Theme | null;
 };
 
-export const ThemeProvider = ({ children }: any) => {
+export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useState<Theme>(
     getStoredTheme() || getSystemTheme()
   );

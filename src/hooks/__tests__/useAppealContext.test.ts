@@ -68,10 +68,10 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context?.isEligible).toBe(true);
       });
 
-      expect(result.current.context?.isEligible).toBe(true);
+      expect(result.current.context?.ineligibilityReason).toBeUndefined();
       expect(result.current.context?.ineligibilityReason).toBeUndefined();
     });
 
@@ -179,7 +179,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.error).toBeDefined();
+        expect(result.current.error).not.toBeNull();
       });
 
       expect(result.current.error).toContain('Wallet not connected');
@@ -223,7 +223,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context?.snapshot).toBeDefined();
       });
 
       expect(result.current.error).toBeNull();
@@ -282,10 +282,10 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context?.deadline).toBeDefined();
       });
 
-      // In the mock implementation, deadline calculation will show expired
+      // With a far-future block number, the deadline window has ended
       expect(result.current.context?.deadline.hasEnded).toBe(true);
       expect(result.current.context?.isEligible).toBe(false);
       expect(result.current.context?.ineligibilityReason).toContain('ended');
@@ -333,7 +333,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.error).toBeDefined();
+        expect(result.current.error).not.toBeNull();
       });
 
       expect(result.current.error).toContain('Invalid appeal or claim ID');
@@ -349,7 +349,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.error).toBeDefined();
+        expect(result.current.error).not.toBeNull();
       });
 
       expect(result.current.error).toContain('Invalid appeal or claim ID');

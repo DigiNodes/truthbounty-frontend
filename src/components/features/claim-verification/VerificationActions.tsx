@@ -33,6 +33,9 @@ export function VerificationActions({
         kind: 'verification',
         title: decision === 'verify' ? 'Verification stake pending' : 'Rejection stake pending',
         description: `Claim ${claimId} is waiting for wallet confirmation.`,
+        txHash: null,
+        chainId: null,
+        machineState: 'idle',
       });
       await submitVerification({ claimId, decision, stakeAmount });
       clearPendingTransaction(transactionId);

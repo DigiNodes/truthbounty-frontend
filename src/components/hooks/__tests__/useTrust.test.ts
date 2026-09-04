@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import { renderHook, waitFor } from "@testing-library/react";
 import { useTrust, useTrustForAddress } from "../useTrust";
 
@@ -69,7 +70,7 @@ describe("useTrust", () => {
 
     const { result, rerender } = renderHook(
       ({ address }: { address?: string }) => useTrustForAddress(address),
-      { initialProps: { address: undefined } },
+      { initialProps: { address: undefined as string | undefined } },
     );
 
     await waitFor(() => {

@@ -5,7 +5,11 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { useSettlementSubmission } from '@/hooks/useSettlementSubmission';
-import { SettlementAction } from '@/app/types/settlement';
+import {
+  SettlementAction,
+  SimulationResult,
+  SettlementSubmission,
+} from '@/app/types/settlement';
 import * as wagmi from 'wagmi';
 
 jest.mock('wagmi', () => ({
@@ -37,7 +41,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -63,7 +67,7 @@ describe('useSettlementSubmission', () => {
         reason: 'Voting period not ended',
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -89,7 +93,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -111,7 +115,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -122,7 +126,7 @@ describe('useSettlementSubmission', () => {
   });
 
   describe('submission', () => {
-    it('should submit settlement transaction', async () => {
+    it('should require wallet writeContract instead of fabricating a transaction hash', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -135,21 +139,22 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let submission;
+      let error: unknown;
       await act(async () => {
-        submission = await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch (e) {
+          error = e;
+        }
       });
 
-      expect(submission).toBeDefined();
-      expect(submission?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(submission?.status).toBe('pending');
-      expect(submission?.type).toBe('SETTLE_PROVISIONAL');
-      expect(submission?.claimId).toBe('claim-123');
-      expect(submission?.from).toBe(mockUserAddress);
-      expect(submission?.to).toBe(mockContractAddress);
+      // Protocol invariant: never fabricate a synthetic hash.
+      expect(error).toBeDefined();
+      expect((error as Error).message).toContain('writeContract');
+      expect((error as Error).message).toContain('no synthetic transaction hash');
     });
 
-    it('should track last submission', async () => {
+    it('should not record a submission without a wallet-backed transaction hash', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -164,12 +169,15 @@ describe('useSettlementSubmission', () => {
       };
 
       await act(async () => {
-        await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch {
+          // Expected: submission requires wallet writeContract integration.
+        }
       });
 
-      expect(result.current.lastSubmission).toBeDefined();
-      expect(result.current.lastSubmission?.type).toBe('SETTLE_APPEAL');
-      expect(result.current.lastSubmission?.disputeId).toBe('dispute-789');
+      expect(result.current.lastSubmission).toBeNull();
+      expect(result.current.error).toContain('writeContract');
     });
 
     it('should handle submission errors', async () => {
@@ -186,7 +194,7 @@ describe('useSettlementSubmission', () => {
         reason: 'Already settled',
       };
 
-      let error;
+      let error: unknown;
       await act(async () => {
         try {
           await result.current.submitSettlement(action);
@@ -214,12 +222,13 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('12345678');
+      // settleProvisional(bytes32) function selector.
+      expect(simulationResult?.data?.calldata).toMatch(/^0xf6ac795f/);
     });
 
     it('should encode FINALIZE correctly', async () => {
@@ -235,12 +244,13 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: SimulationResult | undefined;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('34567890');
+      // finalize(bytes32) function selector.
+      expect(simulationResult?.data?.calldata).toMatch(/^0x92584d80/);
     });
   });
 

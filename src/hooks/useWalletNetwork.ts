@@ -67,6 +67,27 @@ export type WalletNetworkSwitchRequest = {
   chainId: number;
 };
 
+const CHAIN_SCOPED_STORAGE_KEYS = [
+  'truthbounty-chain-cache',
+  'truthbounty:chain',
+  'truthbounty:wallet:network',
+];
+
+/**
+ * Remove chain-scoped caches from storage.
+ * Safe to call on the server (no-op).
+ */
+export function clearChainScopedStorage(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  for (const key of CHAIN_SCOPED_STORAGE_KEYS) {
+    window.sessionStorage.removeItem(key);
+    window.localStorage.removeItem(key);
+  }
+}
+
 export interface UseWalletNetworkOptions {
   chainId?: number;
   isConnected?: boolean;
@@ -119,15 +140,7 @@ export function useWalletNetwork(options: UseWalletNetworkOptions = {}) {
       return;
     }
 
-    const matchKeys = ['truthbounty-chain-cache', 'truthbounty:chain', 'truthbounty:wallet:network'];
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    for (const key of matchKeys) {
-      window.sessionStorage.removeItem(key);
-      window.localStorage.removeItem(key);
-    }
+    clearChainScopedStorage();
   }, [options.clearCache]);
 
   const switchToSupportedNetwork = useCallback(async () => {
