@@ -15,6 +15,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 let mockAccount: { address: `0x${string}`; displayName: string; chainId: number } | null = null;
 const mockMutateAsync = jest.fn();
 const mockConnect = jest.fn();
+const mockWriteContractAsync = jest.fn();
 const mockConnectors = [{ id: 'injected', name: 'Injected', type: 'injected' }];
 
 jest.mock('@/hooks/useAccount', () => ({
@@ -46,7 +47,22 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => mockConnectors,
   useConnect: () => ({ connect: mockConnect }),
+  useAccount: () => ({ address: undefined, isConnected: false }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({
+    waitForTransactionReceipt: jest.fn().mockResolvedValue(undefined),
+    simulateContract: jest.fn().mockResolvedValue({ request: {} }),
+  }),
+  useReadContract: () => ({ data: 0n }),
+  useWriteContract: () => ({ writeContractAsync: mockWriteContractAsync }),
 }));
+
+// Claim contract config is required by useCreateClaimTransaction during render.
+process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+process.env.NEXT_PUBLIC_BOUNTY_ASSET = '0x1234567890123456789012345678901234567890';
+process.env.NEXT_PUBLIC_CLAIM_AMOUNT = '1000000000000000000';
+process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH = '0xabc';
+process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID = '11155420';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
@@ -79,6 +95,8 @@ beforeEach(() => {
   mockConnect.mockReset();
   mockMutateAsync.mockReset();
   mockMutateAsync.mockResolvedValue(undefined);
+  mockWriteContractAsync.mockReset();
+  mockWriteContractAsync.mockResolvedValue('0xhash');
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -139,15 +157,15 @@ describe('ClaimSubmissionForm - submit guard', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('calls the submit mutation when the wallet is connected and form is valid', async () => {
+  it('submits the claim transaction when the wallet is connected and form is valid', async () => {
     mockAccount = CONNECTED;
     const onClose = jest.fn();
     const onSubmit = jest.fn();
@@ -156,18 +174,20 @@ describe('ClaimSubmissionForm - submit guard', () => {
     fillValidForm();
     fireEvent.submit(screen.getByTestId('submit-claim-button').closest('form')!);
 
+    // Submission goes through the on-chain path (writeContract), not the
+    // legacy useSubmitClaim mutation.
     await waitFor(() => {
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
     });
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith({
       title: 'A real claim title',
       category: 'Politics',
       impact: 'High',
       source: 'https://example.com/source',
       description: 'A sufficiently long description.',
     });
-    expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
@@ -230,10 +250,11 @@ describe('Protocol invariant: submit-allowed ⇔ wallet-connected', () => {
       fireEvent.submit(submit.closest('form')!);
 
       if (expectEnabled) {
-        await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
+        // Enabled ⇒ the on-chain write goes through.
+        await waitFor(() => expect(mockWriteContractAsync).toHaveBeenCalledTimes(1));
       } else {
         await Promise.resolve();
-        expect(mockMutateAsync).not.toHaveBeenCalled();
+        expect(mockWriteContractAsync).not.toHaveBeenCalled();
       }
     }
   );

@@ -54,6 +54,7 @@ export default function TrustExplanationModal({ onClose }: Props) {
       role="presentation"
       onKeyDown={handleFocusTrap}
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/focus-trap keydown handling on the dialog container */}
       <div
         ref={modalRef}
         className="modal-panel bg-[#18181b] border border-[#232329]"

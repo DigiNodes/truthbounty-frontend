@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { WorldcoinVerification, WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
 import { getVerificationStatus, submitWorldcoinVerification, mockWorldcoinVerification, shouldUseMock } from '@/app/lib/worldcoin';
@@ -47,7 +47,6 @@ export function useWorldcoinVerification({
   const [error, setError] = useState<string | null>(null);
   const [isMockMode] = useState(() => shouldUseMock());
   const [isConfigured] = useState(() => isWorldcoinConfigured());
-  const idkitRef = useRef<any>(null);
   const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {

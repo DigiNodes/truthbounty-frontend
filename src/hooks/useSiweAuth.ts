@@ -115,7 +115,7 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
   }, [sessionStore]);
 
   const { address: wagmiAddress, isConnected } = useWagmiAccount();
-  const { chainId: wagmiChainId } = useWagmiChain();
+  const wagmiChainId = useWagmiChain();
 
   const address = options.accountOverride?.address ?? (isConnected ? wagmiAddress : null) ?? null;
   const chainId = options.accountOverride?.chainId ?? wagmiChainId ?? null;
@@ -295,7 +295,8 @@ function useWagmiSignMessage(): (message: string) => Promise<Uint8Array | `0x${s
   const signMessage = useSignMessage();
   const sign = signMessage.signMessage;
   return useCallback(
-    (message: string) => sign({ message }) as Promise<Uint8Array | `0x${string}`>,
+    (message: string) =>
+      sign({ message }) as unknown as Promise<Uint8Array | `0x${string}`>,
     [sign],
   );
 }

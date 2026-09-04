@@ -205,11 +205,14 @@ export function useFinalizationDetection(
 
   /**
    * Poll for finalization readiness
+   * Always runs an initial detection so validation errors (e.g. wallet not
+   * connected) surface even when there is nothing to poll.
    */
   useEffect(() => {
+    detectAction();
+
     if (!isConnected) return;
 
-    detectAction();
     const interval = setInterval(detectAction, pollInterval);
 
     return () => clearInterval(interval);

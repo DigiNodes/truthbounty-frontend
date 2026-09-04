@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 /**
  * Unit tests for useAccount — EVM-backed account accessor.
  *
@@ -25,15 +26,18 @@ import { useAccount } from '../useAccount';
 // ── Wagmi test harness ────────────────────────────────────────────────────────
 const MOCK_ADDRESS_A = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
 
-const testConfig = createConfig({
-  chains: [optimismSepolia],
-  transports: { [optimismSepolia.id]: http() },
-  connectors: [mock({ accounts: [MOCK_ADDRESS_A] })],
-});
+// The wagmi config holds mutable connection state, so a fresh instance is
+// created per test to avoid ConnectorAlreadyConnectedError and account leaks.
+function createTestConfig() {
+  return createConfig({
+    chains: [optimismSepolia],
+    transports: { [optimismSepolia.id]: http() },
+    connectors: [mock({ accounts: [MOCK_ADDRESS_A] })],
+  });
+}
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-});
+let testConfig = createTestConfig();
+let queryClient: QueryClient;
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -45,7 +49,10 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   localStorage.clear();
-  queryClient.clear();
+  testConfig = createTestConfig();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

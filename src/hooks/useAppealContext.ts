@@ -35,6 +35,10 @@ const OPTIMISM_MAINNET_CHAIN_ID = 10;
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
 const DEFAULT_POLL_INTERVAL = 10000; // 10 seconds
 
+// Mock anchor block for the appeal snapshot (deterministic per-appeal in production)
+// Used to keep endBlock fixed so blocksRemaining shrinks as the chain advances.
+const MOCK_SNAPSHOT_BLOCK = 12320000;
+
 /**
  * Fetch appeal participation context from contract and indexer
  * Provides snapshot, deadline, stake bounds, and wallet position
@@ -105,7 +109,7 @@ export function useAppealContext(
           firstRoundVotesAgainst: 8,
           reason: 'First round verification was compromised',
           initiatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-          blockNumber: Number(currentBlockNumber) - 7200, // ~24h ago on Optimism (2s blocks)
+          blockNumber: MOCK_SNAPSHOT_BLOCK, // fixed anchor so the deadline window stays fixed
         };
 
         return mockSnapshot;
@@ -113,7 +117,7 @@ export function useAppealContext(
         throw new Error(`Failed to fetch appeal snapshot: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [claimId, currentBlockNumber]
+    [claimId]
   );
 
   /**
@@ -330,11 +334,14 @@ export function useAppealContext(
 
   /**
    * Poll for context updates
+   * Always runs an initial fetch so validation errors (e.g. wallet not connected,
+   * invalid IDs) surface even when there is nothing to poll.
    */
   useEffect(() => {
+    fetchContext();
+
     if (!isConnected || !appealId) return;
 
-    fetchContext();
     const interval = setInterval(fetchContext, pollInterval);
 
     return () => clearInterval(interval);

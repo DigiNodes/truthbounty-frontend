@@ -21,9 +21,11 @@ import * as path from 'path';
 
 // Mock wagmi at top level for test environment
 jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => ({ address: undefined, isConnected: false, isConnecting: false, isReconnecting: false, chainId: undefined, connector: undefined }),
   useChainId: () => 10,
+  useConnect: () => ({ connect: jest.fn(), isPending: false }),
   useDisconnect: () => ({ disconnect: jest.fn() }),
+  useConnectors: () => [],
 }));
 
 // ---------------------------------------------------------------------------

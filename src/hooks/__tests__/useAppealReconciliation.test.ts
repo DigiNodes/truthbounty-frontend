@@ -9,6 +9,7 @@ import * as wagmi from 'wagmi';
 import {
   AppealParticipationTransaction,
   StateSegregation,
+  AppealReconciliationResult,
 } from '@/app/types/appeal';
 
 // Mock Wagmi hooks
@@ -65,10 +66,8 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result?.status).toBe('confirmed');
       });
-
-      expect(result.current.result?.status).toBe('confirmed');
       expect(result.current.result?.transactionHash).toBe(mockTxHash);
       expect(result.current.result?.finalState).toBe('ACTIVE');
       expect(result.current.result?.position.hasParticipated).toBe(true);
@@ -94,7 +93,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result?.position).toBeDefined();
       });
 
       const position = result.current.result!.position;
@@ -146,10 +145,8 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result?.status).toBe('reverted');
       });
-
-      expect(result.current.result?.status).toBe('reverted');
       expect(result.current.result?.position.hasParticipated).toBe(false);
       expect(result.current.result?.revertReason).toBeDefined();
     });
@@ -173,7 +170,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result?.position).toBeDefined();
       });
 
       const position = result.current.result!.position;
@@ -251,7 +248,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.stateSegregation).toBeDefined();
+        expect(result.current.stateSegregation?.claimId).toBeDefined();
       });
 
       const segregation = result.current.stateSegregation!;
@@ -280,7 +277,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.stateSegregation).toBeDefined();
+        expect(result.current.stateSegregation?.firstRoundState).toBeDefined();
       });
 
       const segregation = result.current.stateSegregation!;
@@ -383,7 +380,7 @@ describe('useAppealReconciliation', () => {
         })
       );
 
-      let manualResult;
+      let manualResult: AppealReconciliationResult | null | undefined;
       await act(async () => {
         manualResult = await result.current.reconcile();
       });

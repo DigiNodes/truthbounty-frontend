@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -9,7 +10,7 @@ const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      cacheTime: 0,
+      gcTime: 0,
     },
     mutations: {
       retry: false,
@@ -147,10 +148,10 @@ export const mockWebSocketEvent = (eventType: string, payload: any) => {
   })
   
   // Find WebSocket instances and trigger the event
-  const wsInstances = (global.WebSocket as jest.Mock).mock.instances
+  const wsInstances = (global.WebSocket as unknown as jest.Mock).mock.instances
   wsInstances.forEach((ws: any) => {
     const onMessageHandler = ws.addEventListener.mock.calls.find(
-      ([event]) => event === 'message'
+      ([event]: [string]) => event === 'message'
     )?.[1]
     
     if (onMessageHandler) {

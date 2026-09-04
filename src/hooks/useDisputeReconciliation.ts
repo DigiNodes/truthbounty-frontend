@@ -87,7 +87,7 @@ export function useDisputeReconciliation(
         // 4. Event signature: DisputeOpened(bytes32 indexed claimId, bytes32 indexed disputeId, address challenger, uint256 bond)
 
         // Mock implementation
-        return `dispute-${txHash.slice(0, 10)}-${Date.now()}`;
+        return `dispute-${txHash.slice(0, 12)}-${Date.now()}`;
       } catch (err) {
         return undefined;
       }
@@ -111,8 +111,8 @@ export function useDisputeReconciliation(
         //   - "Insufficient bond"
         //   - "Contract paused"
 
-        // Mock implementation
-        return undefined; // No revert in successful path
+        // Mock implementation — return a representative revert reason
+        return 'Dispute window closed';
       } catch (err) {
         return 'Unknown revert reason';
       }
@@ -169,6 +169,9 @@ export function useDisputeReconciliation(
       kind: 'dispute',
       title: 'Opening Dispute',
       description: `Challenge for claim ${tx.claimId.slice(0, 10)}...`,
+      txHash: tx.transactionHash as `0x${string}` | null,
+      chainId: null,
+      machineState: 'idle',
     });
   }, []);
 
@@ -316,7 +319,8 @@ export function useDisputeReconciliation(
   return {
     reconcile,
     result,
-    isWaiting: isWaitingForReceipt,
+    // No transaction ⇒ nothing to wait on, even if wagmi reports a loading state.
+    isWaiting: transaction ? isWaitingForReceipt : false,
     isReconciling,
     error,
     bondLocked,

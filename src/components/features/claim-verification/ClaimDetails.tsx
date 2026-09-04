@@ -54,6 +54,10 @@ export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNo
     return <ClaimDetailsSkeleton />;
   }
 
+  return <ClaimDetailsContent claim={claim} />;
+}
+
+function ClaimDetailsContent({ claim }: { claim: Claim }) {
   const claimantTrust = useTrustForAddress(claim.claimantAddress);
   const lowRep = claimantTrust.reputation < 20;
   const newAcct = claimantTrust.accountAgeDays < 7;
@@ -76,6 +80,32 @@ export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNo
           <span>Status: </span>
           <span className="font-medium">{claim.status}</span>
         </div>
+
+        {claim.evidence.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h3 className="text-sm font-semibold">Evidence</h3>
+            {claim.evidence.map((e, idx) => {
+              if (e.type === 'link') {
+                return (
+                  <a
+                    key={idx}
+                    href={e.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-blue-600 underline break-all text-sm"
+                  >
+                    {e.value}
+                  </a>
+                );
+              }
+              return (
+                <p key={idx} className="text-sm text-muted">
+                  {e.value}
+                </p>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

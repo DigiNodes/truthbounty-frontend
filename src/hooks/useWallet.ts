@@ -187,13 +187,18 @@ export function useWallet(): WalletLifecycle {
   const clearError = useCallback(() => setConnectorError(null), []);
 
   // ── Lifecycle state label ──────────────────────────────────────────────────
+  // Before the component mounts (SSR/hydration), always report disconnected
+  // even though wagmi may still be resolving its initial connection state.
+  // We deliberately use the connect mutation's pending flag (not wagmi's
+  // useAccount isConnecting) so the initial mount resolution does not show a
+  // phantom "connecting" state.
   const state = useMemo((): WalletLifecycleState => {
+    if (!mounted) return 'disconnected';
     if (connectorError) return 'error';
-    if (isConnecting || connectPending) return 'connecting';
-    if (isReconnecting) return 'reconnecting';
+    if (connectPending || isReconnecting) return 'connecting';
     if (isConnected) return 'connected';
     return 'disconnected';
-  }, [connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
+  }, [mounted, connectorError, connectPending, isReconnecting, isConnected]);
 
   return {
     isConnected,

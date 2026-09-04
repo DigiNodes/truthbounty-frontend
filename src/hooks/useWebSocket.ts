@@ -46,7 +46,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   const heartbeatIntervalRef = useRef<IntervalId | null>(null);
   const reconnectTimeoutRef = useRef<TimeoutId | null>(null);
   const listenersRef = useRef<
-    Map<WebSocketEventType, Set<WebSocketEventHandler<any>>>
+    Map<WebSocketEventType, Set<WebSocketEventHandler<WebSocketEventType>>>
   >(new Map());
   const isMountedRef = useRef(true);
   const processedMessagesRef = useRef<Set<string>>(new Set());
@@ -168,7 +168,8 @@ export function useWebSocket(config?: WebSocketConfig) {
       });
       
       if (response.ok) {
-        const messages: WebSocketEvent[] = await response.json();
+        const messages: WebSocketEvent<WebSocketEventPayloadMap[WebSocketEventType]>[] =
+          await response.json();
         // Process missed messages in order
         for (const message of messages) {
           const messageId = generateMessageId(message);
@@ -192,7 +193,7 @@ export function useWebSocket(config?: WebSocketConfig) {
             // Dispatch message
             const listeners = listenersRef.current.get(message.type);
             if (listeners) {
-              listeners.forEach((handler: WebSocketEventHandler<any>) => {
+              listeners.forEach((handler: WebSocketEventHandler<WebSocketEventType>) => {
                 if (isMountedRef.current) {
                   handler(message.payload);
                 }
@@ -208,7 +209,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   }, [httpCatchupUrl, messageCacheSize, onMessage]);
 
   // Process incoming message with deduplication and cursor tracking
-  const processMessage = useCallback((data: WebSocketEvent) => {
+  const processMessage = useCallback((data: WebSocketEvent<WebSocketEventPayloadMap[WebSocketEventType]>) => {
     const messageId = generateMessageId(data);
     
     // Skip if already processed
@@ -249,7 +250,7 @@ export function useWebSocket(config?: WebSocketConfig) {
     // Dispatch to registered listeners
     const listeners = listenersRef.current.get(data.type);
     if (listeners) {
-      listeners.forEach((handler: WebSocketEventHandler<any>) => {
+      listeners.forEach((handler: WebSocketEventHandler<WebSocketEventType>) => {
         if (isMountedRef.current) {
           handler(data.payload);
         }
@@ -316,7 +317,9 @@ export function useWebSocket(config?: WebSocketConfig) {
         if (!isMountedRef.current) return;
         
         try {
-          const data: WebSocketEvent = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as WebSocketEvent<
+            WebSocketEventPayloadMap[WebSocketEventType]
+          >;
           processMessage(data);
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err);
@@ -390,11 +393,14 @@ export function useWebSocket(config?: WebSocketConfig) {
     if (!listeners.has(eventType)) {
       listeners.set(eventType, new Set());
     }
-    listeners.get(eventType)!.add(handler);
+    // Handlers are keyed by event type and only ever invoked with their own
+    // payload, so widening to the union handler type here is safe.
+    const registered = handler as WebSocketEventHandler<WebSocketEventType>;
+    listeners.get(eventType)!.add(registered);
 
     // Return unsubscribe function
     return () => {
-      listeners.get(eventType)?.delete(handler);
+      listeners.get(eventType)?.delete(registered);
     };
   }, []);
 

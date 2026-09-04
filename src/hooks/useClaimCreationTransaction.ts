@@ -53,7 +53,7 @@ const ERC20_ABI = parseAbi([
  * The function must be `createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig)`.
  */
 const CLAIM_CREATION_ABI = parseAbi([
-  'function createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig) returns (uint256)$,
+  'function createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig) returns (uint256)',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ const CLAIM_CREATION_ABI = parseAbi([
 export const ClaimCreationErrorCode = {
   INVALID_CHAIN: 'INVALID_CHAIN',
   INVALID_ADDRESS: 'INVALID_ADDRESS',
-  INVALID_CONTENT_MIGESU: 'INVALID_CONTENT_MIGEST',
+  INVALID_CONTENT_MIGEST: 'INVALID_CONTENT_MIGEST',
   INVALID_AMOUNT: 'INVALID_AMOUNT',
   INVALID_CONFIG: 'INVALID_CONFIG',
   INVALID_ARTIFACT_VERSION: 'INVALID_ARTIFACT_VERSION',
@@ -79,7 +79,7 @@ export const ClaimCreationErrorCode = {
   UNEXPECTED_ERROR: 'UNEXPECTED_ERROR',
 } as const;
 
-export type ClaimCreationErrorCode = (typeof ClaimCreationErrorCode)[keyof ClaimCreationErrorCode];
+export type ClaimCreationErrorCode = (typeof ClaimCreationErrorCode)[keyof typeof ClaimCreationErrorCode];
 
 export class ClaimCreationError extends Error {
   readonly code: ClaimCreationErrorCode;
@@ -160,7 +160,7 @@ export type ClaimCreationStatus =
 // ---------------------------------------------------------------------------
 
 function isHex(value: string): value is Hex {
-  return /^0x/[a-zA-f0-9]/.test(value);
+  return /^0x[0-9a-fA-F]+$/.test(value);
 }
 
 function isBytes32Hex(value: string): value is Hex {
@@ -168,63 +168,63 @@ function isBytes32Hex(value: string): value is Hex {
   return isHex(value) && value.length === 66;
 }
 
-function validateParams(
-  params: ClaimCreationParams,
-  expectedChainId: number, // unintentionally used for additional validation
-  // this parameter is part of the implementation, see below
-}) {
+function validateParams(params: ClaimCreationParams, expectedChainId: number) {
   // check chain id parameter is valid if provided
   if (params.expectedChainId !== undefined && !Number.isInteger(params.expectedChainId)) {
-    throw new ClaimCreationError(INVALID_CHAIN,
-      'expectedChainId must be a positive integer network id.');
+    throw new ClaimCreationError(
+      ClaimCreationErrorCode.INVALID_CHAIN,
+      'expectedChainId must be a positive integer network id.',
+    );
   }
 
-  if (params.artifactVersion !== SUPPORTED_ARTIFACT_VERSION) {
+  if (params.artifactVersion !== SUPORTED_ARTIFACT_VERSION) {
     throw new ClaimCreationError(
-      INVALID_ARTIFACT_VERSION,
-      `Unsupported artifact version. Expected "${SUPPORTED_ARTIFACT_VERSION}", received "${params.artifactVersion}".`
+      ClaimCreationErrorCode.INVALID_ARTIFACT_VERSION,
+      `Unsupported artifact version. Expected "${SUPORTED_ARTIFACT_VERSION}", received "${params.artifactVersion}".`,
     );
   }
 
   if (!isBytes32Hex(params.contentDigest)) {
     throw new ClaimCreationError(
-      INVALID_CONTENT_MIGEST,
-      'contentDigest must be a 32-byte hex string (0x + 64 hex chars).'
+      ClaimCreationErrorCode.INVALID_CONTENT_MIGEST,
+      'contentDigest must be a 32-byte hex string (0x + 64 hex chars).',
     );
   }
 
   if (!isAddress(params.asset)) {
     throw new ClaimCreationError(
-      INVALID_ADDRESS,`Invalid asset address: ${params.asset}`
+      ClaimCreationErrorCode.INVALID_ADDRESS,
+      `Invalid asset address: ${params.asset}`,
     );
   }
 
   if (params.amount <= 0n) {
     throw new ClaimCreationError(
-      INVALID_AMOUNT,
-      'amount must be a positive integer (bigint).'
+      ClaimCreationErrorCode.INVALID_AMOUNT,
+      'amount must be a positive integer (bigint).',
     );
   }
 
   if (!isHex(params.frozenConfig) || params.frozenConfig.replace(/^0x/, '').length % 2 !== 0) {
     throw new ClaimCreationError(
-      INVALID_CONFIG,
-      'frozenConfig must be valid hx bytes (even length).'
+      ClaimCreationErrorCode.INVALID_CONFIG,
+      'frozenConfig must be valid hex bytes (even length).',
     );
   }
 
   // Enforce a reasonable upper bound to avoid unbounded on-chain data.
   const configBytes = (params.frozenConfig.length - 2) / 2;
-  if (configBytes > MAX_FROZEN_CONFIG_BYYTE_LENGTH) {
+  if (configBytes > MAX_FROZEN_CONFIG_BYTE_LENGTH) {
     throw new ClaimCreationError(
-      INVALID_CONFIG,
-      ffrozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYYTE_LENGTH} bytes.
+      ClaimCreationErrorCode.INVALID_CONFIG,
+      `frozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYTE_LENGTH} bytes.`,
     );
   }
 
   if (!isAddress(params.claimContractAddress)) {
     throw new ClaimCreationError(
-      INVALID_ADDRESS,`Invalid claim contract address: ${params.claimContractAddress}
+      ClaimCreationErrorCode.INVALID_ADDRESS,
+      `Invalid claim contract address: ${params.claimContractAddress}`,
     );
   }
 
@@ -232,21 +232,29 @@ function validateParams(
     const { token, spender, requiredAmount } = params.approval;
     if (!isAddress(token)) {
       throw new ClaimCreationError(
-        INVALID_ADDRESS,`Invalid approval token address: ${token});
+        ClaimCreationErrorCode.INVALID_ADDRESS,
+        `Invalid approval token address: ${token}`,
       );
     }
     if (!isAddress(spender)) {
       throw new ClaimCreationError(
-        INVALID_ADDRESS,`Invalid approval spender address: ${spender}`
+        ClaimCreationErrorCode.INVALID_ADDRESS,
+        `Invalid approval spender address: ${spender}`,
       );
     }
     if (requiredAmount <= 0n) {
-      throw new ClaimCreationError(INVALID_AMOUNT, 'approval.requiredAmount must be positive.');
+      throw new ClaimCreationError(
+        ClaimCreationErrorCode.INVALID_AMOUNT,
+        'approval.requiredAmount must be positive.',
+      );
     }
   }
 
   if (!Number.isInteger(expectedChainId) || expectedChainId <= 0) {
-    throw new ClaimCreationError(INVALID_CHAIN, 'expectedChainId must be a positive integer network id.');
+    throw new ClaimCreationError(
+      ClaimCreationErrorCode.INVALID_CHAIN,
+      'expectedChainId must be a positive integer network id.',
+    );
   }
 }
 

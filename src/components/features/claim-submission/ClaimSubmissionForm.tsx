@@ -37,7 +37,8 @@ function useCreateClaimTransaction() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
-  const { address } = useAccount();
+  const account = useAccount();
+  const address = account?.address;
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { amount, asset, address: contractAddress, configHash, chainId: expectedChainId } = getClaimConfig();
@@ -47,7 +48,7 @@ function useCreateClaimTransaction() {
     abi: erc20Abi,
     functionName: "allowance",
     args: address ? [address, contractAddress] : undefined,
-    enabled: !!address,
+    query: { enabled: !!address },
   });
 
   const { writeContractAsync: writeAllowanceAsync } = useWriteContract();
@@ -309,6 +310,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       : "";
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- modal focus trap keydown lives on the dialog container
     <div
       ref={modalRef}
       className="fixed inset-0 z-50 modal-shell bg-black/60"
@@ -318,6 +320,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       data-testid="claim-submission-modal"
       onKeyDown={handleFocusTrap}
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/shortcut keydown handling on the modal form */}
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}

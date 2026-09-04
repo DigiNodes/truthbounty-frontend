@@ -31,17 +31,15 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
   const forPercentage = (data.votesFor / totalVotes) * 100;
   const againstPercentage = (data.votesAgainst / totalVotes) * 100;
 
-  const handleOpenDispute = async (payload: any) => {
-    console.log("Opening dispute:", payload);
-
+  const handleOpenDispute = (disputeId: string) => {
     setDispute({
-      id: "dsp_1",
+      id: disputeId,
       claimId: "claim_123",
-      reason: payload.reason,
+      reason: "",
       status: "VOTING",
       proVotes: 0,
       conVotes: 0,
-      totalStaked: payload.initialStake,
+      totalStaked: 0,
       createdAt: new Date().toISOString(),
     });
   };
@@ -68,12 +66,11 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
       <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">{data.title}</h1>
 
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-sm text-gray-400 mb-6 sm:mb-8">
-        <a
-          href="#"
+        <span
           className="flex items-center hover:text-gray-200 transition-colors"
         >
           {data.source} <ExternalLink size={14} className="ml-1" aria-hidden="true" />
-        </a>
+        </span>
         <span className="flex items-center">
           <Clock size={14} className="mr-1" /> {data.timeAgo}
         </span>
@@ -156,7 +153,7 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         claimId="claim_123"
         isOpen={isDisputeModalOpen}
         onClose={() => setDisputeModalOpen(false)}
-        onSubmit={handleOpenDispute}
+        onSuccess={handleOpenDispute}
       />
     </div>
   );

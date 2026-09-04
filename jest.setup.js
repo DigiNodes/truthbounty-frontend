@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- jest env setup */
 import '@testing-library/jest-dom'
 import { queryClient } from './src/app/queries/queryClient'
 
