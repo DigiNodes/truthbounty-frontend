@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
+// import { IDKit, VerificationLevel } from '@worldcoin/idkit';
 import {
   IDKitRequestWidget,
   orbLegacy,
@@ -305,6 +306,8 @@ export function WorldcoinVerifyButton({
     );
   }
 
+  // Use mock verification for now (IDKit widget API compatibility issue)
+  // TODO: Update to use IDKit v4.1.2 API when available
   if (!useMockMode && isIDKitConfigured && walletAddress) {
     if (rpContextError) {
       return (
