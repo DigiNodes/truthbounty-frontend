@@ -1,15 +1,17 @@
 import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { WagmiProvider } from 'wagmi'
+import { wagmiConfig } from '@/config/wagmi'
 import { WebSocketProvider } from '@/components/providers/WebSocketProvider'
-import { Providers } from '@/app/providers'
+import type { Claim, ClaimStatus } from '@/app/types/claim'
 
 // Test query client
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      cacheTime: 0,
+      gcTime: 0,
     },
     mutations: {
       retry: false,
@@ -28,11 +30,13 @@ const AllTheProviders = ({ children, queryClient, wsConfig }: AllTheProvidersPro
   const testQueryClient = queryClient || createTestQueryClient()
   
   return (
-    <QueryClientProvider client={testQueryClient}>
-      <WebSocketProvider config={wsConfig || { url: 'ws://test:8080' }}>
-        {children}
-      </WebSocketProvider>
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={testQueryClient}>
+        <WebSocketProvider config={wsConfig || { url: 'ws://test:8080' }}>
+          {children}
+        </WebSocketProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   )
 }
 
@@ -56,77 +60,81 @@ const customRender = (
 }
 
 // Mock data generators
-export const createMockClaim = (overrides = {}) => ({
+export const createMockClaim = (overrides: Partial<Claim> = {}): Claim => ({
   id: 'claim-1',
   title: 'Test Claim',
-  description: 'This is a test claim',
+  description: 'This is a test claim description that is long enough.',
+  category: 'Science',
+  status: 'OPEN' as ClaimStatus,
   claimantAddress: '0x1234567890123456789012345678901234567890',
-  status: 'OPEN',
+  proposer: '0x1234567890123456789012345678901234567890',
   bountyAmount: 100,
-  totalStaked: 0,
+  totalStaked: 1000,
   evidence: [],
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  expiresAt: new Date(Date.now() + 86400000).toISOString(),
   ...overrides,
 })
 
 export const createMockVerification = (overrides = {}) => ({
   id: 'verification-1',
   claimId: 'claim-1',
-  verifierAddress: '0x0987654321098765432109876543210987654321',
-  decision: 'VERIFY',
-  stakeAmount: 50,
+  verifier: '0x1234567890123456789012345678901234567890',
+  decision: 'TRUE',
   status: 'PENDING',
-  createdAt: '2024-01-01T01:00:00Z',
+  stakeAmount: 100,
+  confidence: 90,
+  createdAt: new Date().toISOString(),
   ...overrides,
 })
 
-export const createMockTrustInfo = (overrides = {}) => ({
-  isVerified: true,
-  reputation: 50,
-  accountAgeDays: 30,
-  suspicious: false,
+export const createMockEvidence = (overrides = {}) => ({
+  id: 'evidence-1',
+  claimId: 'claim-1',
+  submitter: '0x1234567890123456789012345678901234567890',
+  type: 'url',
+  url: 'https://example.com/evidence',
+  description: 'Evidence supporting the claim',
+  status: 'pending',
+  createdAt: new Date().toISOString(),
   ...overrides,
 })
 
-// Mock API responses
-export const mockFetchClaims = (claims: any[] = [createMockClaim()]) => {
+export const createMockVote = (overrides = {}) => ({
+  id: 'vote-1',
+  claimId: 'claim-1',
+  voter: '0x1234567890123456789012345678901234567890',
+  stance: 'support',
+  stakedAmount: 100,
+  createdAt: new Date().toISOString(),
+  ...overrides,
+})
+
+export const mockSubmitVerification = jest.fn((params: any) =>
+  Promise.resolve({
+    id: 'verif-new',
+    ...params,
+    status: 'PENDING',
+  })
+)
+
+// Wait utilities
+export const waitForWebSocket = async (delay = 100) => {
+  await new Promise(resolve => setTimeout(resolve, delay))
+}
+
+// Mock fetch response helpers
+export const mockFetchSuccess = (data: any) => {
   ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
     Promise.resolve({
       ok: true,
-      json: () => Promise.resolve(claims),
+      json: () => Promise.resolve(data),
     })
   )
 }
 
-export const mockFetchClaimDetail = (claim: any = createMockClaim()) => {
-  ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(claim),
-    })
-  )
-}
-
-export const mockSubmitClaim = (claim: any = createMockClaim()) => {
-  ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(claim),
-    })
-  )
-}
-
-export const mockSubmitVerification = (verification: any = createMockVerification()) => {
-  ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(verification),
-    })
-  )
-}
-
-export const mockFetchError = (message = 'API Error') => {
+export const mockFetchError = (message = 'An error occurred') => {
   ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
     Promise.resolve({
       ok: false,
@@ -147,10 +155,10 @@ export const mockWebSocketEvent = (eventType: string, payload: any) => {
   })
   
   // Find WebSocket instances and trigger the event
-  const wsInstances = (global.WebSocket as jest.Mock).mock.instances
+  const wsInstances = (global.WebSocket as unknown as { mock?: { instances?: any[] } })?.mock?.instances || []
   wsInstances.forEach((ws: any) => {
-    const onMessageHandler = ws.addEventListener.mock.calls.find(
-      ([event]) => event === 'message'
+    const onMessageHandler = ws.addEventListener?.mock?.calls?.find(
+      ([event]: [string]) => event === 'message'
     )?.[1]
     
     if (onMessageHandler) {

@@ -93,29 +93,38 @@ export function getNetworkDefinition(chainId: number): WalletNetworkDefinition |
 }
 
 export function useWalletNetwork(options: UseWalletNetworkOptions = {}) {
+  const {
+    supportedChainIds: optionSupportedChainIds,
+    chainId: optionChainId,
+    isConnected: optionIsConnected,
+    switchChain,
+    addChain,
+    clearCache,
+  } = options;
+
   const supportedChainIds = useMemo(
-    () => options.supportedChainIds ?? SUPPORTED_OPTIMISM_CHAIN_IDS,
-    [options.supportedChainIds],
+    () => optionSupportedChainIds ?? SUPPORTED_OPTIMISM_CHAIN_IDS,
+    [optionSupportedChainIds],
   );
   const preferredChainId = getPreferredOptimismChainId(supportedChainIds);
-  const isConnected = options.isConnected ?? false;
-  const currentChainId = typeof options.chainId === 'number' ? options.chainId : undefined;
+  const isConnected = optionIsConnected ?? false;
+  const currentChainId = typeof optionChainId === 'number' ? optionChainId : undefined;
   const isSupported =
     typeof currentChainId === 'number' && supportedChainIds.includes(currentChainId);
   const isUnsupported = isConnected && typeof currentChainId === 'number' && !isSupported;
   const isWrongNetwork = isUnsupported;
   const isProtocolDisabled = !isConnected || isUnsupported;
   const safeAction: WalletNetworkAction = isUnsupported
-    ? options.switchChain
+    ? switchChain
       ? 'switch'
-      : options.addChain
+      : addChain
         ? 'add'
         : 'unsupported'
     : 'none';
 
   const clearChainScopedCaches = useCallback(() => {
-    if (typeof options.clearCache === 'function') {
-      options.clearCache();
+    if (typeof clearCache === 'function') {
+      clearCache();
       return;
     }
 
@@ -128,29 +137,29 @@ export function useWalletNetwork(options: UseWalletNetworkOptions = {}) {
       window.sessionStorage.removeItem(key);
       window.localStorage.removeItem(key);
     }
-  }, [options.clearCache]);
+  }, [clearCache]);
 
   const switchToSupportedNetwork = useCallback(async () => {
     if (!isConnected || !supportedChainIds.length) {
       return undefined;
     }
 
-    if (typeof options.switchChain !== 'function') {
+    if (typeof switchChain !== 'function') {
       throw new Error('Wallet connector does not support switching chains.');
     }
 
     const targetChainId = preferredChainId;
-    const result = await options.switchChain({ chainId: targetChainId });
+    const result = await switchChain({ chainId: targetChainId });
     clearChainScopedCaches();
     return result;
-  }, [clearChainScopedCaches, isConnected, options.switchChain, preferredChainId, supportedChainIds.length]);
+  }, [clearChainScopedCaches, isConnected, switchChain, preferredChainId, supportedChainIds.length]);
 
   const addSupportedNetwork = useCallback(async () => {
     if (!isConnected || !supportedChainIds.length) {
       return undefined;
     }
 
-    if (typeof options.addChain !== 'function') {
+    if (typeof addChain !== 'function') {
       throw new Error('Wallet connector does not support adding a chain.');
     }
 
@@ -167,10 +176,10 @@ export function useWalletNetwork(options: UseWalletNetworkOptions = {}) {
       },
     };
 
-    const result = await options.addChain(targetChain);
+    const result = await addChain(targetChain);
     clearChainScopedCaches();
     return result;
-  }, [clearChainScopedCaches, isConnected, options.addChain, preferredChainId, supportedChainIds]);
+  }, [clearChainScopedCaches, isConnected, addChain, preferredChainId, supportedChainIds]);
 
   return {
     supportedChainIds,

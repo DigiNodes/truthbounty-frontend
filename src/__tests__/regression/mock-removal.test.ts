@@ -24,6 +24,8 @@ jest.mock('wagmi', () => ({
   useAccount: () => ({ address: undefined, isConnected: false }),
   useChainId: () => 10,
   useDisconnect: () => ({ disconnect: jest.fn() }),
+  useConnect: () => ({ connect: jest.fn(), isPending: false }),
+  useConnectors: () => [],
 }));
 
 // ---------------------------------------------------------------------------

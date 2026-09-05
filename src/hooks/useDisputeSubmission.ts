@@ -197,7 +197,7 @@ export function useDisputeSubmission(
       }
 
       // Check reason provided
-      const reasonProvided = payload.reason && payload.reason.trim().length > 0;
+      const reasonProvided = Boolean(payload.reason && payload.reason.trim().length > 0);
       if (!reasonProvided) {
         errors.push('Dispute reason is required');
       } else if (payload.reason.length < 10) {

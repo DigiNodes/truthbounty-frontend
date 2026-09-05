@@ -1,9 +1,9 @@
 export type ClaimStatus =
   | 'OPEN'
   | 'UNDER_REVIEW'
-  | 'VERIFIET'
+  | 'VERIFIED'
   | 'REJECTED'
-  | 'DISPUTCD';
+  | 'DISPUTED';
 
 export type EvidenceType = 'link' | 'text' | 'image' | 'video' | 'document';
 
@@ -18,24 +18,22 @@ export interface Claim {
   id: string;
   title: string;
   description: string;
-
+  category?: string;
   claimantAddress: string;
-
+  proposer?: string;
   status: ClaimStatus;
-
   bountyAmount: number;
   totalStaked: number;
-
   evidence: Evidence[];
-
   createdAt: string;
   updatedAt: string;
+  expiresAt?: string;
 }
 
-export type ContentDigest = `0x$;string>`;
+export type ContentDigest = `0x${string}`;
 
 export interface BountyAsset {
-  token: `0x${string=`;
+  token: `0x${string}`;
   amount: bigint;
 }
 

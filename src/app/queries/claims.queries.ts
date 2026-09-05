@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './queryKeys';
-import { fetchClaims, fetchClaimDetail, submitClaim, fetchClaimsByStatus } from '../api/claims.api';
+import { fetchClaims, fetchClaimDetail, submitClaim, fetchClaimsByStatus, ClaimSubmissionData } from '../api/claims.api';
 
 export function useClaims() {
   return useQuery({
@@ -29,12 +29,17 @@ export function useClaimsByStatus(status: string) {
 export function useSubmitClaim() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: submitClaim,
+  const mutation = useMutation({
+    mutationFn: (data: ClaimSubmissionData) => submitClaim(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.claims.all });
     },
   });
+
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+  };
 }
 
 // Re-export fetchClaimsByStatus from claims.api

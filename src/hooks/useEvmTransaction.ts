@@ -206,8 +206,8 @@ export function useEvmTransaction(
           abi: params.abi,
           functionName: params.functionName,
           args: params.args,
-          value: params.value,
-        });
+          ...(params.value !== undefined ? { value: params.value } : {}),
+        } as never);
 
         // Drive: signature-requested → submitted
         send({ type: 'SUBMIT', txHash });

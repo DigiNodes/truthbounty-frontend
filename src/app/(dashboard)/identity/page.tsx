@@ -40,7 +40,7 @@ export default function IdentityPage() {
             <div className="text-sm text-blue-900 dark:text-blue-100">
               <p className="font-medium mb-1">Why verify with Worldcoin?</p>
               <p className="text-blue-700 dark:text-blue-300">
-                Worldcoin uses zero-knowledge proofs to verify you're a unique human without revealing your identity. 
+                Worldcoin uses zero-knowledge proofs to verify you&apos;re a unique human without revealing your identity. 
                 This prevents fake accounts and manipulation while preserving your privacy.
               </p>
             </div>
@@ -100,7 +100,7 @@ export default function IdentityPage() {
         {isVerified && (
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              🎉 You're All Set!
+              🎉 You&apos;re All Set!
             </h2>
             <p className="text-gray-700 dark:text-gray-300 mb-4">
               Your identity is now verified. You can now:

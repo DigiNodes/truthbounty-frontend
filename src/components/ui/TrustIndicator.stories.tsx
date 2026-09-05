@@ -22,12 +22,6 @@ type Story = StoryObj<typeof TrustIndicator>;
 
 export const Default: Story = {
   args: {},
-  parameters: {
-    // Mock the useTrust hook
-    onMount: (ctx) => {
-      // This will be handled by the mock provider in the preview
-    },
-  },
 };
 
 export const HighReputation: Story = {

@@ -12,7 +12,10 @@ function readJson(path) {
 }
 
 function sha256(contents) {
-  return createHash('sha256').update(contents).digest('hex');
+  const normalized = typeof contents === 'string'
+    ? contents.replace(/\r\n/g, '\n')
+    : contents.toString('utf8').replace(/\r\n/g, '\n');
+  return createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 function assertAddress(value, label) {
