@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Button } from '@/components/ui/button';
 
 export const ButtonDocs = () => {
@@ -7,6 +8,20 @@ export const ButtonDocs = () => {
 
       <p>A reusable button component used across the app.</p>
 
+      <h3>Props</h3>
+      <ul>
+        <li><strong>variant</strong>: {`"default" | "outline" | "ghost" | "secondary" | "destructive" | "link"`}</li>
+        <li><strong>size</strong>: {`"default" | "sm" | "lg" | "xs" | "icon"`}</li>
+        <li><strong>children</strong>: ReactNode — Button content</li>
+        <li><strong>onClick</strong>: {`() => void`}— Click handler</li>
+      </ul>
+
+      <h3>Usage</h3>
+      <pre>
+{`<Button 
+  variant="default" 
+  onClick={() => console.log("clicked")} 
+>
       <h3>Usage</h3>
       <pre>
 {`<Button variant="default" onClick={() => console.log("clicked")}>
@@ -15,6 +30,10 @@ export const ButtonDocs = () => {
       </pre>
 
       <h3>Preview</h3>
+      <Button 
+        variant="default" 
+        onClick={() => alert("Clicked")} 
+      >
       <Button variant="default" onClick={() => alert('Clicked')}>
         Click Me
       </Button>

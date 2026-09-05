@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useConnect } from "wagmi";
 import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
@@ -154,7 +155,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const trust = useTrust();
   const account = useAccount();
-  const isWalletConnected = !!account?.address;
+  const { connect, connectors } = useConnect();
+  const isWalletConnected = !!account?.address && !account?.isWrongNetwork;
 
   const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
   const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
