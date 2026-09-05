@@ -75,10 +75,8 @@ import { useAccount as useWagmiAccount } from "wagmi";
 'use client';
 
 import { useMemo } from 'react';
-import { useAccount as useWagmiAccount } from 'wagmi';
+import { useAccount as useWagmiAccount, useDisconnect as useWagmiDisconnect } from 'wagmi';
 import { useIsMounted } from '@/hooks/useIsMounted';
-
-export { useDisconnect } from 'wagmi';
 
 export interface AccountInfo {
   /** Full checksummed EVM address. */
@@ -87,7 +85,12 @@ export interface AccountInfo {
   displayName: string;
   /** Chain id reported by the wallet at connection time. */
   chainId: number | undefined;
+  isConnected?: boolean;
+  isConnecting?: boolean;
+  isDisconnected?: boolean;
 }
+
+export type AccountData = AccountInfo;
 
 /**
  * Returns the connected account or null.
@@ -97,7 +100,7 @@ export interface AccountInfo {
  */
 export function useAccount(): AccountInfo | null {
   const mounted = useIsMounted();
-  const { address, isConnected, chainId } = useWagmiAccount();
+  const { address, isConnected, isConnecting, isDisconnected, chainId } = useWagmiAccount();
 
   return useMemo<AccountInfo | null>(() => {
     // Guard: never report connected state before client hydration.
@@ -192,6 +195,27 @@ export function clearPersistedConnection() {
       address,
       displayName: `${address.slice(0, 6)}…${address.slice(-4)}`,
       chainId,
+      isConnected,
+      isConnecting,
+      isDisconnected,
     };
-  }, [mounted, isConnected, address, chainId]);
+  }, [mounted, isConnected, isConnecting, isDisconnected, address, chainId]);
+}
+
+/**
+ * Disconnect hook wrapping Wagmi useDisconnect.
+ * Supports both callable syntax `disconnect()` and destructured syntax `{ disconnect }`.
+ */
+export function useDisconnect() {
+  const { disconnect, disconnectAsync, ...rest } = useWagmiDisconnect();
+
+  const fn = async () => {
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  return Object.assign(fn, { disconnect, disconnectAsync, ...rest });
 }

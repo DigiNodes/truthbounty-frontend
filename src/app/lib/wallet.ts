@@ -9,6 +9,10 @@
  * TruthBounty rewards contract once ABIs are available.
  */
 
+export interface ClaimRewardResult {
+  txHash: `0x${string}`;
+}
+
 /**
  * NOT IMPLEMENTED — pending V2-FE-003 (contract ABI freeze).
  *
@@ -19,7 +23,7 @@
  */
 export async function claimRewards(
   _claimIds: string[],
-): Promise<{ txHash: `0x${string}` }> {
+): Promise<ClaimRewardResult> {
   throw new Error(
     '[claimRewards] Not implemented: waiting for V2-FE-003 contract ABI. ' +
     'Use useEvmTransaction.writeContract once the ABI is available.',
@@ -36,7 +40,7 @@ export async function claimRewards(
  */
 export async function getTokenBalance(
   _address?: string,
-): Promise<bigint> {
+): Promise<number | bigint> {
   throw new Error(
     '[getTokenBalance] Not implemented: waiting for V2-FE-003 contract ABI.',
   );

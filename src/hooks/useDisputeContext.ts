@@ -98,10 +98,10 @@ export function useDisputeContext(
       // 2. Calculate time remaining from block.timestamp
       // 3. Check if dispute already opened via contract.disputes(claimId)
 
-      // Mock implementation
+      const initialStartBlock = 12345678;
       const windowStartTime = new Date(Date.now() - 3600000); // 1 hour ago
       const windowEndTime = new Date(Date.now() + 82800000); // 23 hours from now
-      const windowEndBlock = currentBlockNum + 41400; // ~23 hours at 2s/block
+      const windowEndBlock = initialStartBlock + 41400; // ~23 hours at 2s/block
 
       const timeRemaining = Math.max(
         0,

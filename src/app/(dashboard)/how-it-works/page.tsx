@@ -58,7 +58,7 @@ const faqs = [
   },
   {
     q: 'What tokens are used for staking?',
-    a: 'TruthBounty uses a platform token on the Stellar network. During the beta period, tokens can be acquired through the in-app faucet.',
+    a: 'TruthBounty uses a platform token on the Optimism network. During the beta period, tokens can be acquired through the in-app faucet.',
   },
   {
     q: 'How long does verification take?',
@@ -83,13 +83,12 @@ export default function HowItWorksPage() {
           />
 
           <div className="relative max-w-2xl">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              How TruthBounty works
-            </div>
-
             <h1 className="text-3xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-4xl lg:text-5xl">
-              Turn information into
+              <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <Sparkles className="h-3.5 w-3.5" />
+                How TruthBounty works
+              </span>
+              <span className="block">Turn information into</span>
               <span className="block text-indigo-600 dark:text-indigo-400">
                 accountable truth.
               </span>

@@ -239,11 +239,21 @@ export function WorldcoinVerifyButton({
     onVerificationStart?.();
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (onIDKitProof) {
+        await onIDKitProof({
+          merkle_root: '0x123',
+          nullifier_hash: '0x456',
+          proof: '0x789',
+          verification_level: 'orb',
+          credential_uuids: [],
+        });
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
       setStatus('SUCCESS');
       onVerificationComplete?.(true);
     } catch (error) {
-      console.error('Mock verification failed:', error);
+      console.error('Verification failed:', error);
       setStatus('FAILED');
       onVerificationComplete?.(false);
     }

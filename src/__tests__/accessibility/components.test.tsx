@@ -2,13 +2,15 @@ import React from 'react'
 import { render } from '../utils/test-utils'
 import { assertAccessible } from '../utils/axe'
 
+let mockTrust = {
+  reputation: 50,
+  isVerified: true,
+  accountAgeDays: 30,
+  suspicious: false,
+}
+
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: () => ({
-    reputation: 50,
-    isVerified: true,
-    accountAgeDays: 30,
-    suspicious: false,
-  }),
+  useTrust: () => mockTrust,
 }))
 
 jest.mock('@/components/providers/FeatureFlagProvider', () => ({
@@ -78,6 +80,15 @@ jest.mock('@tanstack/react-query', () => ({
 }))
 
 describe('Accessibility: UI Components', () => {
+  beforeEach(() => {
+    mockTrust = {
+      reputation: 50,
+      isVerified: true,
+      accountAgeDays: 30,
+      suspicious: false,
+    }
+  })
+
   it('TrustIndicator should have no axe violations', async () => {
     const TrustIndicator = (await import('@/components/ui/TrustIndicator')).default
     const { container } = render(<TrustIndicator />)
@@ -85,12 +96,12 @@ describe('Accessibility: UI Components', () => {
   })
 
   it('TrustWarningBanner should have no axe violations', async () => {
-    jest.mocked(require('@/components/hooks/useTrust').useTrust).mockReturnValue({
+    mockTrust = {
       reputation: 10,
       isVerified: false,
       accountAgeDays: 1,
       suspicious: false,
-    })
+    }
     const TrustWarningBanner = (await import('@/components/ui/TrustWarningBanner')).default
     const { container } = render(<TrustWarningBanner />)
     await assertAccessible(container)

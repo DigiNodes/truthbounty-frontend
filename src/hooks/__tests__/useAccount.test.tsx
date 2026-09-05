@@ -13,6 +13,8 @@
  *  - REMOVED: focus/storage events from Freighter reconnect loop
  */
 
+jest.unmock('wagmi');
+
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -43,9 +45,20 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
   queryClient.clear();
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
+});
+
+afterEach(async () => {
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

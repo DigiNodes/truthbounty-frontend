@@ -315,7 +315,7 @@ describe('WebSocket Real-time Integration Tests', () => {
 
       function MultipleUpdatesTest() {
         const [claim, setClaim] = React.useState(mockClaim)
-        const [verifications, setVerifications] = React.useState([])
+        const [verifications, setVerifications] = React.useState<any[]>([])
         const [updateCount, setUpdateCount] = React.useState(0)
 
         React.useEffect(() => {
@@ -457,7 +457,7 @@ describe('WebSocket Real-time Integration Tests', () => {
       }
 
       function DisputeTest() {
-        const [disputes, setDisputes] = React.useState([])
+        const [disputes, setDisputes] = React.useState<any[]>([])
         const [disputeCount, setDisputeCount] = React.useState(0)
 
         React.useEffect(() => {
