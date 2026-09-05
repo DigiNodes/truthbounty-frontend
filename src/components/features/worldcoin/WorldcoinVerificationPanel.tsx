@@ -1,13 +1,9 @@
-'use client';
-
-import { useEffect } from 'react';
 import { WorldcoinVerifyButton } from './WorldcoinVerifyButton';
 import { VerificationStatusIndicator } from './VerificationStatusIndicator';
 import { VerificationSuccessCard } from './VerificationSuccessCard';
 import { VerificationErrorCard } from './VerificationErrorCard';
 import { WorldcoinInfoTooltip } from './WorldcoinInfoTooltip';
 import { useWorldcoinVerification } from '@/hooks/useWorldcoinVerification';
-import type { WorldcoinVerificationStatus } from '@/app/types/worldcoin';
 
 interface WorldcoinVerificationPanelProps {
   walletAddress?: string;
@@ -25,7 +21,6 @@ export function WorldcoinVerificationPanel({
     verification,
     handleIDKitProof,
     isMockMode,
-    isConfigured,
     refresh,
   } = useWorldcoinVerification({
     walletAddress,

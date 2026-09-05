@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { createPublicClient, formatUnits, http } from "viem";
 import { optimismSepolia } from "viem/chains";
@@ -23,7 +23,7 @@ export default function RewardsPage() {
   const chainId = getReleaseChainId();
 
   const [balance, setBalance] = useState<string>("0");
-  const [rewards, setRewards] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<Array<{ amount?: number | string; id?: string; reason?: string }>>([]);
   const [loading, setLoading] = useState(false);
 
   const { data: hash, writeContract, isPending } = useWriteContract();
@@ -36,7 +36,7 @@ export default function RewardsPage() {
 
   const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     if (!address) return;
 
     try {
@@ -51,9 +51,9 @@ export default function RewardsPage() {
     } catch (err) {
       console.error("Balance fetch error:", err);
     }
-  };
+  }, [address, contractAddress, contractAbi]);
 
-  const fetchRewards = async () => {
+  const fetchRewards = useCallback(async () => {
     if (!address) return;
 
     setLoading(true);
@@ -67,7 +67,7 @@ export default function RewardsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [address]);
 
   const handleClaim = async () => {
     if (!canClaim) return;
@@ -89,12 +89,12 @@ export default function RewardsPage() {
       void fetchBalance();
       void fetchRewards();
     }
-  }, [isSuccess]);
+  }, [isSuccess, fetchBalance, fetchRewards]);
 
   useEffect(() => {
     void fetchBalance();
     void fetchRewards();
-  }, [address]);
+  }, [address, fetchBalance, fetchRewards]);
 
   return (
     <div style={{ padding: 20 }}>

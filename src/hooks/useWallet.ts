@@ -188,12 +188,13 @@ export function useWallet(): WalletLifecycle {
 
   // ── Lifecycle state label ──────────────────────────────────────────────────
   const state = useMemo((): WalletLifecycleState => {
+    if (!mounted) return 'disconnected';
     if (connectorError) return 'error';
     if (isConnecting || connectPending) return 'connecting';
     if (isReconnecting) return 'reconnecting';
     if (isConnected) return 'connected';
     return 'disconnected';
-  }, [connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
+  }, [mounted, connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
 
   return {
     isConnected,

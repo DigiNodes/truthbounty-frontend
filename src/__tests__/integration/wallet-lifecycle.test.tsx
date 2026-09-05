@@ -12,6 +12,8 @@
  *  ✓ wrong-network path surfaces isWrongNetwork=true via useWalletNetwork
  */
 
+jest.unmock('wagmi');
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -43,15 +45,26 @@ const queryClient = new QueryClient({
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={testConfig}>
+    <WagmiProvider config={testConfig} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
   queryClient.clear();
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
+});
+
+afterEach(async () => {
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
 });
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -127,7 +140,7 @@ describe('Wallet lifecycle — account change', () => {
     const originalAddress = result.current.address;
 
     await act(async () => {
-      await connector.switchAccount?.({ accounts: [ADDR_B] });
+      connector.onAccountsChanged?.([ADDR_B]);
     });
 
     await waitFor(() => {

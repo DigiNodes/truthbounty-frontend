@@ -73,15 +73,15 @@ export function useTrustForAddress(address?: string): TrustInfo {
   const effectiveAddress = address || account?.address || "";
   const { data: verification } = useUserVerification(effectiveAddress);
 
-  const [overrideInfo, setOverrideInfo] = useState<Partial<TrustInfo> | null>(null);
+  const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
 
   useEffect(() => {
-    if (!address) {
-      setOverrideInfo(parseTrustInfoFromStorage());
-    } else {
-      setOverrideInfo(null);
-    }
-  }, [address]);
+    const handleStorage = () => {
+      setStorageUpdateTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   // Stable randomised demo values – these should be replaced by API
   // calls once backend endpoints for reputation/account-age exist.
@@ -97,6 +97,12 @@ export function useTrustForAddress(address?: string): TrustInfo {
     ...base,
     isVerified: verification?.status === "SUCCESS",
   };
+
+  const overrideInfo =
+    !address && typeof window !== "undefined"
+      ? parseTrustInfoFromStorage()
+      : null;
+  void storageUpdateTrigger;
 
   return overrideInfo ? { ...trust, ...overrideInfo } : trust;
 }

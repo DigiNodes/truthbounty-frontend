@@ -24,6 +24,7 @@ export function useReputation(
   _userId?: string,
   initialScore = 0,
 ): ReputationState {
+  void _userId;
   const [score, setScore] = useState(initialScore);
 
   const addPositive = useCallback(() => {

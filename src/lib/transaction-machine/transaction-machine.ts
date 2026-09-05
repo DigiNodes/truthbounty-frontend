@@ -610,7 +610,7 @@ export function createClaimCreationTransactionHook(
     state = transitionTxState(state, {
       type: 'CONFIRM',
       receiptChainId: receipt.chainId,
-      blockNumber: receipt.blockNumber,
+      blockNumber: BigInt(receipt.blockNumber),
       confirmations: receipt.confirmations,
     });
     onTransition(state);

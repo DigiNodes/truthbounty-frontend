@@ -33,6 +33,10 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
   useConnect: () => ({ connect: jest.fn() }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({}),
+  useReadContract: () => ({ data: undefined }),
+  useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
 
 describe('ClaimSubmissionForm modal layout', () => {

@@ -17,6 +17,16 @@ describe('useStateReconciliation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const defaultReceipt = {
+      status: 1,
+      blockNumber: 100n,
+      from: '0x1234567890123456789012345678901234567890',
+      logs: [],
+    };
+    (wagmi.usePublicClient as jest.Mock).mockReturnValue({
+      getTransactionReceipt: jest.fn().mockResolvedValue(defaultReceipt),
+      getBlockNumber: jest.fn().mockResolvedValue(101n),
+    });
   });
 
   describe('transaction confirmation', () => {
@@ -53,7 +63,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -94,7 +104,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -115,13 +125,12 @@ describe('useStateReconciliation', () => {
         getTransactionReceipt: jest
           .fn()
           .mockResolvedValueOnce(null) // Not mined yet
-          .mockResolvedValueOnce(mockReceipt) // Mined but not enough confirmations
-          .mockResolvedValueOnce(mockReceipt), // Now has enough
+          .mockResolvedValue(mockReceipt), // Mined
         getBlockNumber: jest
           .fn()
           .mockResolvedValueOnce(100n) // Same block
           .mockResolvedValueOnce(101n) // 1 confirmation
-          .mockResolvedValueOnce(102n), // 2 confirmations
+          .mockResolvedValue(102n), // 2 confirmations
       };
 
       (wagmi.usePublicClient as jest.Mock).mockReturnValue(mockPublicClient);
@@ -143,7 +152,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -178,7 +187,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -211,7 +220,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let error;
+      let error: any;
       await act(async () => {
         try {
           await result.current.reconcile(mockSubmission);
@@ -241,7 +250,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let error;
+      let error: any;
       await act(async () => {
         try {
           await result.current.reconcile(mockSubmission);

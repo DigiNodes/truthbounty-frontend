@@ -7,10 +7,11 @@
 
 import { useCallback, useState } from 'react';
 import { usePublicClient } from 'wagmi';
+import type { TransactionReceipt } from 'viem';
 import {
-  ClaimSubmission,
   ReconciliationResult,
-} from '@/app/types/claim';
+  SettlementSubmission,
+} from '@/app/types/settlement';
 
 export class ProtocolError extends Error {
   code: string;
@@ -25,6 +26,7 @@ interface UseStateReconciliationConfig {
   pollInterval?: number; // ms between polls
   confirmationBlocks?: number; // blocks to wait for confirmation
   timeout?: number; // ms timeout for waiting
+  transactionHash?: string;
 }
 
 interface StateReconciliationResult {
@@ -62,7 +64,7 @@ export function useStateReconciliation(
    * Wait for transaction receipt and confirmations
    */
   const waitForConfirmation = useCallback(
-    async (txHash: string): Promise<{ receipt: any; confirmations: number }> => {
+    async (txHash: string): Promise<{ receipt: TransactionReceipt; confirmations: number }> => {
       if (!publicClient) {
         throw new ProtocolError('PUBLIC_CLIENT_UNAVAILABLE', 'Public client not available');
       }
@@ -115,23 +117,25 @@ export function useStateReconciliation(
   );
 
   /**
-   * Determine settlement state from transaction and receipt
+   * Determine claim state from transaction and receipt
    */
   const determineClaimState = useCallback(
-    (receipt: any): string => {
-      // Transaction success/failure is determined by status
-      if (receipt.status === '0x1' || receipt.status === 1) {
-        // Successfully executed
-        return 'CLAIM_CREATED';
-      } else {
-        // Reverted
-        return 'CLAIM_CREATION_REVERTED';
+    (receipt: TransactionReceipt, submission?: SettlementSubmission): string => {
+      const isSuccess =
+        receipt.status === 'success' ||
+        (receipt.status as unknown) === 1 ||
+        (receipt.status as unknown) === '0x1';
+      if (
+        submission?.type === 'SETTLE_PROVISIONAL' ||
+        submission?.type === 'SETTLE_APPEAL' ||
+        submission?.type === 'FINALIZE'
+      ) {
+        return isSuccess ? 'SETTLED' : 'PENDING_SETTLEMENT';
       }
+      return isSuccess ? 'CLAIM_CREATED' : 'CLAIM_CREATION_REVERTED';
     },
     []
   );
-
-
 
   /**
    * Reconcile transaction state after finality
@@ -141,59 +145,72 @@ export function useStateReconciliation(
       setIsReconciling(true);
       setError(null);
 
+      // Validate submission
+      if (!submission.transactionHash) {
+        setError('Invalid transaction hash');
+        throw new ProtocolError('INVALID_HASH', 'Invalid transaction hash');
+      }
+
+      if (!submission.transactionHash.match(/^0x[a-fA-F0-9]{64}$/)) {
+        setError('Invalid transaction hash format');
+        throw new ProtocolError('INVALID_HASH_FORMAT', 'Invalid transaction hash format');
+      }
+
+      if (!publicClient) {
+        setError('Public client not available');
+        throw new ProtocolError('PUBLIC_CLIENT_UNAVAILABLE', 'Public client not available');
+      }
+
       try {
-        // Validate submission
-        if (!submission.transactionHash) {
-          throw new ProtocolError('INVALID_HASH', 'Invalid transaction hash');
-        }
-
-        if (!submission.transactionHash.match(/^0x[a-fA-F0-9]{64}$/)) {
-          throw new ProtocolError('INVALID_HASH_FORMAT', 'Invalid transaction hash format');
-        }
-
         // Wait for confirmation
         const { receipt } = await waitForConfirmation(
           submission.transactionHash
         );
 
         // Determine final state
-        const finalState = determineClaimState(receipt);
+        const finalState = determineClaimState(receipt, submission);
 
         // Build result
+        const isSuccess = receipt.status === 'success' || (receipt.status as unknown) === 1 || (receipt.status as unknown) === '0x1';
         const result: ReconciliationResult = {
           transactionHash: submission.transactionHash,
-          status: receipt.status === '0x1' || receipt.status === 1 ? 'confirmed' : 'reverted',
-          finalState: finalState as any,
+          status: isSuccess ? 'confirmed' : 'reverted',
+          finalState: finalState as ReconciliationResult['finalState'],
         };
 
         setLastResult(result);
         return result;
       } catch (err) {
-        const error = err instanceof ProtocolError
+        const errorObj = err instanceof ProtocolError
           ? err
           : new ProtocolError(
               'RECONCILIATION_FAILED',
               err instanceof Error ? err.message : 'Reconciliation failed'
             );
-        setError(error.message);
+        setError(errorObj.message);
 
+        const isSettlement =
+          submission?.type === 'SETTLE_PROVISIONAL' ||
+          submission?.type === 'SETTLE_APPEAL' ||
+          submission?.type === 'FINALIZE';
         const result: ReconciliationResult = {
           transactionHash: submission.transactionHash,
-          status: 'error',
-          finalState: 'CLAIM_CREATION_UNKNOWN',
-          error: error.message,
+          status: errorObj.code === 'TIMEOUT' ? 'timeout' : 'reverted',
+          finalState: (isSettlement ? 'PENDING_SETTLEMENT' : 'CLAIM_CREATION_UNKNOWN') as ReconciliationResult['finalState'],
+          error: errorObj.message,
         };
 
         setLastResult(result);
-        throw error;
+        if (errorObj.code === 'TIMEOUT') {
+          return result;
+        }
+        throw errorObj;
       } finally {
         setIsReconciling(false);
       }
     },
-    [waitForConfirmation, determineClaimState]
+    [publicClient, waitForConfirmation, determineClaimState]
   );
-
-
 
   return {
     reconcile,

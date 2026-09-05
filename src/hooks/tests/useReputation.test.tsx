@@ -10,12 +10,10 @@ describe("useReputation", () => {
 
   it("should update reputation score with positive and negative increments", () => {
     const { result } = renderHook(() => useReputation("user1"));
-
     act(() => {
       result.current.addPositive();
     });
     expect(result.current.score).toBe(1);
-
     act(() => {
       result.current.addNegative();
     });

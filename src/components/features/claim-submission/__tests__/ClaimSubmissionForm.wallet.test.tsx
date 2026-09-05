@@ -46,6 +46,10 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => mockConnectors,
   useConnect: () => ({ connect: mockConnect }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({}),
+  useReadContract: () => ({ data: undefined }),
+  useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
@@ -139,8 +143,8 @@ describe('ClaimSubmissionForm - submit guard', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();

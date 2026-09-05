@@ -421,24 +421,6 @@ export type ClaimCreationErrorReason =
   | 'CLAIM_NOT_ELIGIBLE'
   | 'CLAIM_WINDOW_CLOSED';
 
-/** Typed error for claim creation failures. Never carries a fabricated claim. */
-export class ClaimCreationError extends Error {
-  readonly reason: ClaimCreationErrorReason;
-
-  constructor(reason: ClaimCreationErrorReason, detail?: string) {
-    super(`[ClaimCreation] ${reason}${detail ? `: ${detail}` : ''}`);
-    this.name = 'ClaimCreationError';
-    this.reason = reason;
-  }
-}
-
-/** Encoded claim creation transaction payload. */
-export interface ClaimCreationCall {
-  readonly to: `0x${string}`;
-  readonly data: `0x${string}`;
-  readonly value: bigint;
-}
-
 /** Fully-validated request used to drive allowance/simulation/submission. */
 export interface ClaimCreationRequest {
   readonly params: ClaimCreationParams;
@@ -446,7 +428,9 @@ export interface ClaimCreationRequest {
   readonly account: `0x${string}`;
   readonly contractAddress: `0x${string}`;
 }
-ry helpers
+
+// ---------------------------------------------------------------------------
+// Factory helpers
 // ---------------------------------------------------------------------------
 
 /** Return the canonical idle state. */
