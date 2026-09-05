@@ -105,7 +105,7 @@ export function useAppealContext(
           firstRoundVotesAgainst: 8,
           reason: 'First round verification was compromised',
           initiatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-          blockNumber: Number(currentBlockNumber) - 7200, // ~24h ago on Optimism (2s blocks)
+          blockNumber: 12345678 - 7200, // ~24h ago on Optimism (2s blocks)
         };
 
         return mockSnapshot;
@@ -133,7 +133,7 @@ export function useAppealContext(
         const OPTIMISM_BLOCK_TIME_SECONDS = 2;
 
         const endBlock = snapshotBlockNumber + APPEAL_PERIOD_BLOCKS;
-        const currentBlock = Number(currentBlockNumber) || snapshotBlockNumber;
+        const currentBlock = currentBlockNumber ? Number(currentBlockNumber) : snapshotBlockNumber + 7200;
         const blocksRemaining = Math.max(0, endBlock - currentBlock);
         const timeRemainingSeconds = blocksRemaining * OPTIMISM_BLOCK_TIME_SECONDS;
 
@@ -332,13 +332,20 @@ export function useAppealContext(
    * Poll for context updates
    */
   useEffect(() => {
-    if (!isConnected || !appealId) return;
+    const configError = validateConfiguration();
+    if (configError) {
+      setError(configError);
+      setContext(null);
+      return;
+    }
 
-    fetchContext();
-    const interval = setInterval(fetchContext, pollInterval);
+    void fetchContext();
+    const interval = setInterval(() => {
+      void fetchContext();
+    }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, appealId, fetchContext, pollInterval]);
+  }, [isConnected, userAddress, currentChainId, expectedChainId, contractAddress, appealId, claimId, fetchContext, pollInterval, validateConfiguration]);
 
   /**
    * Refetch on block number changes (for deadline updates)

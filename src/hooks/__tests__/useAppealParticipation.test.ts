@@ -101,7 +101,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -126,7 +126,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -149,7 +149,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let transaction;
+      let transaction: any;
 
       await act(async () => {
         transaction = await result.current.submitParticipation(
@@ -490,7 +490,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -512,7 +512,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -534,7 +534,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -558,7 +558,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(
@@ -579,7 +579,7 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await result.current.simulateParticipation(

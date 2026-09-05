@@ -4,7 +4,9 @@ import { join } from 'path';
 import type { ChecksumsFile } from './types';
 
 export function sha256FileContents(contents: string | Buffer): string {
-  return createHash('sha256').update(contents).digest('hex');
+  const str = typeof contents === 'string' ? contents : contents.toString('utf8');
+  const normalized = str.replace(/\r\n/g, '\n');
+  return createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 export function verifyChecksums(

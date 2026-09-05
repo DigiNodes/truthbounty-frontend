@@ -260,7 +260,7 @@ describe('useWallet — account change', () => {
 
     // Simulate an account switch via the mock connector
     await act(async () => {
-      await connector.switchAccount?.({ accounts: ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8'] });
+      (connector as any).onAccountsChanged?.(['0x70997970C51812dc3A010C7d01b50e0d17dc79C8']);
     });
 
     await waitFor(() => {

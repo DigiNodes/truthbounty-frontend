@@ -69,7 +69,7 @@ describe("useTrust", () => {
 
     const { result, rerender } = renderHook(
       ({ address }: { address?: string }) => useTrustForAddress(address),
-      { initialProps: { address: undefined } },
+      { initialProps: { address: undefined as string | undefined } },
     );
 
     await waitFor(() => {
