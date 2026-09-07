@@ -32,14 +32,16 @@ export function isWorldcoinConfigured(): boolean {
 }
 
 export function shouldUseMockVerification(): boolean {
-  // Use mock verification in development or test environments, or if not configured
-  const isDevMode = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
-  const hasConfig = isWorldcoinConfigured();
-
-  // Disable mock in production if configured
-  if (process.env.NODE_ENV === 'production' && hasConfig) {
+  // Mocks are development/test fixtures only (V2-FE-016). In production the
+  // mock path is never used: absent configuration surfaces as an unavailable
+  // verification button rather than a fabricated SUCCESS verification.
+  if (process.env.NODE_ENV === 'production') {
     return false;
   }
 
-  return !hasConfig || isDevMode;
+  // Development/test environments may use the mock when Worldcoin is not
+  // configured, or always in dev/test.
+  const isDevMode =
+    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  return !isWorldcoinConfigured() || isDevMode;
 }

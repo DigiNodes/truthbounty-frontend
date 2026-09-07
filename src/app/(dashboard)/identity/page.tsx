@@ -1,22 +1,30 @@
 'use client';
 
 import { useState } from 'react';
+import { useAccount } from 'wagmi';
+import { useDisconnect } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { WorldcoinVerificationPanel } from '@/components/features/worldcoin';
 import { Button } from '@/components/ui/button';
 import { Wallet, Info } from 'lucide-react';
 
 export default function IdentityPage() {
-  const [walletAddress, setWalletAddress] = useState<string | undefined>();
   const [isVerified, setIsVerified] = useState(false);
+  const { address, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { disconnect } = useDisconnect();
+
+  // The connected EVM address is sourced from the real wallet provider
+  // (Wagmi/RainbowKit) — never fabricated client-side (V2-FE-016).
+  const walletAddress = isConnected && address ? address : undefined;
 
   const handleConnectWallet = () => {
-    // Mock wallet connection
-    const mockAddress = '0x' + Math.random().toString(16).substring(2, 42);
-    setWalletAddress(mockAddress);
+    // Open the real wallet connection modal. No synthetic address is created.
+    openConnectModal?.();
   };
 
   const handleDisconnectWallet = () => {
-    setWalletAddress(undefined);
+    disconnect();
     setIsVerified(false);
   };
 

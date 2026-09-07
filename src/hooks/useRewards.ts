@@ -1,19 +1,17 @@
 "use client";
 
 /**
- * useRewards — V2 update (V2-FE-009)
+ * useRewards — V2 update (V2-FE-009 + V2-FE-016)
  *
- * Updated to:
- *  - Pass v2 PendingTransactionEntry fields (txHash, chainId, machineState)
- *    to trackPendingTransaction.
- *  - claimRewards from wallet.ts now throws NotImplemented pending V2-FE-003.
- *    This hook gracefully surfaces that error to the user as an `error` state.
- *  - lastTxHash is typed as `0x${string} | null` to match V2 integrity rules
- *    (no string-typed fake hash).
+ * - claimRewards from wallet.ts throws NotImplemented pending V2-FE-003;
+ *   this hook gracefully surfaces that error as an `error` state.
+ * - No reward fixtures are seeded: pendingRewards is empty until the rewards
+ *   indexer/contract integration (V2-FE-003) provides authoritative data.
+ *   Fabricated claimable rewards were removed in V2-FE-016 (web3 cleanup).
+ * - lastTxHash is typed as `0x${string} | null` — never a fabricated hash.
  */
 
 import { useState, useCallback } from "react";
-import { claimableRewards, ClaimableReward } from "@/data/mock-data";
 import { claimRewards } from "@/app/lib/wallet";
 import {
   clearPendingTransaction,
@@ -21,6 +19,13 @@ import {
 } from '@/lib/pending-transactions';
 
 export type ClaimStatus = "idle" | "loading" | "success" | "error";
+
+/** A claimable reward sourced from the rewards indexer/contract. */
+export interface ClaimableReward {
+  claimId: string;
+  title: string;
+  amount: number; // in USD
+}
 
 export interface UseRewardsReturn {
   pendingRewards: ClaimableReward[];
@@ -32,8 +37,10 @@ export interface UseRewardsReturn {
 }
 
 export function useRewards(): UseRewardsReturn {
+  // Rewards are only displayed when the backend/indexer supplies them;
+  // no fixtures are seeded in production (V2-FE-016).
   const [pendingRewards, setPendingRewards] =
-    useState<ClaimableReward[]>(claimableRewards);
+    useState<ClaimableReward[]>([]);
   const [status, setStatus] = useState<ClaimStatus>("idle");
   const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

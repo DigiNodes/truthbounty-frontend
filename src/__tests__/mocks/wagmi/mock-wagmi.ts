@@ -7,7 +7,8 @@
  * Hashes in this file use deterministic fixtures (not Math.random) to
  * ensure reproducible test output.
  *
- * Original file: src/lib/mock-wagmi.ts (moved to test boundary)
+ * Production copy src/lib/mock-wagmi.ts was deleted in V2-FE-016; this
+ * test-boundary copy is the only one that may exist.
  */
 
 import { useState, useCallback } from 'react';

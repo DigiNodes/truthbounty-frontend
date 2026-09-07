@@ -66,7 +66,7 @@ describe('resolveVerificationArtifact', () => {
   });
 
   it('fails closed when the release tag is missing', () => {
-    const env = { ...DEPLOYED_ENV };
+    const env = { ...DEPLOYED_ENV } as Partial<typeof DEPLOYED_ENV>;
     delete env.NEXT_PUBLIC_TRUTHBOUNTY_PROTOCOL_RELEASE_TAG;
     expectDisabled(resolveVerificationArtifact(env, 10), /release tag/);
   });
@@ -83,7 +83,7 @@ describe('resolveVerificationArtifact', () => {
   });
 
   it('fails closed when any required address is missing', () => {
-    const env = { ...DEPLOYED_ENV };
+    const env = { ...DEPLOYED_ENV } as Partial<typeof DEPLOYED_ENV>;
     delete env.NEXT_PUBLIC_TRUTHBOUNTY_STAKING_TOKEN_ADDRESS;
     expectDisabled(resolveVerificationArtifact(env, 10), /StakingToken/);
   });

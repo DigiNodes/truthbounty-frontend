@@ -1,91 +1,4 @@
 /**
- * V2 EVM Wallet Hook
- *
- * Replaces mock wallet with real Wagmi integration.
- * Provides balance, transaction submission, and account management.
- * Never deposits/withdraws directly - uses smart contracts instead.
- */
-
-import { useAccount, useBalance, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { useCallback, useMemo } from 'react';
-import { getChainConfig, isSupportedChain } from '@/config/chains';
-import type { Address } from 'viem';
-
-interface WalletState {
-  isConnected: boolean;
-  address: Address | undefined;
-  chainId: number;
-  balance: bigint | undefined;
-  balanceFormatted: string;
-  isWrongNetwork: boolean;
-  connect: (connector?: string) => Promise<void>;
-  disconnect: () => Promise<void>;
-  switchChain: (chainId: number) => Promise<void>;
-}
-
-/**
- * useWallet hook - Real EVM wallet integration
- *
- * Returns current wallet state and connection methods.
- * Validates chain and prevents operations on unsupported networks.
- */
-export function useWallet(): WalletState {
-  const wagmiAccount = useAccount();
-  const wagmiBalance = useBalance({
-    address: wagmiAccount.address,
-  });
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
-
-  // Check if on wrong network
-  const isWrongNetwork = useMemo(() => {
-    if (!wagmiAccount.isConnected) return false;
-    return !isSupportedChain(wagmiAccount.chainId);
-  }, [wagmiAccount.isConnected, wagmiAccount.chainId]);
-
-  const handleConnect = useCallback(async (connectorId?: string) => {
-    if (wagmiAccount.isConnected) return;
-
-    const targetConnector = connectorId
-      ? connectors.find((c) => c.id === connectorId)
-      : connectors[0];
-
-    if (targetConnector) {
-      connect({ connector: targetConnector });
-    }
-  }, [connect, connectors, wagmiAccount.isConnected]);
-
-  const handleDisconnect = useCallback(async () => {
-    disconnect();
-  }, [disconnect]);
-
-  const handleSwitchChain = useCallback(
-    async (chainId: number) => {
-      if (!isSupportedChain(chainId)) {
-        throw new Error(`Chain ${chainId} is not supported`);
-      }
-      switchChain({ chainId });
-    },
-    [switchChain]
-  );
-
-  // Format balance to readable string
-  const balanceFormatted = useMemo(() => {
-    if (!wagmiBalance.data) return '0';
-    return wagmiBalance.data.formatted.slice(0, 6); // 6 decimals
-  }, [wagmiBalance.data]);
-
-  return {
-    isConnected: wagmiAccount.isConnected,
-    address: wagmiAccount.address as Address | undefined,
-    chainId: wagmiAccount.chainId,
-    balance: wagmiBalance.data?.value,
-    balanceFormatted,
-    isWrongNetwork,
-    connect: handleConnect,
-    disconnect: handleDisconnect,
-    switchChain: handleSwitchChain,
  * useWallet — canonical EVM wallet lifecycle hook for TruthBounty.
  *
  * Provides:
@@ -194,12 +107,17 @@ export function useWallet(): WalletLifecycle {
     connector: activeConnector,
   } = useAccount();
 
-  const { connect: wagmiConnect, isPending: connectPending } = useConnect();
+  const { connect: wagmiConnect } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const connectors = useConnectors();
 
   // Local error state — wagmi surfaces errors through event callbacks
   const [connectorError, setConnectorError] = useState<Error | null>(null);
+  // True only while a user-initiated connect() is in flight. wagmi's own
+  // `isConnecting`/`connectPending` flags also fire during its automatic
+  // reconnect pass, which would otherwise surface a phantom "connecting"
+  // state right after mount.
+  const [userConnecting, setUserConnecting] = useState(false);
 
   // Track previous address to detect account-change events
   const prevAddressRef = useRef<`0x${string}` | undefined>(undefined);
@@ -208,6 +126,15 @@ export function useWallet(): WalletLifecycle {
   // Before the component mounts on the client we report as disconnected to
   // prevent a phantom-connected flash that mismatches SSR.
   const isConnected = mounted && wagmiConnected;
+
+  // wagmi can briefly report a connected account before its chain id lands in
+  // the store; fall back to the connector's default chain so callers always
+  // see a concrete chain id while connected.
+  const connectorChains = (
+    activeConnector as { chains?: readonly { id: number }[] } | undefined
+  )?.chains;
+  const effectiveChainId =
+    chainId ?? connectorChains?.[0]?.id ?? undefined;
 
   // ── Account-change detection ───────────────────────────────────────────────
   useEffect(() => {
@@ -251,10 +178,15 @@ export function useWallet(): WalletLifecycle {
   const connect = useCallback(
     (connector: Connector) => {
       setConnectorError(null);
+      setUserConnecting(true);
       wagmiConnect(
         { connector },
         {
+          onSuccess() {
+            setUserConnecting(false);
+          },
           onError(err) {
+            setUserConnecting(false);
             setConnectorError(err instanceof Error ? err : new Error(String(err)));
           },
         },
@@ -274,20 +206,21 @@ export function useWallet(): WalletLifecycle {
   const clearError = useCallback(() => setConnectorError(null), []);
 
   // ── Lifecycle state label ──────────────────────────────────────────────────
+  // wagmi reports `isConnecting`/`isPending` during its automatic reconnect
+  // pass even when there is nothing to reconnect to, so only a user-initiated
+  // pending connect is surfaced as "connecting".
   const state = useMemo((): WalletLifecycleState => {
-    if (!mounted) return 'disconnected';
     if (connectorError) return 'error';
-    if (isConnecting || connectPending) return 'connecting';
-    if (isReconnecting) return 'reconnecting';
+    if (userConnecting) return 'connecting';
     if (isConnected) return 'connected';
     return 'disconnected';
-  }, [mounted, connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
+  }, [connectorError, userConnecting, isConnected]);
 
   return {
     isConnected,
-    isPending: isConnecting || connectPending || isReconnecting,
+    isPending: isConnecting || isReconnecting,
     address: isConnected ? address : undefined,
-    chainId: isConnected ? chainId : undefined,
+    chainId: isConnected ? effectiveChainId : undefined,
     connectorError,
     activeConnector: isConnected ? activeConnector : undefined,
     connectors,
@@ -298,31 +231,3 @@ export function useWallet(): WalletLifecycle {
     clearError,
   };
 }
-
-/**
- * Get human-readable chain name from wallet state
- */
-export function getChainName(chainId: number): string {
-  if (!isSupportedChain(chainId)) return 'Unknown Chain';
-  const config = getChainConfig(chainId);
-  return config.name;
-}
-
-/**
- * Get blockchain explorer URL for an address or tx
- */
-export function getExplorerUrl(
-  chainId: number,
-  type: 'address' | 'tx',
-  value: string
-): string | null {
-  if (!isSupportedChain(chainId)) return null;
-  const config = getChainConfig(chainId);
-
-  if (type === 'address') {
-    return `${config.blockExplorer.url}/address/${value}`;
-  } else {
-    return `${config.blockExplorer.url}/tx/${value}`;
-  }
-}
-
