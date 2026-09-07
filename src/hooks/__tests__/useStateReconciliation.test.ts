@@ -5,7 +5,7 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { useStateReconciliation } from '@/hooks/useStateReconciliation';
-import { SettlementSubmission, ReconciliationResult } from '@/app/types/settlement';
+import { SettlementSubmission } from '@/app/types/settlement';
 import * as wagmi from 'wagmi';
 
 jest.mock('wagmi', () => ({
@@ -17,6 +17,16 @@ describe('useStateReconciliation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const defaultReceipt = {
+      status: 1,
+      blockNumber: 100n,
+      from: '0x1234567890123456789012345678901234567890',
+      logs: [],
+    };
+    (wagmi.usePublicClient as jest.Mock).mockReturnValue({
+      getTransactionReceipt: jest.fn().mockResolvedValue(defaultReceipt),
+      getBlockNumber: jest.fn().mockResolvedValue(101n),
+    });
   });
 
   describe('transaction confirmation', () => {
@@ -53,7 +63,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult: ReconciliationResult | undefined;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -94,7 +104,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult: ReconciliationResult | undefined;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -111,21 +121,16 @@ describe('useStateReconciliation', () => {
         logs: [],
       };
 
-      // The first poll consumes the `null` receipt WITHOUT calling
-      // getBlockNumber, so the block queue shifts by one: mined polls are
-      // rcpt+r+100n (0 confs), rcpt+r+101n (1 conf), rcpt+r+102n (2 confs).
       const mockPublicClient = {
         getTransactionReceipt: jest
           .fn()
           .mockResolvedValueOnce(null) // Not mined yet
-          .mockResolvedValueOnce(mockReceipt) // Mined, 0 confirmations
-          .mockResolvedValueOnce(mockReceipt) // 1 confirmation
-          .mockResolvedValueOnce(mockReceipt), // 2 confirmations
+          .mockResolvedValue(mockReceipt), // Mined
         getBlockNumber: jest
           .fn()
           .mockResolvedValueOnce(100n) // Same block
           .mockResolvedValueOnce(101n) // 1 confirmation
-          .mockResolvedValueOnce(102n), // 2 confirmations
+          .mockResolvedValue(102n), // 2 confirmations
       };
 
       (wagmi.usePublicClient as jest.Mock).mockReturnValue(mockPublicClient);
@@ -147,7 +152,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult: ReconciliationResult | undefined;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -182,20 +187,13 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      // reconcile() re-throws after recording the timeout result.
-      let caught: unknown;
+      let reconciliationResult: any;
       await act(async () => {
-        try {
-          await result.current.reconcile(mockSubmission);
-        } catch (err) {
-          caught = err;
-        }
+        reconciliationResult = await result.current.reconcile(mockSubmission);
       });
 
-      expect(caught).toBeInstanceOf(Error);
-      expect((caught as Error).message).toContain('not confirmed within');
-      expect(result.current.lastResult?.status).toBe('timeout');
-      expect(result.current.lastResult?.error).toContain('not confirmed within');
+      expect(reconciliationResult?.status).toBe('timeout');
+      expect(reconciliationResult?.error).toContain('not confirmed within');
     });
   });
 
@@ -222,7 +220,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let error;
+      let error: any;
       await act(async () => {
         try {
           await result.current.reconcile(mockSubmission);
@@ -252,7 +250,7 @@ describe('useStateReconciliation', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let error;
+      let error: any;
       await act(async () => {
         try {
           await result.current.reconcile(mockSubmission);

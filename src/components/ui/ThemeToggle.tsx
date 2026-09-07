@@ -13,7 +13,7 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className = '', showLabel = false }: ThemeToggleProps) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const handleToggle = () => {
     // Cycle through: system -> light -> dark -> system

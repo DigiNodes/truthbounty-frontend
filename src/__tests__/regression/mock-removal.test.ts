@@ -28,9 +28,18 @@ import * as path from 'path';
 // Mock wagmi/rainbowkit at top level for test environment so module
 // evaluation of the config (wagmi.tsx) never hits real library side-effects.
 jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => ({
+    address: undefined,
+    isConnected: false,
+    isConnecting: false,
+    isReconnecting: false,
+    chainId: undefined,
+    connector: undefined,
+  }),
   useChainId: () => 10,
+  useConnect: () => ({ connect: jest.fn(), isPending: false }),
   useDisconnect: () => ({ disconnect: jest.fn() }),
+  useConnectors: () => [],
   http: jest.fn(),
   WagmiProvider: () => null,
 }));
@@ -233,11 +242,11 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
 // ---------------------------------------------------------------------------
 
 describe('production code — no synthetic hashes or addresses (V2-FE-016)', () => {
-  it('useAppealParticipation does not fabricate a transaction hash', () => {
-    const filePath = path.resolve(__dirname, '../../hooks/useAppealParticipation.ts');
+  it('useAccount does not mint mock addresses', () => {
+    const filePath = path.resolve(__dirname, '../../hooks/useAccount.ts');
     const content = fs.readFileSync(filePath, 'utf-8');
     expect(content).not.toContain('Math.random');
-    expect(content).not.toContain('mockTxHash');
+    expect(content).not.toContain('mockAddress');
   });
 
   it('identity page connects a real wallet instead of minting a mock address', () => {

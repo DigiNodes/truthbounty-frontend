@@ -12,6 +12,8 @@
  *  - clearError resets error without disconnecting
  */
 
+jest.unmock('wagmi');
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -88,6 +90,12 @@ describe('useWallet — lifecycle states', () => {
     expect(result.current.isConnected).toBe(true);
     expect(result.current.address).toMatch(/^0x/);
     expect(result.current.connectorError).toBeNull();
+
+    // Leave the store disconnected so later tests observe a clean slate.
+    act(() => {
+      result.current.disconnect();
+    });
+    await waitFor(() => expect(result.current.isConnected).toBe(false));
   });
 
   it('exposes the chain id when connected', async () => {
@@ -218,6 +226,12 @@ describe('useWallet — connector preference persistence', () => {
 
     await waitFor(() => expect(result.current.isConnected).toBe(true));
     expect(result.current.address).toMatch(/^0x/);
+
+    // Leave the store disconnected so later tests observe a clean slate.
+    act(() => {
+      result.current.disconnect();
+    });
+    await waitFor(() => expect(result.current.isConnected).toBe(false));
   });
 
   it('reconnect() is a no-op when no preference is stored', () => {
@@ -260,7 +274,7 @@ describe('useWallet — account change', () => {
 
     // Simulate an account switch via the mock connector
     await act(async () => {
-      await connector.switchAccount?.({ accounts: ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8'] });
+      (connector as any).onAccountsChanged?.(['0x70997970C51812dc3A010C7d01b50e0d17dc79C8']);
     });
 
     await waitFor(() => {

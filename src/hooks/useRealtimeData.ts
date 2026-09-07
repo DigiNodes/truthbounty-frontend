@@ -56,7 +56,7 @@ export function useRealtimeData() {
       // Also update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: any) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, ...payload.updates }
               : claim
@@ -89,7 +89,7 @@ export function useRealtimeData() {
       // Update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: any) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, status: payload.newStatus }
               : claim

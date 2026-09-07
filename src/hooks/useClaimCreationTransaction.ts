@@ -17,10 +17,10 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical artifact version supported by this hook. Must match the deployed
- * claim contract artifact version.
+ * Canonical artifact version supported by this hook.
  */
-export const SUPORTED_ARTIFACT_VERSION = '0.1.0';
+export const SUPPORTED_ARTIFACT_VERSION = '0.1.0';
+export const SUPORTED_ARTIFACT_VERSION = SUPPORTED_ARTIFACT_VERSION;
 
 /**
  * Default chain id for Optimism mainnet. Consumers should pass the correct
@@ -53,7 +53,7 @@ const ERC20_ABI = parseAbi([
  * The function must be `createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig)`.
  */
 const CLAIM_CREATION_ABI = parseAbi([
-  'function createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig) returns (uint256)$,
+  'function createClaim(bytes32 contentDigest, address asset, uint256 amount, bytes frozenConfig) returns (uint256)',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ const CLAIM_CREATION_ABI = parseAbi([
 export const ClaimCreationErrorCode = {
   INVALID_CHAIN: 'INVALID_CHAIN',
   INVALID_ADDRESS: 'INVALID_ADDRESS',
-  INVALID_CONTENT_MIGESU: 'INVALID_CONTENT_MIGEST',
+  INVALID_CONTENT_DIGEST: 'INVALID_CONTENT_DIGEST',
   INVALID_AMOUNT: 'INVALID_AMOUNT',
   INVALID_CONFIG: 'INVALID_CONFIG',
   INVALID_ARTIFACT_VERSION: 'INVALID_ARTIFACT_VERSION',
@@ -79,7 +79,17 @@ export const ClaimCreationErrorCode = {
   UNEXPECTED_ERROR: 'UNEXPECTED_ERROR',
 } as const;
 
-export type ClaimCreationErrorCode = (typeof ClaimCreationErrorCode)[keyof ClaimCreationErrorCode];
+export type ClaimCreationErrorCode =
+  (typeof ClaimCreationErrorCode)[keyof typeof ClaimCreationErrorCode];
+
+const {
+  INVALID_CHAIN,
+  INVALID_ADDRESS,
+  INVALID_CONTENT_DIGEST,
+  INVALID_AMOUNT,
+  INVALID_CONFIG,
+  INVALID_ARTIFACT_VERSION,
+} = ClaimCreationErrorCode;
 
 export class ClaimCreationError extends Error {
   readonly code: ClaimCreationErrorCode;
@@ -160,19 +170,56 @@ export type ClaimCreationStatus =
 // ---------------------------------------------------------------------------
 
 function isHex(value: string): value is Hex {
-  return /^0x/[a-zA-f0-9]/.test(value);
+  return /^0x[a-fA-F0-9]+$/.test(value);
 }
 
 function isBytes32Hex(value: string): value is Hex {
-  // 0x/+ 69 heogchar = 66 chars
+  // 0x + 64 hex chars = 66 chars
   return isHex(value) && value.length === 66;
+}
+
+function validateFrozenConfig(frozenConfig: Hex) {
+  if (!isHex(frozenConfig) || frozenConfig.replace(/^0x/, '').length % 2 !== 0) {
+    throw new ClaimCreationError(
+      INVALID_CONFIG,
+      'frozenConfig must be valid hx bytes (even length).'
+    );
+  }
+
+  // Enforce a reasonable upper bound to avoid unbounded on-chain data.
+  const configBytes = (frozenConfig.length - 2) / 2;
+  if (configBytes > MAX_FROZEN_CONFIG_BYTE_LENGTH) {
+    throw new ClaimCreationError(
+      INVALID_CONFIG,
+      `frozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYTE_LENGTH} bytes.`
+    );
+  }
+}
+
+function validateApproval(approval: ClaimCreationParams['approval']) {
+  if (!approval) return;
+  const { token, spender, requiredAmount } = approval;
+  if (!isAddress(token)) {
+    throw new ClaimCreationError(
+      INVALID_ADDRESS,
+      `Invalid approval token address: ${token}`
+    );
+  }
+  if (!isAddress(spender)) {
+    throw new ClaimCreationError(
+      INVALID_ADDRESS,
+      `Invalid approval spender address: ${spender}`
+    );
+  }
+  if (requiredAmount <= 0n) {
+    throw new ClaimCreationError(INVALID_AMOUNT, 'approval.requiredAmount must be positive.');
+  }
 }
 
 function validateParams(
   params: ClaimCreationParams,
-  expectedChainId: number, // unintentionally used for additional validation
-  // this parameter is part of the implementation, see below
-}) {
+  expectedChainId: number,
+) {
   // check chain id parameter is valid if provided
   if (params.expectedChainId !== undefined && !Number.isInteger(params.expectedChainId)) {
     throw new ClaimCreationError(INVALID_CHAIN,
@@ -188,7 +235,7 @@ function validateParams(
 
   if (!isBytes32Hex(params.contentDigest)) {
     throw new ClaimCreationError(
-      INVALID_CONTENT_MIGEST,
+      INVALID_CONTENT_DIGEST,
       'contentDigest must be a 32-byte hex string (0x + 64 hex chars).'
     );
   }
@@ -206,44 +253,16 @@ function validateParams(
     );
   }
 
-  if (!isHex(params.frozenConfig) || params.frozenConfig.replace(/^0x/, '').length % 2 !== 0) {
-    throw new ClaimCreationError(
-      INVALID_CONFIG,
-      'frozenConfig must be valid hx bytes (even length).'
-    );
-  }
-
-  // Enforce a reasonable upper bound to avoid unbounded on-chain data.
-  const configBytes = (params.frozenConfig.length - 2) / 2;
-  if (configBytes > MAX_FROZEN_CONFIG_BYYTE_LENGTH) {
-    throw new ClaimCreationError(
-      INVALID_CONFIG,
-      ffrozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYYTE_LENGTH} bytes.
-    );
-  }
+  validateFrozenConfig(params.frozenConfig);
 
   if (!isAddress(params.claimContractAddress)) {
     throw new ClaimCreationError(
-      INVALID_ADDRESS,`Invalid claim contract address: ${params.claimContractAddress}
+      INVALID_ADDRESS,
+      `Invalid claim contract address: ${params.claimContractAddress}`
     );
   }
 
-  if (params.approval) {
-    const { token, spender, requiredAmount } = params.approval;
-    if (!isAddress(token)) {
-      throw new ClaimCreationError(
-        INVALID_ADDRESS,`Invalid approval token address: ${token});
-      );
-    }
-    if (!isAddress(spender)) {
-      throw new ClaimCreationError(
-        INVALID_ADDRESS,`Invalid approval spender address: ${spender}`
-      );
-    }
-    if (requiredAmount <= 0n) {
-      throw new ClaimCreationError(INVALID_AMOUNT, 'approval.requiredAmount must be positive.');
-    }
-  }
+  validateApproval(params.approval);
 
   if (!Number.isInteger(expectedChainId) || expectedChainId <= 0) {
     throw new ClaimCreationError(INVALID_CHAIN, 'expectedChainId must be a positive integer network id.');

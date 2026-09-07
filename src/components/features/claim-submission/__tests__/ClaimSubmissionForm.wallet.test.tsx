@@ -46,6 +46,10 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => mockConnectors,
   useConnect: () => ({ connect: mockConnect }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({}),
+  useReadContract: () => ({ data: undefined }),
+  useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';

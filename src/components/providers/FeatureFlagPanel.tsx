@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useFeatureFlags } from './FeatureFlagProvider';
-import { FeatureFlag, FeatureFlagMeta, DEFAULT_FLAGS } from '@/config/feature-flags';
+import { DEFAULT_FLAGS } from '@/config/feature-flags';
 
 interface FeatureFlagPanelProps {
   /** Whether the panel is initially open */

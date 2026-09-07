@@ -31,15 +31,17 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
   const forPercentage = (data.votesFor / totalVotes) * 100;
   const againstPercentage = (data.votesAgainst / totalVotes) * 100;
 
-  const handleOpenDispute = (disputeId: string) => {
+  const handleOpenDispute = async (payload: { reason: string; initialStake: number }) => {
+    console.log("Opening dispute:", payload);
+
     setDispute({
-      id: disputeId || "dsp_1",
+      id: "dsp_1",
       claimId: "claim_123",
-      reason: "Dispute opened",
+      reason: payload.reason,
       status: "VOTING",
       proVotes: 0,
       conVotes: 0,
-      totalStaked: 0,
+      totalStaked: payload.initialStake,
       createdAt: new Date().toISOString(),
     });
   };
@@ -154,7 +156,18 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         claimId="claim_123"
         isOpen={isDisputeModalOpen}
         onClose={() => setDisputeModalOpen(false)}
-        onSuccess={handleOpenDispute}
+        onSuccess={(disputeId) => {
+          setDispute({
+            id: disputeId,
+            claimId: "claim_123",
+            reason: "Disputed",
+            status: "VOTING",
+            proVotes: 0,
+            conVotes: 0,
+            totalStaked: 0,
+            createdAt: new Date().toISOString(),
+          });
+        }}
       />
     </div>
   );

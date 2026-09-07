@@ -15,20 +15,35 @@ import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient } from '@tanstack/react-query'
 import { useSubmitClaim } from '@/app/queries/claims.queries'
+import ClaimSubmissionForm from '@/components/features/claim-submission/ClaimSubmissionForm'
 import { render, createMockClaim } from '../utils/test-utils'
 import { setupMockServer } from '../mocks/server'
-import ClaimSubmissionForm from '@/components/features/claim-submission/ClaimSubmissionForm'
 
 const server = setupMockServer()
 
+let mockTrustState = {
+  isVerified: true,
+  reputation: 50,
+  accountAgeDays: 30,
+  suspicious: false,
+}
+
+let mockMutateAsync = jest.fn().mockResolvedValue({})
+
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: () => ({
-    isVerified: true,
-    reputation: 50,
-    accountAgeDays: 30,
-    suspicious: false,
-  }),
+  useTrust: () => mockTrustState,
 }))
+
+jest.mock('@/app/queries/claims.queries', () => {
+  const actual = jest.requireActual('@/app/queries/claims.queries')
+  return {
+    ...actual,
+    useSubmitClaim: () => ({
+      mutateAsync: mockMutateAsync,
+      isLoading: false,
+    }),
+  }
+})
 
 jest.mock('@/app/api/claims.api', () => ({
   submitClaim: jest.fn(),
@@ -36,17 +51,6 @@ jest.mock('@/app/api/claims.api', () => ({
 
 jest.mock('@/app/lib/wallet', () => ({
   getTokenBalance: jest.fn(() => Promise.resolve(100)),
-}))
-
-// The form renders through the EVM account wrapper; keep it connected so the
-// wallet gate stays open (V2-FE-016 — no Freighter/mock-provider paths).
-jest.mock('@/hooks/useAccount', () => ({
-  useAccount: () => ({
-    address: '0x1234567890123456789012345678901234567890',
-    displayName: '0x1234...7890',
-    chainId: 10,
-    isConnected: true,
-  }),
 }))
 
 describe('Claim Submission Integration Tests', () => {
@@ -273,22 +277,22 @@ describe('Claim Submission Integration Tests', () => {
       await waitFor(() => {
         expect(submitButton).toHaveTextContent('Submit')
         expect(submitButton).not.toBeDisabled()
-      }, { timeout: 300 })
+      })
     })
 
     it('should display validation errors for empty fields', async () => {
       function ValidationForm() {
         const [errors, setErrors] = React.useState<Record<string, string>>({})
 
-        const handleSubmit = (e: React.FormEvent) => {
+        const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
           e.preventDefault()
-          const form = e.currentTarget as HTMLFormElement
-          const newErrors: Record<string, string> = {}
+          const form = e.currentTarget
           const titleInput = form.elements.namedItem('title') as HTMLInputElement | null
-          const descriptionInput = form.elements.namedItem('description') as HTMLInputElement | null
+          const descInput = form.elements.namedItem('description') as HTMLInputElement | null
+          const newErrors: Record<string, string> = {}
 
           if (!titleInput?.value) newErrors.title = 'Title is required'
-          if (!descriptionInput?.value) newErrors.description = 'Description is required'
+          if (!descInput?.value) newErrors.description = 'Description is required'
 
           setErrors(newErrors)
         }
@@ -446,67 +450,151 @@ describe('Claim Submission Integration Tests', () => {
     })
   })
 
-  describe('Trust Warning Display', () => {
+  describe('Trust Warning', () => {
     it('should show trust warning for low trust accounts', () => {
+      mockTrustState = {
+        isVerified: false,
+        reputation: 10,
+        accountAgeDays: 2,
+        suspicious: true,
+      }
+
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
       // Check for trust warning
-      expect(screen.getByText('Your account has a low trust score')).toBeInTheDocument()
+      expect(screen.getByText(/⚠️ Low trust score/i)).toBeInTheDocument()
     })
 
     it('should not show trust warning for high trust accounts', () => {
+      mockTrustState = {
+        isVerified: true,
+        reputation: 100,
+        accountAgeDays: 365,
+        suspicious: false,
+      }
+
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
       // Should not show trust warning
-      expect(screen.queryByText('Your account has a low trust score')).not.toBeInTheDocument()
+      expect(screen.queryByText(/⚠️ Low trust score/i)).not.toBeInTheDocument()
     })
   })
 
   describe('API Integration', () => {
     it('should handle API errors gracefully', async () => {
-      // Mock API error
-      const { submitClaim } = require('@/app/api/claims.api')
-      submitClaim.mockRejectedValue(new Error('API Error'))
+      mockMutateAsync = jest.fn().mockRejectedValue(new Error('API Error'))
 
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
-      // Fill out form
-      const titleInput = screen.getByPlaceholderText('Title')
-      await user.type(titleInput, 'Test Claim')
+      // Fill out valid form
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim Title')
+      await user.type(screen.getByPlaceholderText('Category'), 'Politics')
+      await user.type(screen.getByPlaceholderText('Impact'), 'High')
+      await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
+      await user.type(screen.getByPlaceholderText('Description'), 'This is a sufficiently long description.')
 
       // Submit form
-      const submitButton = screen.getByRole('button', { name: 'Submit' })
+      const submitButton = screen.getByTestId('submit-claim-button')
       await user.click(submitButton)
 
-      // The form should handle the error (currently it just closes the form)
-      // In a real implementation, you might want to show an error message
+      // The form should show error message
       await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalled()
+        expect(screen.getAllByText('API Error').length).toBeGreaterThan(0)
       })
     })
 
     it('should integrate with React Query mutation', async () => {
-      // This test would require more complex setup with actual React Query integration
-      // For now, we test the component in isolation
+      mockMutateAsync = jest.fn().mockResolvedValue({})
+
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
+      // Fill and submit form
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim Title')
+      await user.type(screen.getByPlaceholderText('Category'), 'Politics')
+      await user.type(screen.getByPlaceholderText('Impact'), 'High')
+      await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
+      await user.type(screen.getByPlaceholderText('Description'), 'This is a sufficiently long description.')
+
+      const submitButton = screen.getByTestId('submit-claim-button')
+      await user.click(submitButton)
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Test Claim Title',
+          })
+        )
+      })
+    })
+  })
+
+  describe('Accessibility', () => {
+    it('should be accessible via keyboard', async () => {
+      const userTab = userEvent.setup()
+      const onSubmit = jest.fn()
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
+
+      // Tab through form fields
+      const titleInput = screen.getByPlaceholderText('Title')
+      titleInput.focus()
+      
+      // Tab to next field
+      await userTab.tab()
+      expect(screen.getByPlaceholderText('Category')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByPlaceholderText('Impact')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByPlaceholderText('https://example.com')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByPlaceholderText('Description')).toHaveFocus()
+
+      // Tab to cancel button
+      await userTab.tab()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+      // Tab to submit button
+      await userTab.tab()
+      expect(screen.getByTestId('submit-claim-button')).toHaveFocus()
+    })
+
+    it('should have proper ARIA labels', () => {
+      const onSubmit = jest.fn()
+      render(
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
+        { queryClient }
+      )
+
+      // Check for proper heading
+      expect(screen.getByRole('heading', { name: 'Submit a Claim' })).toBeInTheDocument()
+
+      // Check form inputs have proper labels
+      expect(screen.getByPlaceholderText('Title')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Category')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Impact')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('https://example.com')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Description')).toBeInTheDocument()
+    })
+  })
+})
