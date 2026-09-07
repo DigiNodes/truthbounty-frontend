@@ -9,7 +9,7 @@ jest.mock('wagmi', () => ({
 
 jest.mock('viem', () => ({
   createPublicClient: jest.fn(() => ({
-    readContract: jest.fn().mockResolvedValue(0n),
+    readContract: jest.fn().mockResolvedValue(BigInt(0)),
   })),
   http: jest.fn(),
   formatUnits: jest.fn(() => '0'),

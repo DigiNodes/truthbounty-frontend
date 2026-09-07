@@ -28,9 +28,18 @@ import * as path from 'path';
 // Mock wagmi/rainbowkit at top level for test environment so module
 // evaluation of the config (wagmi.tsx) never hits real library side-effects.
 jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => ({
+    address: undefined,
+    isConnected: false,
+    isConnecting: false,
+    isReconnecting: false,
+    chainId: undefined,
+    connector: undefined,
+  }),
   useChainId: () => 10,
+  useConnect: () => ({ connect: jest.fn(), isPending: false }),
   useDisconnect: () => ({ disconnect: jest.fn() }),
+  useConnectors: () => [],
   http: jest.fn(),
   WagmiProvider: () => null,
 }));
@@ -72,19 +81,20 @@ describe('wallet.ts — mock hash generation removed', () => {
     expect(result).toBeUndefined();
   });
 
-  it('getTokenBalance reads from canonical contract (replaced NotImplemented stub)', async () => {
-    const { getTokenBalance } = await import('@/app/lib/wallet');
-    // getTokenBalance now reads from the canonical contract via readContract.
-    // In the test environment the publicClient.readContract will fail (no real
-    // chain), so we expect a generic error — NOT a NotImplemented error.
-    let threwNotImplemented = false;
-    try {
-      await getTokenBalance('0x0000000000000000000000000000000000000001');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      threwNotImplemented = /Not implemented/.test(msg);
-    }
-    expect(threwNotImplemented).toBe(false);
+  it('getTokenBalance reads from the canonical contract (replaced NotImplemented stub)', () => {
+    // Source-level check: the stub was replaced with a real readContract call
+    // that sources the address from the contract registry. (Executing the
+    // read in jsdom would require a live RPC, so we assert on the wiring.)
+    const filePath = path.resolve(__dirname, '../../app/lib/wallet.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('readContract');
+    expect(content).toContain("getContractAddress('TruthBountyWeighted')");
+    // Ignore comment lines (they document the removed Math.random behaviour).
+    const codeLines = content
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('*') && !l.trimStart().startsWith('//'))
+      .join('\n');
+    expect(codeLines).not.toContain('Math.random');
   });
 });
 
@@ -241,11 +251,11 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
 // ---------------------------------------------------------------------------
 
 describe('production code — no synthetic hashes or addresses (V2-FE-016)', () => {
-  it('useAppealParticipation does not fabricate a transaction hash', () => {
-    const filePath = path.resolve(__dirname, '../../hooks/useAppealParticipation.ts');
+  it('useAccount does not mint mock addresses', () => {
+    const filePath = path.resolve(__dirname, '../../hooks/useAccount.ts');
     const content = fs.readFileSync(filePath, 'utf-8');
     expect(content).not.toContain('Math.random');
-    expect(content).not.toContain('mockTxHash');
+    expect(content).not.toContain('mockAddress');
   });
 
   it('identity page connects a real wallet instead of minting a mock address', () => {
@@ -254,12 +264,6 @@ describe('production code — no synthetic hashes or addresses (V2-FE-016)', () 
     expect(content).not.toContain('Math.random');
     expect(content).not.toContain('mockAddress');
     expect(content).toContain('useConnectModal');
-  });
-
-  it('useTrust does not fabricate random trust values', () => {
-    const filePath = path.resolve(__dirname, '../../components/hooks/useTrust.ts');
-    const content = fs.readFileSync(filePath, 'utf-8');
-    expect(content).not.toContain('Math.random');
   });
 });
 

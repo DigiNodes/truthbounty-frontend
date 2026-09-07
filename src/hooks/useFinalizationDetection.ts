@@ -62,7 +62,9 @@ export function useFinalizationDetection(
       };
     }
 
-    if (currentChainId !== expectedChainId) {
+    // Check if user is on correct and supported chain
+    const isSupportedChain = currentChainId === OPTIMISM_MAINNET_CHAIN_ID || currentChainId === OPTIMISM_SEPOLIA_CHAIN_ID;
+    if (!isSupportedChain || currentChainId !== expectedChainId) {
       return {
         isValid: false,
         currentState: 'PENDING_SETTLEMENT',
@@ -205,15 +207,18 @@ export function useFinalizationDetection(
 
   /**
    * Poll for finalization readiness
-   * Runs unconditionally so chain/wallet validation failures surface
-   * clearly instead of failing silently when disconnected.
    */
   useEffect(() => {
+    if (!isConnected) {
+      setValidation(validateState());
+      return;
+    }
+
     detectAction();
     const interval = setInterval(detectAction, pollInterval);
 
     return () => clearInterval(interval);
-  }, [detectAction, pollInterval]);
+  }, [isConnected, detectAction, pollInterval, validateState]);
 
   return {
     finalizationAction,

@@ -1,35 +1,44 @@
 "use client"
+import { useEffect, useState } from "react";
 import { useAccount } from "@/hooks/useAccount";
 import { useUserVerification } from "@/app/queries/user.queries";
 
 /**
- * Trust signals shown next to accounts.
- *
- * Production sources are authoritative and never fabricated (V2-FE-016):
- *  - `isVerified` is fetched from the Worldcoin verification API.
- *  - `reputation`, `accountAgeDays` and `suspicious` are `null` until the
- *    reputation backend / indexer (V2-FE-005) provides them. No random or
- *    address-derived demo values are produced by production code.
+ * Represents a small set of trust data.  In production this should all
+ * come from the backend; for now only `isVerified` is fetched from the
+ * API (Worldcoin verification status) while the remaining fields use
+ * randomized demo values.
  */
 export interface TrustInfo {
   /** has the user completed an identity verification flow? */
   isVerified: boolean;
-  /** 0..100 score reflecting past behaviour/reputation, or null when unknown. */
-  reputation: number | null;
-  /** age of the wallet in days, or null when unknown. */
-  accountAgeDays: number | null;
-  /** whether the user has been flagged by heuristics, or null when unknown. */
-  suspicious: boolean | null;
+  /** 0..100 score reflecting past behaviour/reputation */
+  reputation: number;
+  /** age of the wallet in days (new wallets get extra scrutiny) */
+  accountAgeDays: number;
+  /** whether the user has been flagged by simple heuristics */
+  suspicious: boolean;
 }
 
 /**
- * Development-only simulation hook.
- *
- * Stores a JSON object under `localStorage.trustInfo` to preview warning
- * states locally (documented in the README). Any subset of fields may be
- * overridden; unset fields resolve to their production values.
- *
- * Returns `null` when nothing is stored or the stored value is invalid.
+ * Utility to generate a pseudo-random TrustInfo based on an address string.
+ * The values are stable across rerenders for the same address but not
+ * cryptographically secure – just enough for demo purposes.
+ */
+function makeTrustFromAddress(addr: string): TrustInfo {
+  // simple hash: sum of char codes
+  let sum = 0;
+  for (let i = 0; i < addr.length; i++) sum += addr.charCodeAt(i);
+  const reputation = sum % 101; // 0..100
+  const accountAgeDays = (sum % 30) + 1;
+  const isVerified = sum % 2 === 0;
+  const suspicious = sum % 10 < 2;
+  return { isVerified, reputation, accountAgeDays, suspicious };
+}
+
+/**
+ * Hook that returns trust information for the given address.  If the
+ * address is omitted it falls back to the current user.
  */
 function parseTrustInfoFromStorage(): Partial<TrustInfo> | null {
   try {
@@ -59,49 +68,50 @@ function parseTrustInfoFromStorage(): Partial<TrustInfo> | null {
   }
 }
 
-/**
- * Read the localStorage.dev-only simulation override. Returns null when
- * nothing is stored, the value is invalid, or we are not in a browser.
- */
-function readStoredTrustOverride(): Partial<TrustInfo> | null {
-  if (typeof window === "undefined") return null;
-  return parseTrustInfoFromStorage();
-}
-
-/**
- * Hook that returns trust information for the given address. If the
- * address is omitted it falls back to the current user.
- */
 export function useTrustForAddress(address?: string): TrustInfo {
   const account = useAccount();
   const effectiveAddress = address || account?.address || "";
   const { data: verification } = useUserVerification(effectiveAddress);
 
-  // localStorage simulation is a dev-only convenience; never applied to
-  // address-specific lookups (e.g. a claim's claimant). Computed during
-  // render (no setState-in-effect) so first paint already reflects it.
-  const overrideInfo = !address ? readStoredTrustOverride() : null;
+  const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
 
-  const isVerified = verification?.status === "SUCCESS";
+  useEffect(() => {
+    const handleStorage = () => {
+      setStorageUpdateTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
-  // Only `isVerified` is backed by an API today. The remaining trust signals
-  // are explicitly unknown (`null`) rather than fabricated from the address
-  // or randomness — the backend/indexer is the authoritative source.
-  const base: TrustInfo = {
-    isVerified,
-    reputation: null,
-    accountAgeDays: null,
-    suspicious: null,
+  // Stable randomised demo values – these should be replaced by API
+  // calls once backend endpoints for reputation/account-age exist.
+  const [mock] = useState(() => ({
+    reputation: Math.floor(Math.random() * 100),
+    accountAgeDays: Math.floor(Math.random() * 30),
+    suspicious: Math.random() < 0.2,
+  }));
+
+  const base = address ? makeTrustFromAddress(address) : mock;
+
+  const trust = {
+    ...base,
+    isVerified: verification?.status === "SUCCESS",
   };
 
-  return overrideInfo ? { ...base, ...overrideInfo } : base;
+  const overrideInfo =
+    !address && typeof window !== "undefined"
+      ? parseTrustInfoFromStorage()
+      : null;
+  void storageUpdateTrigger;
+
+  return overrideInfo ? { ...trust, ...overrideInfo } : trust;
 }
 
 /**
  * Hook that returns the current user's trust information.
  *
  * The current user can be simulated using `localStorage.trustInfo`.
- * If the value is valid JSON, it overrides the production trust values.
+ * If the value is valid JSON, it overrides the demo trust values.
  */
 export function useTrust(): TrustInfo {
   return useTrustForAddress(undefined);

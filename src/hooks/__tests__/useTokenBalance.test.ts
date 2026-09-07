@@ -49,7 +49,7 @@ jest.mock('@/lib/transaction-machine/transaction-machine.types', () => ({
 
 // Use standalone jest.fn() references that are overridden per-test
 const mockUseAccountFn = jest.fn();
-const mockUseChainIdFn = jest.fn(() => MOCK_CHAIN_ID);
+const mockUseChainIdFn = jest.fn();
 
 jest.mock('wagmi', () => ({
   useAccount: (...args: unknown[]) => mockUseAccountFn(...args),

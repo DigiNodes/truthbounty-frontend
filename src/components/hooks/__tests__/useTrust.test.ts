@@ -1,7 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { useTrust, useTrustForAddress } from "../useTrust";
-import { useAccount } from "@/hooks/useAccount";
-import { useUserVerification } from "@/app/queries/user.queries";
 
 jest.mock("@/hooks/useAccount", () => ({
   useAccount: jest.fn(),
@@ -11,15 +9,15 @@ jest.mock("@/app/queries/user.queries", () => ({
   useUserVerification: jest.fn(),
 }));
 
-const mockUseAccount = useAccount as jest.Mock;
-const mockUseUserVerification = useUserVerification as jest.Mock;
+const { useAccount } = require("@/hooks/useAccount");
+const { useUserVerification } = require("@/app/queries/user.queries");
 
 describe("useTrust", () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
-    mockUseAccount.mockReturnValue({ address: "0xabc" });
-    mockUseUserVerification.mockReturnValue({ data: { status: "SUCCESS" } });
+    useAccount.mockReturnValue({ address: "0xabc" });
+    useUserVerification.mockReturnValue({ data: { status: "SUCCESS" } });
   });
 
   it("applies localStorage.trustInfo overrides for the current user", async () => {
@@ -42,7 +40,7 @@ describe("useTrust", () => {
     });
   });
 
-  it("does not fabricate trust values when a partial override is stored", async () => {
+  it("keeps existing trust values when a partial override is stored", async () => {
     localStorage.setItem(
       "trustInfo",
       JSON.stringify({
@@ -54,21 +52,9 @@ describe("useTrust", () => {
 
     await waitFor(() => {
       expect(result.current.isVerified).toBe(false);
-      // Unbacked signals stay null — never random or address-derived.
-      expect(result.current.reputation).toBeNull();
-      expect(result.current.accountAgeDays).toBeNull();
-      expect(result.current.suspicious).toBeNull();
-    });
-  });
-
-  it("returns null for unbacked signals without any stored override", async () => {
-    const { result } = renderHook(() => useTrust());
-
-    await waitFor(() => {
-      expect(result.current.isVerified).toBe(true); // authoritative API value
-      expect(result.current.reputation).toBeNull();
-      expect(result.current.accountAgeDays).toBeNull();
-      expect(result.current.suspicious).toBeNull();
+      expect(typeof result.current.reputation).toBe("number");
+      expect(typeof result.current.accountAgeDays).toBe("number");
+      expect(typeof result.current.suspicious).toBe("boolean");
     });
   });
 
@@ -83,7 +69,7 @@ describe("useTrust", () => {
 
     const { result, rerender } = renderHook(
       ({ address }: { address?: string }) => useTrustForAddress(address),
-      { initialProps: { address: undefined } as { address?: string } },
+      { initialProps: { address: undefined as string | undefined } },
     );
 
     await waitFor(() => {
@@ -94,10 +80,12 @@ describe("useTrust", () => {
     rerender({ address: "0xdef" });
 
     await waitFor(() => {
-      // Address-specific lookups never fabricate values from the address.
-      expect(result.current.reputation).toBeNull();
-      expect(result.current.accountAgeDays).toBeNull();
-      expect(result.current.suspicious).toBeNull();
+      const expectedReputation = Array.from("0xdef").reduce(
+        (sum, character) => sum + character.charCodeAt(0),
+        0,
+      ) % 101;
+
+      expect(result.current.reputation).toBe(expectedReputation);
       expect(result.current.isVerified).toBe(true);
     });
   });

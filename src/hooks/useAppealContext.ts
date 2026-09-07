@@ -105,7 +105,7 @@ export function useAppealContext(
           firstRoundVotesAgainst: 8,
           reason: 'First round verification was compromised',
           initiatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-          blockNumber: Number(currentBlockNumber) - 7200, // ~24h ago on Optimism (2s blocks)
+          blockNumber: 12345678 - 7200, // ~24h ago on Optimism (2s blocks)
         };
 
         return mockSnapshot;
@@ -133,7 +133,7 @@ export function useAppealContext(
         const OPTIMISM_BLOCK_TIME_SECONDS = 2;
 
         const endBlock = snapshotBlockNumber + APPEAL_PERIOD_BLOCKS;
-        const currentBlock = Number(currentBlockNumber) || snapshotBlockNumber;
+        const currentBlock = currentBlockNumber ? Number(currentBlockNumber) : snapshotBlockNumber + 7200;
         const blocksRemaining = Math.max(0, endBlock - currentBlock);
         const timeRemainingSeconds = blocksRemaining * OPTIMISM_BLOCK_TIME_SECONDS;
 
@@ -330,21 +330,28 @@ export function useAppealContext(
 
   /**
    * Poll for context updates
-   * Runs unconditionally so configuration errors (disconnected wallet,
-   * invalid IDs) surface clearly instead of failing silently.
    */
   useEffect(() => {
-    fetchContext();
-    const interval = setInterval(fetchContext, pollInterval);
+    const configError = validateConfiguration();
+    if (configError) {
+      setError(configError);
+      setContext(null);
+      return;
+    }
+
+    void fetchContext();
+    const interval = setInterval(() => {
+      void fetchContext();
+    }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [fetchContext, pollInterval]);
+  }, [isConnected, userAddress, currentChainId, expectedChainId, contractAddress, appealId, claimId, fetchContext, pollInterval, validateConfiguration]);
 
   /**
    * Refetch on block number changes (for deadline updates)
    */
   useEffect(() => {
-    if (!appealId || !context) return;
+    if (!isConnected || !appealId || !context) return;
 
     // Only update deadline, don't refetch everything
     if (context.snapshot) {

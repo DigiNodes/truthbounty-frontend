@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020", // ES2020 so BigInt literals compile (tests + viem usage)
-
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -21,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["jest", "node", "@testing-library/jest-dom"]
   },
   "include": [
     "next-env.d.ts",
@@ -33,11 +33,11 @@
   ],
   "exclude": [
     "node_modules",
+    ".next",
+    "out",
+    "build",
     "**/*.stories.tsx",
     "**/*.stories.ts",
-    "**/*.docs.tsx",
-    "src/config/config.module.ts",
-    "src/config/env.validation.ts",
-    "src/config/tests/**"
+    "**/*.docs.tsx"
   ]
 }

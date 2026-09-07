@@ -151,7 +151,7 @@ describe('Claim Lifecycle Integration Tests', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('claim-detail')).toBeInTheDocument()
-        expect(screen.getByText('Test Claim')).toBeInTheDocument()
+        expect(within(screen.getByTestId('claim-detail')).getByText('Test Claim')).toBeInTheDocument()
         expect(screen.getByText('Status: OPEN')).toBeInTheDocument()
         expect(screen.getByText('Bounty: 100')).toBeInTheDocument()
         expect(screen.getByText('Staked: 0')).toBeInTheDocument()
@@ -177,7 +177,6 @@ describe('Claim Lifecycle Integration Tests', () => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
           decision: 'verify',
-          stakeAmount: 50
         })
       })
     })

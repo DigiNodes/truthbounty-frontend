@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Shield, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import type { WorldcoinVerificationStatus } from '@/app/types/worldcoin';
 import { cn } from '@/lib/utils';
@@ -67,9 +68,11 @@ export function VerificationStatusIndicator({
   const config = getStatusConfig();
   const Icon = config.icon;
 
-  const isExpiringSoon = expiresAt && status === 'SUCCESS' 
-    ? new Date(expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 
-    : false;
+  const isExpiringSoon = useMemo(() => {
+    return expiresAt && status === 'SUCCESS'
+      ? new Date(expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000
+      : false;
+  }, [expiresAt, status]);
 
   return (
     <div

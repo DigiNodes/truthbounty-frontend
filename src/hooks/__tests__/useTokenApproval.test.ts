@@ -40,7 +40,7 @@ jest.mock('@/lib/transaction-machine/transaction-machine.types', () => ({
 }));
 
 const mockUseAccountFn = jest.fn();
-const mockUseChainIdFn = jest.fn(() => 11155420);
+const mockUseChainIdFn = jest.fn();
 const mockWriteContractAsyncFn = jest.fn();
 const mockUseWaitForReceiptFn = jest.fn();
 

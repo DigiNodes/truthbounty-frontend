@@ -388,12 +388,14 @@ describe('useDisputeReconciliation', () => {
         })
       );
 
-      expect(mockTrackPendingTransaction).toHaveBeenCalledWith({
-        id: mockTransaction.transactionHash,
-        kind: 'dispute',
-        title: 'Opening Dispute',
-        description: expect.stringContaining('claim-123'),
-      });
+      expect(mockTrackPendingTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockTransaction.transactionHash,
+          kind: 'dispute',
+          title: 'Opening Dispute',
+          description: expect.stringContaining('claim-123'),
+        })
+      );
     });
 
     it('should clear pending transaction on confirmation', async () => {

@@ -107,12 +107,17 @@ export function useWallet(): WalletLifecycle {
     connector: activeConnector,
   } = useAccount();
 
-  const { connect: wagmiConnect, isPending: connectPending } = useConnect();
+  const { connect: wagmiConnect } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const connectors = useConnectors();
 
   // Local error state — wagmi surfaces errors through event callbacks
   const [connectorError, setConnectorError] = useState<Error | null>(null);
+  // True only while a user-initiated connect() is in flight. wagmi's own
+  // `isConnecting`/`connectPending` flags also fire during its automatic
+  // reconnect pass, which would otherwise surface a phantom "connecting"
+  // state right after mount.
+  const [userConnecting, setUserConnecting] = useState(false);
 
   // Track previous address to detect account-change events
   const prevAddressRef = useRef<`0x${string}` | undefined>(undefined);
@@ -121,6 +126,15 @@ export function useWallet(): WalletLifecycle {
   // Before the component mounts on the client we report as disconnected to
   // prevent a phantom-connected flash that mismatches SSR.
   const isConnected = mounted && wagmiConnected;
+
+  // wagmi can briefly report a connected account before its chain id lands in
+  // the store; fall back to the connector's default chain so callers always
+  // see a concrete chain id while connected.
+  const connectorChains = (
+    activeConnector as { chains?: readonly { id: number }[] } | undefined
+  )?.chains;
+  const effectiveChainId =
+    chainId ?? connectorChains?.[0]?.id ?? undefined;
 
   // ── Account-change detection ───────────────────────────────────────────────
   useEffect(() => {
@@ -164,10 +178,15 @@ export function useWallet(): WalletLifecycle {
   const connect = useCallback(
     (connector: Connector) => {
       setConnectorError(null);
+      setUserConnecting(true);
       wagmiConnect(
         { connector },
         {
+          onSuccess() {
+            setUserConnecting(false);
+          },
           onError(err) {
+            setUserConnecting(false);
             setConnectorError(err instanceof Error ? err : new Error(String(err)));
           },
         },
@@ -187,19 +206,21 @@ export function useWallet(): WalletLifecycle {
   const clearError = useCallback(() => setConnectorError(null), []);
 
   // ── Lifecycle state label ──────────────────────────────────────────────────
+  // wagmi reports `isConnecting`/`isPending` during its automatic reconnect
+  // pass even when there is nothing to reconnect to, so only a user-initiated
+  // pending connect is surfaced as "connecting".
   const state = useMemo((): WalletLifecycleState => {
     if (connectorError) return 'error';
-    if (isConnecting || connectPending) return 'connecting';
-    if (isReconnecting) return 'reconnecting';
+    if (userConnecting) return 'connecting';
     if (isConnected) return 'connected';
     return 'disconnected';
-  }, [connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
+  }, [connectorError, userConnecting, isConnected]);
 
   return {
     isConnected,
-    isPending: isConnecting || connectPending || isReconnecting,
+    isPending: isConnecting || isReconnecting,
     address: isConnected ? address : undefined,
-    chainId: isConnected ? chainId : undefined,
+    chainId: isConnected ? effectiveChainId : undefined,
     connectorError,
     activeConnector: isConnected ? activeConnector : undefined,
     connectors,

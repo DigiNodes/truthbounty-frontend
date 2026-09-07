@@ -26,7 +26,7 @@ export function WorldcoinInfoTooltip() {
                 Worldcoin Verification Benefits
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Prove you're a unique human to unlock full platform access and protect against manipulation.
+                Prove you&apos;re a unique human to unlock full platform access and protect against manipulation.
               </p>
             </div>
 

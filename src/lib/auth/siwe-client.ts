@@ -104,7 +104,7 @@ export interface FreshnessResult {
  * and, when present, the message's `expirationTime`. Never fabricates a nonce.
  */
 export function isChallengeFresh(
-  challenge: Pick<SiweChallenge, 'expirationTime' | 'issuedAt'>,
+  challenge: { expirationTime?: string; issuedAt?: string },
   now: number = Date.now(),
 ): FreshnessResult {
   if (challenge.expirationTime) {
