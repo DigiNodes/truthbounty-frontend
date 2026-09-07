@@ -68,7 +68,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       expect(result.current.context?.isEligible).toBe(true);
@@ -85,7 +85,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context?.snapshot).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       const snapshot = result.current.context!.snapshot;
@@ -106,7 +106,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context?.deadline).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       const deadline = result.current.context!.deadline;
@@ -130,7 +130,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context?.stakeBounds).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       const bounds = result.current.context!.stakeBounds;
@@ -152,7 +152,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context?.walletPosition).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       const position = result.current.context!.walletPosition;
@@ -223,7 +223,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       expect(result.current.error).toBeNull();
@@ -282,7 +282,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       // In the mock implementation, deadline calculation will show expired
@@ -304,7 +304,7 @@ describe('useAppealContext', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       const firstContext = result.current.context;
@@ -313,11 +313,11 @@ describe('useAppealContext', () => {
       await result.current.refetch();
 
       await waitFor(() => {
-        expect(result.current.context).toBeDefined();
+        expect(result.current.context).not.toBeNull();
       });
 
       // Should have fetched again (might be same data in mock)
-      expect(result.current.context).toBeDefined();
+      expect(result.current.context).not.toBeNull();
       expect(result.current.error).toBeNull();
     });
   });

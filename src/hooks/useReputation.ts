@@ -10,8 +10,12 @@
 
 'use client';
 
-import { useReputationByUser } from '@/app/queries/reputation.queries';
-import type { UserReputation } from '@/app/api/user.api';
+export function useReputation(
+  _userId?: string,
+  initialScore = 0,
+): ReputationState {
+  void _userId;
+  const [score, setScore] = useState(initialScore);
 
 export interface UseReputationReturn {
   reputation: UserReputation | undefined;

@@ -20,7 +20,7 @@ jest.mock('../../../components/skeletons', () => ({
 }));
 
 jest.mock('../../../lib/explorer', () => ({
-  getTransactionExplorerUrl: (hash: string) => `https://steexp.com/tx/${hash}`,
+  getTransactionExplorerUrl: (hash: string) => `https://optimistic.etherscan.io/tx/${hash}`,
 }));
 
 describe('ClaimRewardsPanel - View on Explorer link', () => {
@@ -29,7 +29,7 @@ describe('ClaimRewardsPanel - View on Explorer link', () => {
     render(<ClaimRewardsPanel />);
     const link = screen.getByRole('link', { name: /view on explorer/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', `https://steexp.com/tx/${mockTxHash}`);
+    expect(link).toHaveAttribute('href', `https://optimistic.etherscan.io/tx/${mockTxHash}`);
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });

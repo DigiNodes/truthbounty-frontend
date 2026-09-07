@@ -64,8 +64,9 @@ export function useSettlementDetection(
       };
     }
 
-    // Check if user is on correct chain
-    if (currentChainId !== expectedChainId) {
+    // Check if user is on correct and supported chain
+    const isSupportedChain = currentChainId === OPTIMISM_MAINNET_CHAIN_ID || currentChainId === OPTIMISM_SEPOLIA_CHAIN_ID;
+    if (!isSupportedChain || currentChainId !== expectedChainId) {
       return {
         isValid: false,
         currentState: 'PENDING_SETTLEMENT',
@@ -209,13 +210,16 @@ export function useSettlementDetection(
    * Poll for settlement actions
    */
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      setValidation(validateState());
+      return;
+    }
 
     detectActions();
     const interval = setInterval(detectActions, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, detectActions, pollInterval]);
+  }, [isConnected, detectActions, pollInterval, validateState]);
 
   return {
     provisionalAction,

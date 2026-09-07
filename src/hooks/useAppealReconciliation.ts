@@ -77,7 +77,7 @@ export function useAppealReconciliation(
         // 3. Parse custom error messages from contract
 
         // Mock implementation
-        return undefined; // No revert in successful path
+        return 'Transaction reverted';
       } catch (err) {
         return 'Unknown revert reason';
       }
@@ -189,7 +189,7 @@ export function useAppealReconciliation(
 
     try {
       // Check if transaction was successful
-      const wasSuccessful = receipt.status === 'success';
+      const wasSuccessful = receipt.status === 'success' || (receipt.status as unknown) === 1 || (receipt.status as unknown) === '0x1';
       
       let finalState: AppealState;
       let revertReason: string | undefined;
@@ -312,7 +312,7 @@ export function useAppealReconciliation(
     reconcile,
     result,
     stateSegregation,
-    isWaiting: isWaitingForReceipt,
+    isWaiting: transaction ? isWaitingForReceipt : false,
     isReconciling,
     error,
   };

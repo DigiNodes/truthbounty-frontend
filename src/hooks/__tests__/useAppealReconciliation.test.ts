@@ -65,7 +65,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result).not.toBeNull();
       });
 
       expect(result.current.result?.status).toBe('confirmed');
@@ -94,7 +94,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result).not.toBeNull();
       });
 
       const position = result.current.result!.position;
@@ -146,7 +146,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result).not.toBeNull();
       });
 
       expect(result.current.result?.status).toBe('reverted');
@@ -173,7 +173,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.result).toBeDefined();
+        expect(result.current.result).not.toBeNull();
       });
 
       const position = result.current.result!.position;
@@ -251,7 +251,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.stateSegregation).toBeDefined();
+        expect(result.current.stateSegregation).not.toBeNull();
       });
 
       const segregation = result.current.stateSegregation!;
@@ -280,7 +280,7 @@ describe('useAppealReconciliation', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.stateSegregation).toBeDefined();
+        expect(result.current.stateSegregation).not.toBeNull();
       });
 
       const segregation = result.current.stateSegregation!;
@@ -383,7 +383,7 @@ describe('useAppealReconciliation', () => {
         })
       );
 
-      let manualResult;
+      let manualResult: any;
       await act(async () => {
         manualResult = await result.current.reconcile();
       });
