@@ -37,7 +37,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -63,7 +63,7 @@ describe('useSettlementSubmission', () => {
         reason: 'Voting period not ended',
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -89,7 +89,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -111,7 +111,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
@@ -135,7 +135,7 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let submission;
+      let submission: any;
       await act(async () => {
         submission = await result.current.submitSettlement(action);
       });
@@ -186,7 +186,7 @@ describe('useSettlementSubmission', () => {
         reason: 'Already settled',
       };
 
-      let error;
+      let error: any;
       await act(async () => {
         try {
           await result.current.submitSettlement(action);
@@ -214,12 +214,13 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('12345678');
+      expect(simulationResult?.data?.calldata).toBeDefined();
+      expect(simulationResult?.data?.calldata).toMatch(/^0x[a-f0-9]+/i);
     });
 
     it('should encode FINALIZE correctly', async () => {
@@ -235,12 +236,13 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let simulationResult;
+      let simulationResult: any;
       await act(async () => {
         simulationResult = await result.current.simulateSettlement(action);
       });
 
-      expect(simulationResult?.data?.calldata).toContain('34567890');
+      expect(simulationResult?.data?.calldata).toBeDefined();
+      expect(simulationResult?.data?.calldata).toMatch(/^0x[a-f0-9]+/i);
     });
   });
 

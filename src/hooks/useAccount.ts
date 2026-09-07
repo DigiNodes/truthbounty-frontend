@@ -1,51 +1,221 @@
-'use client';
-
 /**
- * useAccount — EVM/Wagmi implementation for V2.
+ * V2 EVM Wallet Account Hook
  *
- * Replaces the Stellar/Freighter-based implementation removed in V2-FE-009.
- * Public interface is preserved so existing consumers compile without change.
- *
- * Provides:
- *  - address    — checksummed `0x…` EVM address, or null if disconnected
- *  - displayName — abbreviated "0xABCD…1234" label
- *  - chainId    — currently connected chain
- *  - isConnected — boolean wallet connection status
+ * Replaces Stellar/Freighter wallet integration with canonical EVM wallet support
+ * using Wagmi and Viem. Never connects to non-canonical chains or performs
+ * unauthorized wallet operations.
  */
 
-import { useAccount as useWagmiAccount } from 'wagmi';
+import { useAccount as useWagmiAccount, useChainId, useDisconnect as useWagmiDisconnect } from 'wagmi';
+import { useEffect, useState, useCallback } from 'react';
+import { type Address } from 'viem';
+import { getChainConfig, isSupportedChain } from '@/config/chains';
 
-export interface AccountInfo {
-  address: string;
+const WALLET_STORAGE_KEY = 'truthbounty-wallet-connection-v2';
+
+interface AccountState {
+  address: Address | undefined;
   displayName: string;
-  chainId: number | undefined;
+  chainId: number;
   isConnected: boolean;
+  isDisconnected: boolean;
+  isWrongNetwork: boolean;
 }
 
 /**
- * Returns the connected EVM account, or null if the wallet is disconnected.
+ * useAccount hook - EVM wallet integration
  *
- * This hook is a thin adapter over Wagmi's `useAccount`.
- * The `displayName` format mirrors the previous Stellar implementation:
- * first 6 and last 4 hex characters separated by "…".
+ * Returns account state with chain validation.
+ * Detects wrong network and prevents operations on unsupported chains.
+ */
+export function useAccount() {
+  const wagmiAccount = useWagmiAccount();
+  const wagmiChainId = useChainId();
+  const [isWrongNetwork, setIsWrongNetwork] = useState(false);
+
+  // Validate chain on account/chainId change
+  useEffect(() => {
+    if (wagmiAccount.isConnected && wagmiAccount.address) {
+      const supported = isSupportedChain(wagmiChainId);
+      setIsWrongNetwork(!supported);
+
+      if (supported) {
+        try {
+          const config = getChainConfig(wagmiChainId);
+          // Persist valid connection
+          localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({
+            address: wagmiAccount.address,
+            chainId: wagmiChainId,
+            chainName: config.name,
+            timestamp: Date.now(),
+          }));
+        } catch (error) {
+          console.error('Failed to persist wallet connection:', error);
+        }
+      }
+    } else {
+      setIsWrongNetwork(false);
+      try {
+        localStorage.removeItem(WALLET_STORAGE_KEY);
+      } catch (error) {
+        console.error('Failed to clear wallet connection:', error);
+      }
+import { useMemo } from "react";
+import { useAccount as useWagmiAccount } from "wagmi";
+ * useAccount — canonical EVM account accessor for TruthBounty.
+ *
+ * Thin wrapper over wagmi's useAccount with:
+ *  - hydration-safe connected state (no phantom flash on SSR/Next.js)
+ *  - stable display name (truncated address)
+ *  - null return when disconnected, making guards idiomatic
+ *
+ * Replaces the previous Stellar/Freighter-backed implementation.
+ */
+
+'use client';
+
+import { useMemo } from 'react';
+import { useAccount as useWagmiAccount, useDisconnect as useWagmiDisconnect } from 'wagmi';
+import { useIsMounted } from '@/hooks/useIsMounted';
+
+export interface AccountInfo {
+  /** Full checksummed EVM address. */
+  address: `0x${string}`;
+  /** Truncated address for display: "0xABCD…EF12". */
+  displayName: string;
+  /** Chain id reported by the wallet at connection time. */
+  chainId: number | undefined;
+  isConnected?: boolean;
+  isConnecting?: boolean;
+  isDisconnected?: boolean;
+}
+
+export type AccountData = AccountInfo;
+
+/**
+ * Returns the connected account or null.
+ *
+ * Returns null on the server and on the first client render to prevent
+ * a hydration mismatch ("phantom connected" flash).
  */
 export function useAccount(): AccountInfo | null {
-  const { address, chainId, isConnected } = useWagmiAccount();
+  const mounted = useIsMounted();
+  const { address, isConnected, isConnecting, isDisconnected, chainId } = useWagmiAccount();
 
-  if (!isConnected || !address) return null;
+  return useMemo<AccountInfo | null>(() => {
+    // Guard: never report connected state before client hydration.
+    if (!mounted || !isConnected || !address) {
+      return null;
+    }
+  }, [wagmiAccount.address, wagmiAccount.isConnected, wagmiChainId]);
 
-  const displayName = `${address.slice(0, 6)}…${address.slice(-4)}`;
+  const getDisplayName = useCallback((address: Address | undefined): string => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }, []);
 
   return {
-    address,
-    displayName,
-    chainId,
-    isConnected,
+    address: wagmiAccount.address as Address | undefined,
+    displayName: getDisplayName(wagmiAccount.address as Address | undefined),
+    chainId: wagmiChainId,
+    isConnected: wagmiAccount.isConnected,
+    isDisconnected: !wagmiAccount.isConnected,
+    isWrongNetwork,
   };
 }
 
 /**
- * Disconnect hook — delegates to Wagmi's `useDisconnect`.
- * Exported for backward compatibility with existing callers.
+ * useDisconnect hook - Wrapper around wagmi's useDisconnect
+ * 
+ * Provides wallet disconnection functionality with cleanup.
  */
-export { useDisconnect } from 'wagmi';
+export function useDisconnect() {
+  const { disconnect } = useWagmiDisconnect();
+  
+  return useCallback(async () => {
+    try {
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+      disconnect?.();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  }, [disconnect]);
+}
+
+/**
+ * Get persisted wallet connection info (for recovery/debugging)
+ */
+export function getPersistedConnection() {
+  try {
+    const stored = localStorage.getItem(WALLET_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored) as {
+        address: Address;
+        chainId: number;
+        chainName: string;
+        timestamp: number;
+    };
+
+    window.addEventListener('storage', onStorage);
+
+    // As a safety net, poll occasionally to detect manual disconnects.
+    const interval = setInterval(() => void validate(), 5000);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('storage', onStorage);
+      clearInterval(interval);
+      };
+    }
+  } catch (error) {
+    console.error('Failed to retrieve persisted connection:', error);
+  }
+  return null;
+}
+
+/**
+ * Clear persisted wallet connection
+ */
+export function clearPersistedConnection() {
+  try {
+    localStorage.removeItem(WALLET_STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear connection:', error);
+  }
+}
+    // Format address for display
+    addressObject.address = address;
+    addressObject.displayName = `${address.slice(0, 4)}...${address.slice(-4)}`;
+    
+    return { ...addressObject };
+  }, [address, isConnected]);
+    return {
+      address,
+      displayName: `${address.slice(0, 6)}…${address.slice(-4)}`,
+      chainId,
+      isConnected,
+      isConnecting,
+      isDisconnected,
+    };
+  }, [mounted, isConnected, isConnecting, isDisconnected, address, chainId]);
+}
+
+/**
+ * Disconnect hook wrapping Wagmi useDisconnect.
+ * Supports both callable syntax `disconnect()` and destructured syntax `{ disconnect }`.
+ */
+export function useDisconnect() {
+  const { disconnect, disconnectAsync, ...rest } = useWagmiDisconnect();
+
+  const fn = async () => {
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  return Object.assign(fn, { disconnect, disconnectAsync, ...rest });
+}

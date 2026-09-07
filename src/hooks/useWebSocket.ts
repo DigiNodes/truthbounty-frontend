@@ -9,7 +9,6 @@ import type {
   WebSocketEvent,
   WebSocketEventHandler,
   WebSocketEventType,
-  WebSocketEventPayloadMap,
   RollbackEvent,
   ReplacementEvent,
 } from '@/app/types/websocket';
@@ -25,6 +24,7 @@ const DEFAULT_HTTP_CATCHUP_URL = '/api/claims/catchup';
 
 type TimeoutId = ReturnType<typeof setTimeout>;
 type IntervalId = ReturnType<typeof setInterval>;
+type AnyEventHandler = (payload: never) => void;
 
 /**
  * Enhanced WebSocket hook with:
@@ -41,9 +41,10 @@ export function useWebSocket(config?: WebSocketConfig) {
   const heartbeatIntervalRef = useRef<IntervalId | null>(null);
   const reconnectTimeoutRef = useRef<TimeoutId | null>(null);
   const listenersRef = useRef<
-    Map<WebSocketEventType, Set<WebSocketEventHandler<any>>>
+    Map<WebSocketEventType, Set<AnyEventHandler>>
   >(new Map());
   const isMountedRef = useRef(true);
+  const connectRef = useRef<() => void>(() => {});
   const processedMessagesRef = useRef<Set<string>>(new Set());
   const lastCursorRef = useRef<string | null>(null);
   const authTokenRef = useRef<string | null>(null);
@@ -51,6 +52,7 @@ export function useWebSocket(config?: WebSocketConfig) {
   const [connectionState, setConnectionState] = useState<WebSocketConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketEvent | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [reconnectCount, setReconnectCount] = useState(0);
   const [lastCursor, setLastCursor] = useState<string | null>(null);
 
   const {
@@ -166,9 +168,9 @@ export function useWebSocket(config?: WebSocketConfig) {
             // Dispatch message
             const listeners = listenersRef.current.get(message.type);
             if (listeners) {
-              listeners.forEach((handler: WebSocketEventHandler<any>) => {
+              listeners.forEach((handler) => {
                 if (isMountedRef.current) {
-                  handler(message.payload);
+                  handler(message.payload as never);
                 }
               });
             }
@@ -223,9 +225,9 @@ export function useWebSocket(config?: WebSocketConfig) {
     // Dispatch to registered listeners
     const listeners = listenersRef.current.get(data.type);
     if (listeners) {
-      listeners.forEach((handler: WebSocketEventHandler<any>) => {
+      listeners.forEach((handler) => {
         if (isMountedRef.current) {
-          handler(data.payload);
+          handler(data.payload as never);
         }
       });
     }
@@ -262,6 +264,7 @@ export function useWebSocket(config?: WebSocketConfig) {
         
         setConnectionState('connected');
         reconnectAttemptsRef.current = 0;
+        setReconnectCount(0);
         onConnect?.();
 
         // Authenticate if token is available
@@ -310,13 +313,14 @@ export function useWebSocket(config?: WebSocketConfig) {
           setConnectionState('reconnecting');
           const attempt = reconnectAttemptsRef.current;
           reconnectAttemptsRef.current += 1;
+          setReconnectCount(reconnectAttemptsRef.current);
           
           const delay = getBackoffDelay(attempt);
           console.log(`WebSocket disconnected. Attempting reconnection ${reconnectAttemptsRef.current}/${reconnectAttempts} in ${Math.round(delay)}ms`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
-              connect();
+              connectRef.current();
             }
           }, delay);
         } else if (reconnectAttemptsRef.current >= reconnectAttempts) {
@@ -342,7 +346,11 @@ export function useWebSocket(config?: WebSocketConfig) {
       setConnectionState('error');
       setError(err as Error);
     }
-  }, [url, reconnectAttempts, heartbeatInterval, getBackoffDelay, clearAllTimers, onConnect, onDisconnect, onError]);
+  }, [url, reconnectAttempts, heartbeatInterval, getBackoffDelay, clearAllTimers, onConnect, onDisconnect, onError, processMessage, fetchCatchupMessages]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // Disconnect from WebSocket server
   const disconnect = useCallback(() => {
@@ -363,11 +371,11 @@ export function useWebSocket(config?: WebSocketConfig) {
     if (!listeners.has(eventType)) {
       listeners.set(eventType, new Set());
     }
-    listeners.get(eventType)!.add(handler);
+    listeners.get(eventType)!.add(handler as unknown as AnyEventHandler);
 
     // Return unsubscribe function
     return () => {
-      listeners.get(eventType)?.delete(handler);
+      listeners.get(eventType)?.delete(handler as unknown as AnyEventHandler);
     };
   }, []);
 
@@ -388,14 +396,15 @@ export function useWebSocket(config?: WebSocketConfig) {
       connect();
     }
 
+    const currentListeners = listenersRef.current;
     return () => {
       // Mark as unmounted to prevent any state updates after cleanup
       isMountedRef.current = false;
       // Clean up all resources
       disconnect();
       // Clear all listeners to prevent memory leaks
-      listenersRef.current.forEach((listeners) => listeners.clear());
-      listenersRef.current.clear();
+      currentListeners.forEach((listeners) => listeners.clear());
+      currentListeners.clear();
     };
   }, [url, connect, disconnect]);
 
@@ -418,7 +427,7 @@ export function useWebSocket(config?: WebSocketConfig) {
       lastMessage,
       lastCursor,
       error,
-      reconnectAttempts: reconnectAttemptsRef.current,
+      reconnectAttempts: reconnectCount,
       connect,
       disconnect,
       subscribe,
@@ -430,6 +439,7 @@ export function useWebSocket(config?: WebSocketConfig) {
       lastMessage,
       lastCursor,
       error,
+      reconnectCount,
       connect,
       disconnect,
       subscribe,

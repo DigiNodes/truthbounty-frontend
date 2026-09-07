@@ -115,7 +115,7 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
   }, [sessionStore]);
 
   const { address: wagmiAddress, isConnected } = useWagmiAccount();
-  const { chainId: wagmiChainId } = useWagmiChain();
+  const wagmiChainId = useWagmiChain();
 
   const address = options.accountOverride?.address ?? (isConnected ? wagmiAddress : null) ?? null;
   const chainId = options.accountOverride?.chainId ?? wagmiChainId ?? null;
@@ -292,10 +292,24 @@ function normalizeSignature(sig: Uint8Array | `0x${string}`): `0x${string}` {
 }
 
 function useWagmiSignMessage(): (message: string) => Promise<Uint8Array | `0x${string}`> {
-  const signMessage = useSignMessage();
-  const sign = signMessage.signMessage;
+  const wagmiSign = useSignMessage() as unknown as {
+    signMessageAsync?: (args: { message: string }) => Promise<`0x${string}`>;
+    signMessage?: (args: { message: string }) => Promise<`0x${string}`> | void;
+  };
+  const signAsync = wagmiSign?.signMessageAsync;
+  const sign = wagmiSign?.signMessage;
+
   return useCallback(
-    (message: string) => sign({ message }) as Promise<Uint8Array | `0x${string}`>,
-    [sign],
+    async (message: string) => {
+      if (typeof signAsync === 'function') {
+        return signAsync({ message });
+      }
+      if (typeof sign === 'function') {
+        const res = await sign({ message });
+        if (typeof res === 'string') return res as `0x${string}`;
+      }
+      throw new Error('No signMessage method available on wallet.');
+    },
+    [signAsync, sign],
   );
 }

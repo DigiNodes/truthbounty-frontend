@@ -54,7 +54,7 @@ describe('Settlement and Finalization Integration', () => {
         })
       );
 
-      let settlementSubmission;
+      let settlementSubmission: any;
       if (detectionResult.current.provisionalAction?.isCallable) {
         await act(async () => {
           settlementSubmission = await submissionResult.current.submitSettlement(
@@ -87,7 +87,7 @@ describe('Settlement and Finalization Integration', () => {
       );
 
       if (settlementSubmission) {
-        let reconciliationOutcome;
+        let reconciliationOutcome: any;
         await act(async () => {
           reconciliationOutcome = await reconciliationResult.current.reconcile(
             settlementSubmission
@@ -119,7 +119,7 @@ describe('Settlement and Finalization Integration', () => {
           })
         );
 
-        let error;
+        let error: any;
         if (detectionResult.current.provisionalAction) {
           await act(async () => {
             try {
@@ -168,7 +168,7 @@ describe('Settlement and Finalization Integration', () => {
       );
 
       if (detectionResult.current.provisionalAction) {
-        let simulationResult;
+        let simulationResult: any;
         await act(async () => {
           simulationResult = await submissionResult.current.simulateSettlement(
             detectionResult.current.provisionalAction!
@@ -212,7 +212,7 @@ describe('Settlement and Finalization Integration', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -244,7 +244,7 @@ describe('Settlement and Finalization Integration', () => {
           })
         );
 
-        let submission;
+        let submission: any;
         await act(async () => {
           submission = await submissionResult.current.submitSettlement(
             detectionResult.current.appealAction!
@@ -279,7 +279,7 @@ describe('Settlement and Finalization Integration', () => {
           })
         );
 
-        let submission;
+        let submission: any;
         await act(async () => {
           submission = await submissionResult.current.submitSettlement(
             finalizationResult.current.finalizationAction!
@@ -341,7 +341,7 @@ describe('Settlement and Finalization Integration', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });
@@ -375,7 +375,7 @@ describe('Settlement and Finalization Integration', () => {
         timestamp: new Date().toISOString(),
       };
 
-      let reconciliationResult;
+      let reconciliationResult: any;
       await act(async () => {
         reconciliationResult = await result.current.reconcile(mockSubmission);
       });

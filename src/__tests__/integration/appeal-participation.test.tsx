@@ -50,7 +50,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(contextResult.current.context).toBeDefined();
+        expect(contextResult.current.context).not.toBeNull();
       });
 
       const context = contextResult.current.context!;
@@ -74,7 +74,7 @@ describe('Appeal Participation Integration', () => {
       expect(validation.errors).toHaveLength(0);
 
       // Step 4: Simulate transaction
-      let simulation;
+      let simulation: any;
       await act(async () => {
         simulation = await participationResult.current.simulateParticipation(
           context,
@@ -88,7 +88,7 @@ describe('Appeal Participation Integration', () => {
       expect(simulation?.projectedState).toBeDefined();
 
       // Step 5: Submit transaction
-      let transaction;
+      let transaction: any;
       await act(async () => {
         transaction = await participationResult.current.submitParticipation(
           context,
@@ -119,12 +119,12 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(reconciliationResult.current.result).toBeDefined();
+        expect(reconciliationResult.current.result).not.toBeNull();
       });
 
       expect(reconciliationResult.current.result?.status).toBe('confirmed');
       expect(reconciliationResult.current.result?.position.hasParticipated).toBe(true);
-      expect(reconciliationResult.current.stateSegregation).toBeDefined();
+      expect(reconciliationResult.current.stateSegregation).not.toBeNull();
       expect(reconciliationResult.current.stateSegregation?.statesAreIndependent).toBe(true);
     });
 
@@ -147,7 +147,7 @@ describe('Appeal Participation Integration', () => {
         })
       );
 
-      let transaction;
+      let transaction: any;
       await act(async () => {
         transaction = await participationResult.current.submitParticipation(
           contextResult.current.context!,
@@ -234,7 +234,7 @@ describe('Appeal Participation Integration', () => {
         })
       );
 
-      let transaction;
+      let transaction: any;
       await act(async () => {
         transaction = await participationResult.current.submitParticipation(
           contextResult.current.context!,
@@ -260,7 +260,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(reconciliationResult.current.result).toBeDefined();
+        expect(reconciliationResult.current.result).not.toBeNull();
       });
 
       expect(reconciliationResult.current.result?.status).toBe('reverted');
@@ -279,7 +279,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(contextResult.current.context).toBeDefined();
+        expect(contextResult.current.context).not.toBeNull();
       });
 
       const { result: participationResult } = renderHook(() =>
@@ -288,7 +288,7 @@ describe('Appeal Participation Integration', () => {
         })
       );
 
-      let transaction;
+      let transaction: any;
       await act(async () => {
         transaction = await participationResult.current.submitParticipation(
           contextResult.current.context!,
@@ -313,7 +313,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(reconciliationResult.current.stateSegregation).toBeDefined();
+        expect(reconciliationResult.current.stateSegregation).not.toBeNull();
       });
 
       const segregation = reconciliationResult.current.stateSegregation!;
@@ -333,7 +333,7 @@ describe('Appeal Participation Integration', () => {
 
   describe('real-time updates during flow', () => {
     it('should update context when blocks advance during participation', async () => {
-      const { result: contextResult } = renderHook(() =>
+      const { result: contextResult, rerender } = renderHook(() =>
         useAppealContext({
           appealId: 'appeal-123',
           claimId: 'claim-456',
@@ -342,7 +342,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       await waitFor(() => {
-        expect(contextResult.current.context).toBeDefined();
+        expect(contextResult.current.context).not.toBeNull();
       });
 
       const initialBlocksRemaining = contextResult.current.context!.deadline.blocksRemaining;
@@ -351,6 +351,8 @@ describe('Appeal Participation Integration', () => {
       (wagmi.useBlockNumber as jest.Mock).mockReturnValue({
         data: BigInt(12345700),
       });
+
+      rerender();
 
       // Context should update deadline
       await waitFor(() => {
@@ -382,7 +384,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       // First submission
-      let firstTransaction;
+      let firstTransaction: any;
       await act(async () => {
         firstTransaction = await participationResult.current.submitParticipation(
           contextResult.current.context!,
@@ -438,7 +440,7 @@ describe('Appeal Participation Integration', () => {
       );
 
       const stakeAmount = '1000000000000000000'; // 1 ETH
-      let simulation;
+      let simulation: any;
 
       await act(async () => {
         simulation = await participationResult.current.simulateParticipation(

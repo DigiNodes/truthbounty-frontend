@@ -19,7 +19,7 @@ import {
 
 interface UseAppealParticipationConfig {
   contractAddress: string;
-  abi?: any[]; // Contract ABI for encoding
+  abi?: unknown[]; // Contract ABI for encoding
   expectedChainId?: number;
   artifactVersion?: string; // Contract version for safety
 }

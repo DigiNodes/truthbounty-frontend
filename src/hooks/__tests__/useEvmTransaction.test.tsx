@@ -44,6 +44,7 @@ const CONTRACT_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678' as `0x${st
 
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.clear();
 
   mockedUseAccount.mockReturnValue({
     address: MOCK_ADDRESS_1,

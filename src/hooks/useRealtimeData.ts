@@ -72,7 +72,7 @@ export function useRealtimeData() {
       // Patch the claim inside the list without refetching the whole list.
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: Record<string, unknown>) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, ...payload.updates }
               : claim,
@@ -108,7 +108,7 @@ export function useRealtimeData() {
 
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: Record<string, unknown>) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, status: payload.newStatus }
               : claim,

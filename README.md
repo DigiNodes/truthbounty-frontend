@@ -5,7 +5,7 @@
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF? logo=github-actions)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-Decentralized news verification platform and public-good interface for community-driven fact-checking across Ethereum and Stellar ecosystems.
+Decentralized news verification platform and public-good interface for community-driven fact-checking on Optimism (EVM).
 
 ## 🌍 Why TruthBounty Frontend?
 
@@ -53,19 +53,19 @@ Reload the page to see how the warnings change.
 
 ## 🧭 Core User Flow
 
-1. User connects wallet (Ethereum / Stellar – planned)
+1. User connects an EVM wallet (e.g. MetaMask, Coinbase Wallet) via RainbowKit
 2. User authenticates via Worldcoin ID
 3. News claims are submitted or reviewed
 4. Verifications are performed with evidence
 5. Reputation updates in real time
 6. Rewards are tracked and claimed on-chain
 
-## 🌱 Ecosystem Alignment (Ethereum, Stellar & Public Goods)
+## 🌱 Ecosystem Alignment (EVM, IPFS & Public Goods)
 
 TruthBounty Frontend is aligned with open-source and public-good ecosystems:
 
 - **Ethereum & Optimism** – secure, scalable reward settlement
-- **Stellar (planned)** – low-cost access and global participation
+- **EVM Wallets** – RainbowKit connect modal for all EVM-compatible wallets
 - **IPFS** – decentralized evidence access
 - **Worldcoin ID** – Sybil-resistant identity
 - **Drips Network** – sustainable open-source maintenance
