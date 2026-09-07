@@ -95,7 +95,10 @@ export function getBlockNumber(tx: Transaction): bigint | null {
  */
 export function getReceiptStatus(tx: Transaction): 'success' | 'reverted' | 'failed' | null {
   if (!hasReceipt(tx)) return null;
-  return (tx as any).receipt?.status ?? null;
+  const withReceipt = tx as Transaction & {
+    receipt?: { status?: 'success' | 'reverted' | 'failed' };
+  };
+  return withReceipt.receipt?.status ?? null;
 }
 
 /**
@@ -124,6 +127,9 @@ export function getStateName(state: TransactionStateName): string {
     finalized: 'Finalized',
     indexing: 'Indexing',
     indexed: 'Complete',
+    failed: 'Failed',
+    rejected: 'Rejected',
+    reverted: 'Reverted',
   };
   return names[state] ?? state;
 }
@@ -197,8 +203,8 @@ export function shouldWaitForFinality(
   // 3. Safe but not finalized (for critical operations)
   if (isSafe(tx) && !isFinalized(tx)) return true;
 
-  // 4. Finalized but still indexing (subgraph may be behind)
-  if (isFinalized(tx) && !isIndexed(tx) && isIndexing(tx)) {
+  // 4. Finalized but not yet indexed (subgraph may be behind)
+  if (isFinalized(tx) && !isIndexed(tx)) {
     // For TruthBounty, we may want to wait for full indexing
     // before displaying rewards/verdicts
     return config.isL2; // Only require for L2s where batching delay exists
@@ -345,11 +351,14 @@ export function validateTransaction(
 
   // Validate receipt if present
   if (hasReceipt(tx)) {
-    const tx_any = tx as any;
-    if (!tx_any.blockNumber || typeof tx_any.blockNumber !== 'bigint') {
+    const txRecord = tx as Transaction & {
+      blockNumber?: unknown;
+      receipt?: { status?: unknown };
+    };
+    if (!txRecord.blockNumber || typeof txRecord.blockNumber !== 'bigint') {
       errors.push({ field: 'blockNumber', error: 'Missing block number' });
     }
-    if (!tx_any.receipt || !tx_any.receipt.status) {
+    if (!txRecord.receipt || !txRecord.receipt.status) {
       errors.push({ field: 'receipt.status', error: 'Missing receipt status' });
     }
   }
@@ -366,13 +375,6 @@ export function assertNoFabricatedData(tx: Transaction): void {
     throw new Error('Transaction hash is required - never generate mock hashes');
   }
 
-  // Random hashes are 64 hex chars with specific patterns - flag suspicious ones
-  const hash = tx.hash;
-  const uniqueChars = new Set(hash.slice(2)).size;
-  if (uniqueChars < 8) {
-    throw new Error(`Suspicious transaction hash (low entropy): ${hash}`);
-  }
-
   // Validate addresses are not dummy/generated
   const dummyPatterns = [
     '0x0000000000000000000000000000000000000000',
@@ -380,11 +382,29 @@ export function assertNoFabricatedData(tx: Transaction): void {
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ];
 
-  if ('fromAddress' in tx && dummyPatterns.includes((tx as any).fromAddress)) {
+  const withAddresses = tx as Transaction & {
+    fromAddress?: string;
+    toAddress?: string;
+  };
+
+  if (
+    'fromAddress' in tx &&
+    dummyPatterns.includes(withAddresses.fromAddress ?? '')
+  ) {
     throw new Error('Dummy fromAddress detected - must use real addresses');
   }
 
-  if ('toAddress' in tx && dummyPatterns.includes((tx as any).toAddress)) {
+  if (
+    'toAddress' in tx &&
+    dummyPatterns.includes(withAddresses.toAddress ?? '')
+  ) {
     throw new Error('Dummy toAddress detected - must use real addresses');
+  }
+
+  // Random hashes are 64 hex chars with specific patterns - flag suspicious ones
+  const hash = tx.hash;
+  const uniqueChars = new Set(hash.slice(2)).size;
+  if (uniqueChars < 8) {
+    throw new Error(`Suspicious transaction hash (low entropy): ${hash}`);
   }
 }

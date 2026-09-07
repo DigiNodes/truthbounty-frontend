@@ -3,7 +3,7 @@
   "files": {
     "manifest.json": "5847f8ec2a1470fe9dbf847b26fa6b32e81500771ccb1e5e8fdeff671ccce241",
     "addresses/11155420.json": "5ae41062976da9e4f12496353ed738ddef1df0d06925631af6b69ada69daf892",
-    "abi/TruthBountyWeighted.json": "b43bd30ed101fca34e037eea2a83462565408ed7dee9846d5118f228fa68b508",
+    "abi/TruthBountyWeighted.json": "137f5ab4d834131a424ce7c1f57af35cb5e5e32c73ba06491533df8b51aa85d9",
     "events/event-schema.json": "318880aaba1965313ac7996d88e6aefe4de0d59d8bab52031415e798b2aab3ee",
     "parameters/11155420.json": "0cc201b4bb058494dc5bdf1ed3fdb4ba3a95cfdb3a4621208052197da9268d27",
     "roles/11155420.json": "7d8695c1e854a7ed10e925b2ef420385a1386ba1d8381f0a792bd58a56910a45"

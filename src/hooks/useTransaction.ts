@@ -82,15 +82,18 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
   // Submit transaction to blockchain
   const submit = useCallback(
     async (to: Address, data: string, value?: bigint) => {
+      const chainId = account.chainId;
+      const address = account.address;
+
       // Validate chain
-      if (!isSupportedChain(account.chainId)) {
+      if (typeof chainId !== 'number' || !isSupportedChain(chainId)) {
         const error = new Error(`Unsupported chain: ${account.chainId}`);
         setError(error);
         onError?.(error);
         throw error;
       }
 
-      if (!account.address) {
+      if (!address) {
         const error = new Error('Wallet not connected');
         setError(error);
         onError?.(error);
@@ -103,26 +106,26 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
       try {
         // Submit transaction
         const hash = await writeContractAsync({
-          account: account.address,
+          account: address,
           to,
           data: data as `0x${string}`,
           value,
-          chainId: account.chainId,
-        });
+          chainId,
+        } as never);
 
         // Create submitted state
         const submitted: TransactionSubmitted = {
           state: 'submitted',
           hash,
-          fromAddress: account.address,
+          fromAddress: address,
           toAddress: to,
-          chainId: account.chainId,
+          chainId,
           timestamp: Date.now(),
           data,
           amount: value?.toString(),
         };
 
-        const config = getChainConfig(account.chainId);
+        const config = getChainConfig(chainId);
         setMetadata({
           id: hash,
           createdAt: Date.now(),
@@ -144,7 +147,7 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         // Create failed transaction
         const failedTx: Transaction = {
           state: 'failed',
-          chainId: account.chainId,
+          chainId,
           timestamp: Date.now(),
           reason: 'unknown',
           error: error.message,
@@ -165,11 +168,18 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         throw new Error('Public client not available');
       }
 
-      if (!account.isConnected || !account.address) {
+      const chainId = account.chainId;
+      const address = account.address;
+
+      if (!account.isConnected || !address) {
         throw new Error('Account not connected');
       }
 
-      const config = getChainConfig(account.chainId);
+      if (typeof chainId !== 'number') {
+        throw new Error('Unknown network');
+      }
+
+      const config = getChainConfig(chainId);
 
       try {
         // Wait for receipt
@@ -182,9 +192,9 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         const confirmed: TransactionConfirmed = {
           state: 'confirmed',
           hash,
-          fromAddress: account.address,
-          toAddress: txReceipt.to,
-          chainId: account.chainId,
+          fromAddress: address,
+          toAddress: txReceipt.to ?? address,
+          chainId,
           timestamp: Date.now(),
           blockNumber: txReceipt.blockNumber,
           blockHash: txReceipt.blockHash,
@@ -194,7 +204,7 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
             status: txReceipt.status === 'success' ? 'success' : 'reverted',
             gasUsed: txReceipt.gasUsed,
             cumulativeGasUsed: txReceipt.cumulativeGasUsed,
-            contractAddress: txReceipt.contractAddress,
+            contractAddress: txReceipt.contractAddress ?? undefined,
             logs: txReceipt.logs.map((log) => ({
               address: log.address,
               topics: log.topics,
@@ -221,7 +231,7 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         const failedTx: Transaction = {
           state: 'failed',
           hash,
-          chainId: account.chainId,
+          chainId,
           timestamp: Date.now(),
           reason: 'timeout',
           error: error.message,
@@ -231,7 +241,7 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         throw error;
       }
     },
-    [publicClient, account, config, metadata, updateTransaction]
+    [publicClient, account, metadata, updateTransaction]
   );
 
   // Retry failed transaction
@@ -240,7 +250,12 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
       return;
     }
 
-    const config = getChainConfig(account.chainId);
+    const chainId = account.chainId;
+    if (typeof chainId !== 'number') {
+      return;
+    }
+
+    const config = getChainConfig(chainId);
     if (retryCountRef.current >= config.staleness.maxRetries) {
       throw new Error('Max retries exceeded');
     }

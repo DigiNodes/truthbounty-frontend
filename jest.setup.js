@@ -148,3 +148,9 @@ afterEach(() => {
   storage.clear();
   queryClient.clear();
 });
+
+// Test fixture: wagmi/rainbowkit configuration fails fast in the browser when
+// NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is absent (V2-FE-016). Tests only
+// need a non-empty string — production requires a real value (see .env.example).
+process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "test-fixture-walletconnect-project-id";
