@@ -11,6 +11,7 @@
     "lint": "eslint src",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:a11y": "jest src/__tests__/accessibility",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

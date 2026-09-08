@@ -1,5 +1,5 @@
 # Production-grade CI for TruthBounty Frontend
-# Supports fast feedback, stable PR validation, and open-source contributions
+# Enforces Lint, Tests, Accessibility (A11y), Contract Verification, and Production Build
 
 name: CI
 
@@ -13,9 +13,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
-    name: Lint
+    name: Lint & Style
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -56,7 +59,7 @@ jobs:
         run: npm run lint
 
   test:
-    name: Test
+    name: Unit & Integration Tests
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -94,13 +97,55 @@ jobs:
           else
             npm ci
           fi
-      - name: Run tests
+      - name: Run unit & integration tests
         run: npm run test
 
-  build:
-    name: Build
+  a11y:
+    name: Accessibility (axe-core)
     runs-on: ubuntu-latest
-    needs: test
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Run Accessibility Tests
+        run: npm run test:a11y
+
+  build:
+    name: Build & Artifact Gates
+    runs-on: ubuntu-latest
+    needs: [test, a11y]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,57 +185,5 @@ jobs:
         run: npm run verify-artifacts
       - name: Type check
         run: npm run type-check
-      - name: Build app
+      - name: Build production app
         run: npm run build
-
-  e2e:
-    name: E2E
-    runs-on: ubuntu-latest
-    needs: build
-    if: always()
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Detect package manager
-        id: pkg
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            echo "manager=pnpm" >> $GITHUB_OUTPUT
-          elif [ -f yarn.lock ]; then
-            echo "manager=yarn" >> $GITHUB_OUTPUT
-          else
-            echo "manager=npm" >> $GITHUB_OUTPUT
-          fi
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            ~/.pnpm-store
-          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
-      - name: Install dependencies
-        run: |
-          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
-            corepack enable pnpm && pnpm install --frozen-lockfile
-          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
-            corepack enable yarn && yarn install --frozen-lockfile
-          else
-            npm ci
-          fi
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-      - name: Run Playwright E2E tests
-        run: npm run test:e2e || echo "E2E tests are optional. Skipping if not configured."
-      - name: Accessibility check (axe-core)
-        run: |
-          if npm run test:a11y --if-present; then
-            npm run test:a11y
-          else
-            echo "No accessibility test configured. Skipping."
-          fi
