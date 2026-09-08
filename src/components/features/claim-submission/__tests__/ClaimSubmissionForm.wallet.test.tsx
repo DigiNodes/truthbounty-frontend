@@ -44,8 +44,7 @@ jest.mock('@/app/queries/claims.queries', () => ({
 
 // Wagmi hooks used by the form
 jest.mock('wagmi', () => ({
-  useConnectors: () => mockConnectors,
-  useConnect: () => ({ connect: mockConnect }),
+  useConnect: () => ({ connect: mockConnect, connectors: mockConnectors }),
   useChainId: () => 11155420,
   usePublicClient: () => ({}),
   useReadContract: () => ({ data: undefined }),

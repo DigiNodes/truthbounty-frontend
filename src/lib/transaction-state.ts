@@ -197,11 +197,10 @@ export function shouldWaitForFinality(
   // 3. Safe but not finalized (for critical operations)
   if (isSafe(tx) && !isFinalized(tx)) return true;
 
-  // 4. Finalized but still indexing (subgraph may be behind)
-  if (isFinalized(tx) && !isIndexed(tx) && isIndexing(tx)) {
-    // For TruthBounty, we may want to wait for full indexing
-    // before displaying rewards/verdicts
-    return config.isL2; // Only require for L2s where batching delay exists
+  // 4. On L2, finality is not sufficient for projection-backed UI.
+  // Wait until the canonical indexer has observed the finalized transaction.
+  if (config.isL2 && (isFinalized(tx) || isIndexing(tx))) {
+    return true;
   }
 
   return false;
@@ -365,14 +364,8 @@ export function assertNoFabricatedData(tx: Transaction): void {
     throw new Error('Transaction hash is required - never generate mock hashes');
   }
 
-  // Random hashes are 64 hex chars with specific patterns - flag suspicious ones
-  const hash = tx.hash;
-  const uniqueChars = new Set(hash.slice(2)).size;
-  if (uniqueChars < 8) {
-    throw new Error(`Suspicious transaction hash (low entropy): ${hash}`);
-  }
-
-  // Validate addresses are not dummy/generated
+  // Validate addresses before hash heuristics so a dummy address is
+  // reported deterministically even when the supplied hash is also suspicious.
   const dummyPatterns = [
     '0x0000000000000000000000000000000000000000',
     '0x1111111111111111111111111111111111111111',
@@ -385,5 +378,11 @@ export function assertNoFabricatedData(tx: Transaction): void {
 
   if ('toAddress' in tx && dummyPatterns.includes(tx.toAddress)) {
     throw new Error('Dummy toAddress detected - must use real addresses');
+  }
+
+  // Flag obviously fabricated hashes after validating the more specific fields.
+  const uniqueChars = new Set(tx.hash.slice(2)).size;
+  if (uniqueChars < 8) {
+    throw new Error(`Suspicious transaction hash (low entropy): ${tx.hash}`);
   }
 }

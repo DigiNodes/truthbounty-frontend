@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useConnect } from "wagmi";
-import { useConnectors, useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -156,15 +155,12 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const trust = useTrust();
   const account = useAccount();
   const { connect, connectors } = useConnect();
-  const isWalletConnected = !!account?.address && !account?.isWrongNetwork;
+  const isWalletConnected = !!account?.address;
 
   const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
   const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
   const isPending = isSubmittingApi || isSubmittingTx;
 
-  // EVM connector list for the "Connect Wallet" flow.
-  const connectors = useConnectors();
-  const { connect } = useConnect();
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
