@@ -83,7 +83,7 @@ describe('resolveVerificationArtifact', () => {
   });
 
   it('fails closed when any required address is missing', () => {
-    const env = { ...DEPLOYED_ENV };
+    const env: Record<string, string | undefined> = { ...DEPLOYED_ENV };
     delete env.NEXT_PUBLIC_TRUTHBOUNTY_STAKING_TOKEN_ADDRESS;
     expectDisabled(resolveVerificationArtifact(env, 10), /StakingToken/);
   });
