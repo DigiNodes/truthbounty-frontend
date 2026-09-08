@@ -95,7 +95,7 @@ export function getBlockNumber(tx: Transaction): bigint | null {
  */
 export function getReceiptStatus(tx: Transaction): 'success' | 'reverted' | 'failed' | null {
   if (!hasReceipt(tx)) return null;
-  return (tx as any).receipt?.status ?? null;
+  return tx.receipt?.status ?? null;
 }
 
 /**
@@ -345,11 +345,10 @@ export function validateTransaction(
 
   // Validate receipt if present
   if (hasReceipt(tx)) {
-    const tx_any = tx as any;
-    if (!tx_any.blockNumber || typeof tx_any.blockNumber !== 'bigint') {
+    if (!tx.blockNumber || typeof tx.blockNumber !== 'bigint') {
       errors.push({ field: 'blockNumber', error: 'Missing block number' });
     }
-    if (!tx_any.receipt || !tx_any.receipt.status) {
+    if (!tx.receipt?.status) {
       errors.push({ field: 'receipt.status', error: 'Missing receipt status' });
     }
   }
@@ -380,11 +379,11 @@ export function assertNoFabricatedData(tx: Transaction): void {
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ];
 
-  if ('fromAddress' in tx && dummyPatterns.includes((tx as any).fromAddress)) {
+  if ('fromAddress' in tx && dummyPatterns.includes(tx.fromAddress)) {
     throw new Error('Dummy fromAddress detected - must use real addresses');
   }
 
-  if ('toAddress' in tx && dummyPatterns.includes((tx as any).toAddress)) {
+  if ('toAddress' in tx && dummyPatterns.includes(tx.toAddress)) {
     throw new Error('Dummy toAddress detected - must use real addresses');
   }
 }
