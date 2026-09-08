@@ -8,7 +8,6 @@
 
 import type {
   Transaction,
-  TransactionState,
   TransactionStateName,
   TransactionSubmitted,
   TransactionConfirmed,
@@ -71,7 +70,14 @@ export function isTerminal(tx: Transaction): boolean {
 /**
  * Check if transaction has receipt/confirmation data
  */
-export function hasReceipt(tx: Transaction): boolean {
+type TransactionWithReceipt =
+  | TransactionConfirmed
+  | TransactionSafe
+  | TransactionFinalized
+  | TransactionIndexing
+  | TransactionIndexed;
+
+export function hasReceipt(tx: Transaction): tx is TransactionWithReceipt {
   return isConfirmed(tx) || isSafe(tx) || isFinalized(tx) || isIndexing(tx) || isIndexed(tx);
 }
 
@@ -87,7 +93,7 @@ export function getTxHash(tx: Transaction): string | null {
  */
 export function getBlockNumber(tx: Transaction): bigint | null {
   if (!hasReceipt(tx)) return null;
-  return (tx as TransactionConfirmed | TransactionSafe | TransactionFinalized | TransactionIndexing | TransactionIndexed).blockNumber;
+  return tx.blockNumber;
 }
 
 /**
@@ -133,7 +139,7 @@ export function getStateName(state: TransactionStateName): string {
  */
 export function canTransitionToState(
   currentTx: Transaction,
-  nextState: TransactionStateName,
+  nextState: Transaction['state'],
   config: ChainFinality
 ): boolean {
   if (!('state' in currentTx)) return false;
@@ -141,7 +147,7 @@ export function canTransitionToState(
   const current = currentTx.state;
 
   // Valid state transitions
-  const validTransitions: Record<TransactionStateName, TransactionStateName[]> = {
+  const validTransitions: Record<Transaction['state'], Transaction['state'][]> = {
     submitted: ['confirmed', 'failed', 'rejected'],
     confirmed: ['safe', 'failed', 'rejected', 'reverted'],
     safe: ['finalized', 'failed', 'rejected'],
@@ -153,7 +159,7 @@ export function canTransitionToState(
     reverted: [],
   };
 
-  return validTransitions[current as TransactionStateName]?.includes(nextState) ?? false;
+  return validTransitions[current].includes(nextState);
 }
 
 /**
@@ -284,7 +290,7 @@ export function getStateMessage(
 export function getProgressPercentage(tx: Transaction): number {
   if (!('state' in tx)) return 0;
 
-  const progressMap: Record<TransactionStateName, number> = {
+  const progressMap: Record<Transaction['state'], number> = {
     submitted: 10,
     confirmed: 30,
     safe: 50,
@@ -296,7 +302,7 @@ export function getProgressPercentage(tx: Transaction): number {
     reverted: 100, // Reverted = complete (just failed)
   };
 
-  return progressMap[tx.state as TransactionStateName] ?? 0;
+  return progressMap[tx.state];
 }
 
 /**
@@ -372,11 +378,11 @@ export function assertNoFabricatedData(tx: Transaction): void {
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ];
 
-  if ('fromAddress' in tx && dummyPatterns.includes(tx.fromAddress)) {
+  if ('fromAddress' in tx && typeof tx.fromAddress === 'string' && dummyPatterns.includes(tx.fromAddress)) {
     throw new Error('Dummy fromAddress detected - must use real addresses');
   }
 
-  if ('toAddress' in tx && dummyPatterns.includes(tx.toAddress)) {
+  if ('toAddress' in tx && typeof tx.toAddress === 'string' && dummyPatterns.includes(tx.toAddress)) {
     throw new Error('Dummy toAddress detected - must use real addresses');
   }
 
