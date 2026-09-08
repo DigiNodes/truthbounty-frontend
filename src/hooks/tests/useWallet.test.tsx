@@ -19,7 +19,7 @@ import { WagmiProvider } from 'wagmi';
 import { http } from 'viem';
 import { optimismSepolia } from 'viem/chains';
 import { createConfig } from 'wagmi';
-import { mock } from 'wagmi/connectors';
+import { mock } from '@wagmi/connectors/mock';
 import { useWallet } from '../useWallet';
 
 // ── Test Wagmi config using the built-in mock connector ──────────────────────
