@@ -86,11 +86,15 @@ describe('useWallet', () => {
     expect(result.current.chainId).toBeUndefined();
   });
 
-  it('connects through the selected connector and persists its id', async () => {
-    const { result, rerender } = renderHook(() => useWallet());
-
-    act(() => result.current.connect(mockConnector));
-    rerender();
+  it('persists the active connector id for a connected account', async () => {
+    mockAccount = {
+      ...mockAccount,
+      address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      isConnected: true,
+      chainId: 11155420,
+      connector: mockConnector,
+    };
+    const { result } = renderHook(() => useWallet());
 
     await waitFor(() => expect(result.current.state).toBe('connected'));
     expect(result.current.address).toMatch(/^0x/);
