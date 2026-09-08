@@ -13,7 +13,8 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:a11y": "jest --runInBand src/__tests__/accessibility"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
