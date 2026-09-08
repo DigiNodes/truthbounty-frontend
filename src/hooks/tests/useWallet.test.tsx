@@ -95,7 +95,9 @@ describe('useWallet', () => {
     await waitFor(() => expect(result.current.state).toBe('connected'));
     expect(result.current.address).toMatch(/^0x/);
     expect(result.current.chainId).toBe(11155420);
-    expect(localStorage.getItem('truthbounty:wallet:connector')).toBe(mockConnector.id);
+    await waitFor(() =>
+      expect(localStorage.getItem('truthbounty:wallet:connector')).toBe(mockConnector.id),
+    );
   });
 
   it('reports connector rejection and clears the error explicitly', async () => {
