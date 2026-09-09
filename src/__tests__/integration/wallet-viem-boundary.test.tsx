@@ -250,6 +250,8 @@ describe('Wallet / Viem boundary — projection invalidation pipeline', () => {
         chainId: CHAIN,
         blockNumber: 125n,
         receiptStatus: '0x1',
+        previousObservation: { blockNumber: 125n, blockHash: '0xold' },
+        blockHash: '0xnew',
         headBlockNumbers: { latest: 120n, safe: 115n, finalized: 110n },
       };
       const { level } = deriveFinalityLevel(ctx);

@@ -91,7 +91,7 @@ describe('useRealtimeData — canonical key integration', () => {
   // -------------------------------------------------------------------------
   it('CLAIM_CREATED prepends claim to cache list', async () => {
     // Seed the cache with an existing list.
-    qc.setQueryData(queryKeys.claims.all, [{ id: 'claim-old', title: 'Old' }]);
+    qc.setQueryData(queryKeys.claims.lists(), [{ id: 'claim-old', title: 'Old' }]);
 
     renderHook(() => useRealtimeData(), { wrapper: makeWrapper(qc) });
 
@@ -99,7 +99,7 @@ describe('useRealtimeData — canonical key integration', () => {
     act(() => mockWsCtx.emit('CLAIM_CREATED', { claim: newClaim }));
 
     await waitFor(() => {
-      const list = qc.getQueryData<unknown[]>(queryKeys.claims.all);
+      const list = qc.getQueryData<unknown[]>(queryKeys.claims.lists());
       expect(list?.[0]).toEqual(newClaim);
     });
   });

@@ -6,7 +6,7 @@ import { fetchClaims, fetchClaimDetail, submitClaim, fetchClaimsByStatus, ClaimS
 
 export function useClaims() {
   return useQuery({
-    queryKey: queryKeys.claims.all,
+    queryKey: queryKeys.claims.lists(),
     queryFn: fetchClaims,
   });
 }

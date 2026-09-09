@@ -118,28 +118,28 @@ describe('deriveFinalityLevel', () => {
   // reorged
   // -------------------------------------------------------------------------
   describe('reorged', () => {
-    it('returns reorged when blockNumber > latest head', () => {
+    it('returns observed when a block is ahead of the latest head without prior evidence', () => {
       const ctx: FinalityContext = {
         ...BASE,
         blockNumber: 115n,
+        headBlockNumbers: { latest: 110n, safe: 105n, finalized: 100n },
+      };
+      const result = deriveFinalityLevel(ctx);
+      expect(result.level).toBe('observed');
+      expect(result.isReorged).toBe(false);
+    });
+
+    it('returns a negative depth when the previously observed receipt disappears', () => {
+      const ctx: FinalityContext = {
+        ...BASE,
+        blockNumber: 100n,
+        receiptPresent: false,
+        previousObservation: { blockNumber: 100n, blockHash: '0xold' },
         headBlockNumbers: { latest: 110n, safe: 105n, finalized: 100n },
       };
       const result = deriveFinalityLevel(ctx);
       expect(result.level).toBe('reorged');
-      expect(result.isReorged).toBe(true);
-      expect(result.isSafe).toBe(false);
-      expect(result.isFinalized).toBe(false);
-    });
-
-    it('depth is blockNumber - latest (positive distance beyond head)', () => {
-      const ctx: FinalityContext = {
-        ...BASE,
-        blockNumber: 115n,
-        headBlockNumbers: { latest: 110n, safe: 105n, finalized: 100n },
-      };
-      const result = deriveFinalityLevel(ctx);
-      // Implementation returns Number(blockNumber - latest) = 5
-      expect(result.depth).toBe(5);
+      expect(result.depth).toBe(-10);
     });
   });
 
@@ -182,15 +182,9 @@ describe('deriveFinalityLevel', () => {
       { ...BASE, blockNumber: 115n },
     ];
     for (const ctx of cases) {
-      expect(deriveFinalityLevel(ctx).isResolved).toBe(true);
+      const result = deriveFinalityLevel(ctx);
+      expect(result.isResolved).toBe(true);
+      expect(result.context).toBe(ctx);
     }
-  });
-
-  // -------------------------------------------------------------------------
-  // Context is preserved in the result
-  // -------------------------------------------------------------------------
-  it('includes the original context in the result', () => {
-    const result = deriveFinalityLevel(BASE);
-    expect(result.context).toBe(BASE);
-  });
+});
 });

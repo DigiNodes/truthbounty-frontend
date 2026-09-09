@@ -39,11 +39,11 @@ export function useRealtimeData() {
   const queryClient = useQueryClient();
 
   // ------------------------------------------------------------------
-  // CLAIM_CREATED — prepend to the "all claims" list; no full refetch.
+  // CLAIM_CREATED — prepend to the unfiltered claims list; no full refetch.
   // ------------------------------------------------------------------
   const handleClaimCreated = useCallback(
     (payload: ClaimCreatedEvent) => {
-      queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
+      queryClient.setQueryData(queryKeys.claims.lists(), (old: unknown) => {
         if (Array.isArray(old)) {
           return [payload.claim, ...old];
         }
@@ -70,7 +70,7 @@ export function useRealtimeData() {
       );
 
       // Patch the claim inside the list without refetching the whole list.
-      queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
+      queryClient.setQueryData(queryKeys.claims.lists(), (old: unknown) => {
         if (Array.isArray(old)) {
           return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
@@ -106,7 +106,7 @@ export function useRealtimeData() {
         },
       );
 
-      queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
+      queryClient.setQueryData(queryKeys.claims.lists(), (old: unknown) => {
         if (Array.isArray(old)) {
           return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
