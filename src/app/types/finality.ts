@@ -32,6 +32,15 @@ export interface FinalityContext {
   blockNumber: bigint;
   /** Receipt status as returned by `eth_getTransactionReceipt`. */
   receiptStatus: '0x1' | '0x0';
+  /** Hash of the canonical block containing the current receipt. */
+  blockHash?: `0x${string}`;
+  /** Whether the current poll found a canonical receipt. Defaults to true. */
+  receiptPresent?: boolean;
+  /** Receipt observation from an earlier poll, used to identify reorgs. */
+  previousObservation?: {
+    blockNumber: bigint;
+    blockHash?: `0x${string}`;
+  };
   /**
    * Latest block numbers reported by the node.
    * At minimum `latest` must be present.  `safe` and `finalized` are optional
@@ -53,7 +62,8 @@ export interface FinalityResult {
   level: FinalityLevel;
   /**
    * Number of blocks between the tx block and the relevant head.
-   * For `reorged`, this will be negative.
+  * For `reorged`, this is the negative number of blocks since the previously
+  * observed transaction block (at least -1 when a receipt disappears).
    */
   depth: number;
   /** True when `level` is `finalized`. */
@@ -72,7 +82,8 @@ export interface FinalityResult {
  * Derive a finality result from a given context.
  *
  * Rules (Optimism semantics):
- *  - If `blockNumber > headBlockNumbers.latest`  → `reorged` (block was rolled back)
+ *  - If the canonical receipt disappeared or its block changed since the
+ *    previous observation → `reorged`
  *  - If `receiptStatus === '0x0'`               → result is still tracked but
  *    the tx *reverted*; level uses normal rules, callers must check receiptStatus separately.
  *  - If `finalized` head is known and `blockNumber <= finalized` → `finalized`
@@ -80,12 +91,23 @@ export interface FinalityResult {
  *  - Otherwise                                                   → `observed`
  */
 export function deriveFinalityLevel(ctx: FinalityContext): FinalityResult {
-  const { blockNumber, headBlockNumbers } = ctx;
+  const { blockNumber, headBlockNumbers, previousObservation } = ctx;
   const { latest, safe, finalized } = headBlockNumbers;
 
-  // Detect reorg: the tx's block is beyond the current latest head.
-  if (blockNumber > latest) {
-    return buildResult('reorged', ctx, Number(blockNumber - latest));
+  const receiptChanged = previousObservation && (
+    ctx.receiptPresent === false ||
+    previousObservation.blockNumber !== blockNumber ||
+    (previousObservation.blockHash !== undefined &&
+      ctx.blockHash !== undefined &&
+      previousObservation.blockHash !== ctx.blockHash)
+  );
+
+  if (receiptChanged) {
+    return buildResult(
+      'reorged',
+      ctx,
+      -Math.max(1, Number(latest - previousObservation.blockNumber)),
+    );
   }
 
   if (finalized !== undefined && blockNumber <= finalized) {

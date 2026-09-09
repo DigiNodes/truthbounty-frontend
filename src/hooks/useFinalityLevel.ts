@@ -18,7 +18,6 @@
 
 'use client';
 
-import { useEffect } from 'react';
 import { usePublicClient } from 'wagmi';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/app/queries/queryKeys';
@@ -82,13 +81,24 @@ export function useFinalityLevel(
     queryFn: async (): Promise<FinalityResult | null> => {
       if (!txHash || !publicClient) return null;
 
+      const previousResult = queryClient.getQueryData<FinalityResult>(
+        txFinalityQueryKey(txHash, expectedChainId),
+      );
+
       // Fetch the receipt and current head block numbers in parallel.
       // getBlockNumber() gives `latest`; getBlock() with blockTag gives safe/finalized.
       // Safe and finalized block tags may not be supported by all providers —
       // failures are caught and treated as "unknown".
-      const [receipt, latestBlock, safeBlockResult, finalizedBlockResult] =
+      let receipt;
+      try {
+        receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+      } catch (receiptError) {
+        if (!previousResult) throw receiptError;
+        receipt = null;
+      }
+
+      const [latestBlock, safeBlockResult, finalizedBlockResult] =
         await Promise.all([
-          publicClient.getTransactionReceipt({ hash: txHash }),
           publicClient.getBlockNumber(),
           publicClient
             .getBlock({ blockTag: 'safe' })
@@ -101,7 +111,7 @@ export function useFinalityLevel(
       const safeBlock = safeBlockResult?.number;
       const finalizedBlock = finalizedBlockResult?.number;
 
-      if (!receipt) return null;
+      if (!receipt && !previousResult) return null;
 
       // Validate chain: the publicClient is already scoped to `expectedChainId`
       // via `usePublicClient({ chainId: expectedChainId })`.  We additionally
@@ -115,11 +125,41 @@ export function useFinalityLevel(
         );
       }
 
+      const previousObservation = previousResult
+        ? {
+            blockNumber: previousResult.context.blockNumber,
+            blockHash: previousResult.context.blockHash,
+          }
+        : undefined;
+
+      if (!receipt) {
+        const previousContext = previousResult!.context;
+        return deriveFinalityLevel({
+          ...previousContext,
+          headBlockNumbers: {
+            latest: latestBlock,
+            safe: safeBlock,
+            finalized: finalizedBlock,
+          },
+          previousObservation,
+          blockHash: undefined,
+          receiptPresent: false,
+        });
+      }
+
+      const canonicalBlock = await Promise.resolve(
+        publicClient.getBlock({ blockNumber: receipt.blockNumber }),
+      ).catch(() => undefined);
+      const blockHash = canonicalBlock?.hash ?? receipt.blockHash;
+
       const ctx: FinalityContext = {
         txHash,
         chainId: expectedChainId,
         blockNumber: receipt.blockNumber,
         receiptStatus: receipt.status === 'success' ? '0x1' : '0x0',
+        blockHash,
+        receiptPresent: true,
+        previousObservation,
         headBlockNumbers: {
           latest: latestBlock,
           safe: safeBlock,

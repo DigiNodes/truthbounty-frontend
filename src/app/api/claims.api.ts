@@ -2,6 +2,9 @@
 
 import { Claim } from '@/app/types/claim';
 
+type EvidenceItem = Record<string, unknown>;
+type RoundItem = Record<string, unknown>;
+
 export interface ClaimSubmissionData {
   title: string;
   description: string;

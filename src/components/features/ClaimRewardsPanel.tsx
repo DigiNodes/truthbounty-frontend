@@ -18,13 +18,17 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
     claimAll,
   } = useRewards();
 
-  // totalClaimable in display units: amounts are wei strings from the indexer.
-  // Divide by 1e18 for human-readable TBT display.
+  const formatTokenAmount = (amount: bigint) => {
+    const whole = amount / 10n ** 18n;
+    const fraction = (amount % 10n ** 18n).toString().padStart(18, "0").slice(0, 2);
+    return `${whole}.${fraction}`;
+  };
+
   const totalClaimable = pendingRewards.reduce(
-    (sum, r) => sum + Number(r.amount) / 1e18,
-    0,
+    (sum, reward) => sum + BigInt(reward.amount),
+    0n,
   );
-  const hasRewards = totalClaimable > 0;
+  const hasRewards = totalClaimable > 0n;
   const isLoading = externalLoading || rewardsLoading;
   const isSuccess = claimStatus === "success";
   const isError = claimStatus === "error";
@@ -65,7 +69,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 hasRewards ? "text-[#5b5bf6]" : "text-[#a1a1aa]"
               }`}
             >
-              ${totalClaimable.toFixed(2)}
+              {formatTokenAmount(totalClaimable)} TBT
             </p>
           </div>
 
@@ -163,7 +167,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 <p className="text-white text-sm truncate">{reward.title}</p>
               </div>
               <span className="text-[#5b5bf6] font-semibold text-sm ml-4 shrink-0">
-                +{(Number(reward.amount) / 1e18).toFixed(2)} TBT
+                +{formatTokenAmount(BigInt(reward.amount))} TBT
               </span>
             </div>
           ))

@@ -192,21 +192,40 @@ describe('useFinalityLevel', () => {
   // Reorged path
   // -------------------------------------------------------------------------
   describe('reorged', () => {
-    it('resolves to reorged when blockNumber > latest head', async () => {
-      mockGetTransactionReceipt.mockResolvedValue(makeReceipt({ blockNumber: 125n }));
+    it('resolves to reorged when a previously observed receipt disappears', async () => {
+      mockGetTransactionReceipt.mockResolvedValue(null);
       mockGetBlockNumber.mockResolvedValue(120n);
       mockGetBlock
         .mockResolvedValueOnce(makeBlock(115n))
+        .mockResolvedValueOnce(makeBlock(110n))
+        .mockResolvedValueOnce(makeBlock(115n))
         .mockResolvedValueOnce(makeBlock(110n));
+
+      qc.setQueryData(['tx-finality', VALID_TX, EXPECTED_CHAIN], {
+        level: 'observed',
+        depth: 0,
+        isFinalized: false,
+        isSafe: false,
+        isReorged: false,
+        isResolved: true,
+        context: {
+          txHash: VALID_TX,
+          chainId: EXPECTED_CHAIN,
+          blockNumber: 125n,
+          blockHash: '0xprevious',
+          receiptPresent: true,
+          receiptStatus: '0x1',
+          headBlockNumbers: { latest: 120n },
+        },
+      });
 
       const { result } = renderHook(
         () => useFinalityLevel({ txHash: VALID_TX, expectedChainId: EXPECTED_CHAIN }),
         { wrapper: createWrapper(qc) },
       );
 
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-      expect(result.current.level).toBe('reorged');
+      await qc.invalidateQueries({ queryKey: ['tx-finality', VALID_TX, EXPECTED_CHAIN] });
+      await waitFor(() => expect(result.current.level).toBe('reorged'));
       expect(result.current.isReorged).toBe(true);
       expect(result.current.isSafe).toBe(false);
     });
