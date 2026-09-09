@@ -1,111 +1,3 @@
-/**
- * V2 EVM Wallet Hook
- *
- * Replaces mock wallet with real Wagmi integration.
- * Provides balance, transaction submission, and account management.
- * Never deposits/withdraws directly - uses smart contracts instead.
- */
-
-import { useAccount, useBalance, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { useCallback, useMemo } from 'react';
-import { getChainConfig, isSupportedChain } from '@/config/chains';
-import type { Address } from 'viem';
-
-interface WalletState {
-  isConnected: boolean;
-  address: Address | undefined;
-  chainId: number;
-  balance: bigint | undefined;
-  balanceFormatted: string;
-  isWrongNetwork: boolean;
-  connect: (connector?: string) => Promise<void>;
-  disconnect: () => Promise<void>;
-  switchChain: (chainId: number) => Promise<void>;
-}
-
-/**
- * useWallet hook - Real EVM wallet integration
- *
- * Returns current wallet state and connection methods.
- * Validates chain and prevents operations on unsupported networks.
- */
-export function useWallet(): WalletState {
-  const wagmiAccount = useAccount();
-  const wagmiBalance = useBalance({
-    address: wagmiAccount.address,
-  });
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
-
-  // Check if on wrong network
-  const isWrongNetwork = useMemo(() => {
-    if (!wagmiAccount.isConnected) return false;
-    return !isSupportedChain(wagmiAccount.chainId);
-  }, [wagmiAccount.isConnected, wagmiAccount.chainId]);
-
-  const handleConnect = useCallback(async (connectorId?: string) => {
-    if (wagmiAccount.isConnected) return;
-
-    const targetConnector = connectorId
-      ? connectors.find((c) => c.id === connectorId)
-      : connectors[0];
-
-    if (targetConnector) {
-      connect({ connector: targetConnector });
-    }
-  }, [connect, connectors, wagmiAccount.isConnected]);
-
-  const handleDisconnect = useCallback(async () => {
-    disconnect();
-  }, [disconnect]);
-
-  const handleSwitchChain = useCallback(
-    async (chainId: number) => {
-      if (!isSupportedChain(chainId)) {
-        throw new Error(`Chain ${chainId} is not supported`);
-      }
-      switchChain({ chainId });
-    },
-    [switchChain]
-  );
-
-  // Format balance to readable string
-  const balanceFormatted = useMemo(() => {
-    if (!wagmiBalance.data) return '0';
-    return wagmiBalance.data.formatted.slice(0, 6); // 6 decimals
-  }, [wagmiBalance.data]);
-
-  const { data: balanceData, isLoading: isLoadingBalance } = useBalance({
-    address,
-    // Only query when we have an address; avoids a network call when
-    // the wallet is disconnected.
-    query: { enabled: !!address },
-  });
-
-  return {
-    isConnected: wagmiAccount.isConnected,
-    address: wagmiAccount.address as Address | undefined,
-    chainId: wagmiAccount.chainId,
-    balance: wagmiBalance.data?.value,
-    balanceFormatted,
-    isWrongNetwork,
-    connect: handleConnect,
-    disconnect: handleDisconnect,
-    switchChain: handleSwitchChain,
- * useWallet — canonical EVM wallet lifecycle hook for TruthBounty.
- *
- * Provides:
- *  - connect / reconnect / disconnect
- *  - account-change tracking
- *  - connector-error state
- *  - hydration-safe connected state (no phantom flash in Next.js SSR)
- *  - minimal preference persistence (connector id only — no keys/addresses)
- *
- * All on-chain data (balances, verdicts, rewards) must come from
- * the contract registry or indexed API — never fabricated here.
- */
-
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -118,9 +10,6 @@ import {
 } from 'wagmi';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
-// ── Preference persistence ───────────────────────────────────────────────────
-// Only the connector id (e.g. "injected", "walletConnect") is stored.
-// Addresses, balances, or private keys are never written to storage.
 const PREF_KEY = 'truthbounty:wallet:connector';
 
 function readConnectorPref(): string | null {
@@ -137,7 +26,7 @@ function writeConnectorPref(connectorId: string): void {
   try {
     window.localStorage.setItem(PREF_KEY, connectorId);
   } catch {
-    // storage unavailable — silently skip
+    // Storage can be unavailable in privacy-restricted environments.
   }
 }
 
@@ -146,11 +35,9 @@ function clearConnectorPref(): void {
   try {
     window.localStorage.removeItem(PREF_KEY);
   } catch {
-    // storage unavailable — silently skip
+    // Storage can be unavailable in privacy-restricted environments.
   }
 }
-
-// ── Types ────────────────────────────────────────────────────────────────────
 
 export type WalletLifecycleState =
   | 'disconnected'
@@ -160,38 +47,22 @@ export type WalletLifecycleState =
   | 'error';
 
 export interface WalletLifecycle {
-  /** Hydration-safe: always false on the first SSR render. */
   isConnected: boolean;
-  /** True while a connection attempt or reconnect is in flight. */
   isPending: boolean;
-  /** Wallet address of the active account (undefined when disconnected). */
   address: `0x${string}` | undefined;
-  /** Chain id reported by the connected wallet. */
   chainId: number | undefined;
-  /** Last error from the connector layer (connect rejection, wrong network, etc.). */
   connectorError: Error | null;
-  /** The connector that is currently active. */
   activeConnector: Connector | undefined;
-  /** All available connectors (injected, WalletConnect, Coinbase…). */
   connectors: readonly Connector[];
-  /** Fine-grained lifecycle label. */
   state: WalletLifecycleState;
-  /** Connect using a specific connector. */
   connect: (connector: Connector) => void;
-  /** Reconnect using the persisted connector preference. */
   reconnect: () => void;
-  /** Disconnect and clear preferences. */
   disconnect: () => void;
-  /** Clear the connector error without disconnecting. */
   clearError: () => void;
 }
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useWallet(): WalletLifecycle {
   const mounted = useIsMounted();
-
-  // wagmi primitives
   const {
     address,
     isConnected: wagmiConnected,
@@ -200,69 +71,41 @@ export function useWallet(): WalletLifecycle {
     chainId,
     connector: activeConnector,
   } = useAccount();
-
   const { connect: wagmiConnect, isPending: connectPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const connectors = useConnectors();
-
-  // Local error state — wagmi surfaces errors through event callbacks
   const [connectorError, setConnectorError] = useState<Error | null>(null);
-
-  // Track previous address to detect account-change events
-  const prevAddressRef = useRef<`0x${string}` | undefined>(undefined);
-
-  // ── Hydration guard ────────────────────────────────────────────────────────
-  // Before the component mounts on the client we report as disconnected to
-  // prevent a phantom-connected flash that mismatches SSR.
+  const previousAddress = useRef<`0x${string}` | undefined>(undefined);
   const isConnected = mounted && wagmiConnected;
 
-  // ── Account-change detection ───────────────────────────────────────────────
   useEffect(() => {
     if (!mounted) return;
-    const prev = prevAddressRef.current;
-    if (prev !== undefined && address !== undefined && prev !== address) {
-      // Account switched — clear any stale error
+    if (
+      previousAddress.current !== undefined &&
+      address !== undefined &&
+      previousAddress.current !== address
+    ) {
       setConnectorError(null);
     }
-    prevAddressRef.current = address;
+    previousAddress.current = address;
   }, [address, mounted]);
 
-  // ── Connector preference persistence ──────────────────────────────────────
   useEffect(() => {
-    if (!mounted) return;
-    if (isConnected && activeConnector?.id) {
+    if (mounted && isConnected && activeConnector?.id) {
       writeConnectorPref(activeConnector.id);
     }
   }, [isConnected, activeConnector?.id, mounted]);
 
-  // ── Reconnect on mount using persisted preference ─────────────────────────
-  // wagmi's autoConnect handles most reconnect cases, but if the user has
-  // a stored preference we can eagerly select the right connector.
-  const reconnect = useCallback(() => {
-    const savedId = readConnectorPref();
-    if (!savedId) return;
-    const target = connectors.find((c) => c.id === savedId);
-    if (!target) return;
-    setConnectorError(null);
-    wagmiConnect(
-      { connector: target },
-      {
-        onError(err) {
-          setConnectorError(err instanceof Error ? err : new Error(String(err)));
-        },
-      },
-    );
-  }, [connectors, wagmiConnect]);
-
-  // ── Connect ────────────────────────────────────────────────────────────────
-  const connect = useCallback(
+  const connectWith = useCallback(
     (connector: Connector) => {
       setConnectorError(null);
       wagmiConnect(
         { connector },
         {
-          onError(err) {
-            setConnectorError(err instanceof Error ? err : new Error(String(err)));
+          onError(error) {
+            setConnectorError(
+              error instanceof Error ? error : new Error(String(error)),
+            );
           },
         },
       );
@@ -270,17 +113,20 @@ export function useWallet(): WalletLifecycle {
     [wagmiConnect],
   );
 
-  // ── Disconnect ─────────────────────────────────────────────────────────────
+  const reconnect = useCallback(() => {
+    const connectorId = readConnectorPref();
+    const connector = connectors.find(({ id }) => id === connectorId);
+    if (connector) connectWith(connector);
+  }, [connectors, connectWith]);
+
   const disconnect = useCallback(() => {
     clearConnectorPref();
     setConnectorError(null);
     wagmiDisconnect();
   }, [wagmiDisconnect]);
 
-  // ── clearError ─────────────────────────────────────────────────────────────
   const clearError = useCallback(() => setConnectorError(null), []);
 
-  // ── Lifecycle state label ──────────────────────────────────────────────────
   const state = useMemo((): WalletLifecycleState => {
     if (!mounted) return 'disconnected';
     if (connectorError) return 'error';
@@ -288,7 +134,14 @@ export function useWallet(): WalletLifecycle {
     if (isReconnecting) return 'reconnecting';
     if (isConnected) return 'connected';
     return 'disconnected';
-  }, [mounted, connectorError, isConnecting, connectPending, isReconnecting, isConnected]);
+  }, [
+    mounted,
+    connectorError,
+    isConnecting,
+    connectPending,
+    isReconnecting,
+    isConnected,
+  ]);
 
   return {
     isConnected,
@@ -299,37 +152,9 @@ export function useWallet(): WalletLifecycle {
     activeConnector: isConnected ? activeConnector : undefined,
     connectors,
     state,
-    connect,
+    connect: connectWith,
     reconnect,
     disconnect,
     clearError,
   };
 }
-
-/**
- * Get human-readable chain name from wallet state
- */
-export function getChainName(chainId: number): string {
-  if (!isSupportedChain(chainId)) return 'Unknown Chain';
-  const config = getChainConfig(chainId);
-  return config.name;
-}
-
-/**
- * Get blockchain explorer URL for an address or tx
- */
-export function getExplorerUrl(
-  chainId: number,
-  type: 'address' | 'tx',
-  value: string
-): string | null {
-  if (!isSupportedChain(chainId)) return null;
-  const config = getChainConfig(chainId);
-
-  if (type === 'address') {
-    return `${config.blockExplorer.url}/address/${value}`;
-  } else {
-    return `${config.blockExplorer.url}/tx/${value}`;
-  }
-}
-
