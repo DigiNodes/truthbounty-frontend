@@ -11,17 +11,27 @@ interface ClaimRewardsPanelProps {
 export default function ClaimRewardsPanel({ isLoading: externalLoading = false }: ClaimRewardsPanelProps) {
   const {
     pendingRewards,
-    totalClaimable,
-    status,
+    claimStatus,
+    isLoading: rewardsLoading,
     lastTxHash,
     errorMessage,
     claimAll,
   } = useRewards();
 
-  const hasRewards = totalClaimable > 0;
-  const isLoading = externalLoading;
-  const isSuccess = status === "success";
-  const isError = status === "error";
+  const formatTokenAmount = (amount: bigint) => {
+    const whole = amount / 10n ** 18n;
+    const fraction = (amount % 10n ** 18n).toString().padStart(18, "0").slice(0, 2);
+    return `${whole}.${fraction}`;
+  };
+
+  const totalClaimable = pendingRewards.reduce(
+    (sum, reward) => sum + BigInt(reward.amount),
+    0n,
+  );
+  const hasRewards = totalClaimable > 0n;
+  const isLoading = externalLoading || rewardsLoading;
+  const isSuccess = claimStatus === "success";
+  const isError = claimStatus === "error";
 
   if (isLoading) {
     return <ClaimRewardsPanelSkeleton />;
@@ -59,7 +69,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 hasRewards ? "text-[#5b5bf6]" : "text-[#a1a1aa]"
               }`}
             >
-              ${totalClaimable.toFixed(2)}
+              {formatTokenAmount(totalClaimable)} TBT
             </p>
           </div>
 
@@ -157,7 +167,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 <p className="text-white text-sm truncate">{reward.title}</p>
               </div>
               <span className="text-[#5b5bf6] font-semibold text-sm ml-4 shrink-0">
-                +${reward.amount.toFixed(2)}
+                +{formatTokenAmount(BigInt(reward.amount))} TBT
               </span>
             </div>
           ))

@@ -1,4 +1,4 @@
-// src/queries/queryClient.ts
+// src/app/queries/queryClient.ts
 import { QueryClient } from '@tanstack/react-query';
 
 export const queryClient = new QueryClient({
