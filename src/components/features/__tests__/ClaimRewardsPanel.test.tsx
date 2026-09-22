@@ -6,8 +6,9 @@ const mockTxHash = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456
 jest.mock('../../../hooks/useRewards', () => ({
   useRewards: () => ({
     pendingRewards: [],
-    totalClaimable: 0,
-    status: 'success',
+    claimStatus: 'success',
+    isLoading: false,
+    isError: false,
     lastTxHash: mockTxHash,
     errorMessage: null,
     claimAll: jest.fn(),
