@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useDisputeContext } from '@/hooks/useDisputeContext';
 import { useDisputeSubmission, formatBondAmount } from '@/hooks/useDisputeSubmission';
@@ -19,7 +20,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLTextAreaElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+  useDialogFocus(isOpen, modalRef, firstFocusableRef, onClose);
 
   // Fetch dispute context
   const contractAddress = getContractAddress('TruthBountyWeighted');
@@ -49,53 +50,6 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
       setSubmissionError(null);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-    }
-    return () => {
-      if (!isOpen) {
-        previousActiveElement.current?.focus();
-      }
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      firstFocusableRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-
-    if (!focusableElements || focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else if (document.activeElement === lastElement) {
-      e.preventDefault();
-      firstElement.focus();
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +113,6 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
     <div
       className="fixed inset-0 z-50 modal-shell bg-black/80 backdrop-blur-sm"
       role="presentation"
-      onKeyDown={handleFocusTrap}
     >
       <div
         ref={modalRef}
@@ -167,7 +120,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
         role="dialog"
         aria-modal="true"
         aria-labelledby="dispute-modal-title"
-        onKeyDown={handleKeyDown}
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center gap-2 text-red-500">
