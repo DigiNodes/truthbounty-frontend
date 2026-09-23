@@ -8,6 +8,14 @@ interface ClaimRewardsPanelProps {
   isLoading?: boolean;
 }
 
+/**
+ * Claimable-rewards panel for the rewards claim workflow.
+ *
+ * Responsive behaviour: below `sm` the header stacks vertically (title,
+ * then total + claim action spread across the row) so the claim button and
+ * total stay reachable without horizontal overflow on narrow viewports.
+ * From `sm` up the header returns to a single row.
+ */
 export default function ClaimRewardsPanel({ isLoading: externalLoading = false }: ClaimRewardsPanelProps) {
   const {
     pendingRewards,
@@ -29,10 +37,10 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
 
   return (
     <div className="bg-[#18181b] rounded-xl border border-[#232329] overflow-hidden min-h-[280px]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#232329]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#5b5bf6]/20 flex items-center justify-center">
+      {/* Header — stacks below sm so totals/actions never overflow */}
+      <div className="flex flex-col gap-4 px-4 py-4 border-b border-[#232329] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 shrink-0 rounded-lg bg-[#5b5bf6]/20 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path
                 d="M8 1l1.94 3.93L14 5.27l-3 2.93.71 4.13L8 10.27l-3.71 2.06.71-4.13L2 5.27l4.06-.34L8 1z"
@@ -40,18 +48,18 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
               />
             </svg>
           </div>
-          <div>
-            <p className="text-white font-semibold text-sm">
+          <div className="min-w-0">
+            <p className="text-white font-semibold text-sm truncate">
               Claimable Rewards
             </p>
-            <p className="text-[#a1a1aa] text-xs">
+            <p className="text-[#a1a1aa] text-xs truncate">
               Earned from verified claims
             </p>
           </div>
         </div>
 
-        {/* Total + Claim button */}
-        <div className="flex items-center gap-4">
+        {/* Total + Claim button — full width on mobile, inline from sm */}
+        <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start">
           <div className="text-right">
             <p className="text-xs text-[#a1a1aa]">Total available</p>
             <p
@@ -130,7 +138,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
       {/* Reward list */}
       <div className="divide-y divide-[#232329]">
         {pendingRewards.length === 0 ? (
-          <div className="px-6 py-8 flex flex-col items-center gap-2 text-center">
+          <div className="px-4 py-8 flex flex-col items-center gap-2 text-center sm:px-6">
             <div className="w-10 h-10 rounded-full bg-[#232329] flex items-center justify-center mb-1">
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                 <path
@@ -150,7 +158,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
           pendingRewards.map((reward) => (
             <div
               key={reward.claimId}
-              className="flex items-center justify-between px-6 py-3 hover:bg-[#232329]/40 transition-colors"
+              className="flex items-center justify-between px-4 py-3 hover:bg-[#232329]/40 transition-colors sm:px-6"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-2 h-2 rounded-full bg-[#5b5bf6] shrink-0" />
@@ -167,7 +175,7 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
       {/* Status footer */}
       {(isSuccess && lastTxHash) || isError ? (
         <div
-          className={`px-6 py-3 text-xs border-t ${
+          className={`px-4 py-3 text-xs border-t sm:px-6 ${
             isSuccess
               ? "border-green-900/30 bg-green-900/10 text-green-400"
               : "border-red-900/30 bg-red-900/10 text-red-400"

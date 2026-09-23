@@ -54,7 +54,7 @@ export default function IdentityPage() {
           </h2>
           
           {walletAddress ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   Connected Wallet

@@ -43,7 +43,7 @@ export function StatusCard({ status, count }: StatusCardProps) {
 
   return (
     <div
-      className={`${config.bgColor} border border-slate-700 rounded-lg p-6 min-w-[200px]`}
+      className={`${config.bgColor} border border-slate-700 rounded-lg p-6 min-w-0 w-full sm:min-w-[200px] sm:w-auto`}
     >
       <div className="flex items-center gap-2 mb-4">
         <span className={`text-lg ${config.textColor}`}>{config.icon}</span>
