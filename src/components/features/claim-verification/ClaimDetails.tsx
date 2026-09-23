@@ -6,6 +6,7 @@ import { Claim } from '@/app/types/claim';
 import { useTrustForAddress } from '@/components/hooks/useTrust';
 import TrustScoreTooltip from '@/components/ui/TrustScoreTooltip';
 import { ClaimDetailsSkeleton } from '@/components/skeletons';
+import { isSafeRenderUrl } from '@/lib/safe-url';
 
 export interface ClaimDetailsProps {
   claimId?: string;
@@ -92,12 +93,12 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
           <ul className="space-y-1">
             {claim.evidence.map((ev, idx) => (
               <li key={idx} className="text-xs text-gray-300">
-                {ev.type === 'link' ? (
-                  <a href={ev.value} target="_blank" rel="noreferrer" className="text-blue-400 underline">
+                {ev.type === 'link' && isSafeRenderUrl(ev.value) ? (
+                  <a href={ev.value} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline break-all">
                     {ev.value}
                   </a>
                 ) : (
-                  <span>{ev.value}</span>
+                  <span className="break-all">{ev.value}</span>
                 )}
               </li>
             ))}

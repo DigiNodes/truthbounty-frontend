@@ -1,17 +1,29 @@
 'use client';
 
 import { useState } from 'react';
+import { isSafeRenderUrl } from '@/lib/safe-url';
 
-export function EvidenceViewer({ claimId: _claimId }: { claimId: string }) {
+interface EvidenceItem {
+  type: string;
+  value: string;
+}
+
+// Demo values used only until the claim detail endpoint drives this view.
+const DEMO_EVIDENCE: EvidenceItem[] = [
+  { type: 'link', value: 'https://example.com' },
+  { type: 'text', value: 'Witness testimony text' },
+  { type: 'image', value: '/evidence/img1.png' },
+];
+
+export function EvidenceViewer({
+  claimId: _claimId,
+  evidence = DEMO_EVIDENCE,
+}: {
+  claimId: string;
+  evidence?: EvidenceItem[];
+}) {
   void _claimId;
   const [expanded, setExpanded] = useState(true);
-
-  // Assume evidence comes with claim fetch or separate endpoint
-  const evidence = [
-    { type: 'link', value: 'https://example.com' },
-    { type: 'text', value: 'Witness testimony text' },
-    { type: 'image', value: '/evidence/img1.png' },
-  ];
 
   return (
     <div className="card p-4 sm:p-6">
@@ -35,6 +47,14 @@ export function EvidenceViewer({ claimId: _claimId }: { claimId: string }) {
         >
           {evidence.map((e, idx) => {
             if (e.type === 'link') {
+              if (!isSafeRenderUrl(e.value)) {
+                return (
+                  <p key={idx} className="text-sm sm:text-base leading-relaxed break-all" aria-label="Unsafe evidence link">
+                    {e.value}
+                  </p>
+                );
+              }
+
               return (
                 <a
                   key={idx}
@@ -50,6 +70,14 @@ export function EvidenceViewer({ claimId: _claimId }: { claimId: string }) {
             }
 
             if (e.type === 'image') {
+              if (!isSafeRenderUrl(e.value)) {
+                return (
+                  <p key={idx} className="text-sm sm:text-base leading-relaxed" aria-label="Unsafe evidence image">
+                    Evidence image blocked: unsafe source.
+                  </p>
+                );
+              }
+
               return (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
