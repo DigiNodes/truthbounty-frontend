@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "verify-artifacts": "node scripts/verify-artifacts.mjs",
-    "prebuild": "node scripts/verify-artifacts.mjs",
+    "verify-production-boundaries": "node scripts/verify-production-boundaries.mjs source",
+    "verify-production-bundle": "node scripts/verify-production-boundaries.mjs bundle",
+    "prebuild": "node scripts/verify-artifacts.mjs && node scripts/verify-production-boundaries.mjs source",
     "build": "next build",
+    "postbuild": "node scripts/verify-production-boundaries.mjs bundle",
     "start": "next start",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",

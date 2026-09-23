@@ -49,6 +49,52 @@ const eslintConfig = defineConfig([
       "storybook/no-renderer-packages": "off",
     },
   },
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    ignores: [
+      "src/**/__tests__/**",
+      "src/**/__mocks__/**",
+      "src/**/*.test.*",
+      "src/**/*.spec.*",
+      "src/**/*.stories.*",
+      "src/stories/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "jest", message: "Jest is restricted to test-only files." },
+            { name: "jest-mock", message: "Jest mocks are restricted to test-only files." },
+            { name: "msw", message: "MSW handlers are restricted to test-only files." },
+            { name: "vitest", message: "Vitest is restricted to test-only files." },
+            { name: "@playwright/test", message: "Playwright is restricted to test-only files." },
+          ],
+          patterns: [
+            {
+              group: [
+                "@/**/__tests__/**",
+                "@/**/__mocks__/**",
+                "@/**/fixtures/**",
+                "@/**/mocks/**",
+                "@/stories/**",
+                "**/__tests__/**",
+                "**/__mocks__/**",
+                "**/fixtures/**",
+                "**/mocks/**",
+                "**/*.test",
+                "**/*.spec",
+                "@storybook/**",
+                "@testing-library/**",
+                "@vitest/**",
+              ],
+              message: "Test fixtures, mocks, and tooling must not be imported by production code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
