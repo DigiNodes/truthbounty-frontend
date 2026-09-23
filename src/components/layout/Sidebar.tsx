@@ -20,6 +20,7 @@ import {
   subscribeToPendingTransactions,
   type PendingTransactionEntry,
 } from '@/lib/pending-transactions';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 
 const RESOURCE_LINKS = {
   docs: 'https://github.com/DigiNodes/truthbounty-frontend/blob/main/docs/ARCHITECTURE.md',
@@ -35,22 +36,11 @@ const Sidebar = () => {
   const { isEnabled } = useFeatureFlags();
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const firstNavItemRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  useDialogFocus(isMobileMenuOpen, sidebarRef, firstNavItemRef, () => setIsMobileMenuOpen(false));
 
   useEffect(() => {
     return subscribeToPendingTransactions(setPendingTransactions);
-  }, []);
-
-  useEffect(() => {
-    if (isMobileMenuOpen) {
-      firstNavItemRef.current?.focus();
-    }
-  }, [isMobileMenuOpen]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setIsMobileMenuOpen(false);
-      hamburgerRef.current?.focus();
-    }
   }, []);
 
   const navItems = useMemo(() => {
@@ -74,13 +64,6 @@ const Sidebar = () => {
     if (label === "Submit Claim") setShowClaimModal(true);
     setIsMobileMenuOpen(false);
   }, []);
-
-  const handleNavKeyDown = useCallback((event: React.KeyboardEvent, label: string) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handleNavClick(label);
-    }
-  }, [handleNavClick]);
 
   return (
     <>
@@ -113,15 +96,18 @@ const Sidebar = () => {
       )}
 
       <aside
+        ref={sidebarRef}
         id="sidebar-navigation"
         className={`
         fixed lg:static inset-y-0 left-0 z-40
         flex flex-col w-64 h-full bg-card border-r border-border text-foreground
         transform transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isMobileMenuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible lg:translate-x-0'}
       `}
         aria-label="Sidebar navigation"
-        onKeyDown={handleKeyDown}
+        role={isMobileMenuOpen ? 'dialog' : undefined}
+        aria-modal={isMobileMenuOpen ? true : undefined}
+        tabIndex={isMobileMenuOpen ? -1 : undefined}
       >
         <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-border">
           <span className="bg-[#5b5bf6] rounded-full w-8 h-8 flex items-center justify-center mr-2" aria-hidden="true">
@@ -138,7 +124,6 @@ const Sidebar = () => {
                   ref={index === 0 ? firstNavItemRef : undefined}
                   className="w-full flex items-center px-3 py-3 rounded-lg hover:bg-accent text-sm font-medium text-left transition-colors"
                   onClick={() => handleNavClick(item.label)}
-                  onKeyDown={(e) => handleNavKeyDown(e, item.label)}
                 >
                   <item.icon className="w-5 h-5 text-[#a1a1aa]" aria-hidden="true" />
                   <span className="ml-3">{item.label}</span>
