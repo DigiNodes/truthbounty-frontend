@@ -328,14 +328,14 @@ export function useAppealParticipation(
         // 3. Return transaction hash immediately (don't wait for confirmation)
         // 4. Let useStateReconciliation handle confirmation tracking
 
-        // Mock transaction submission
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
+        // Production path must not fabricate transaction hashes or optimistic state.
+        // Wait for actual wallet submission result from the contract API layer.
+        throw new Error('Wallet submission is not available in the current production build.');
 
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
         const timestamp = new Date().toISOString();
 
         const transaction: AppealParticipationTransaction = {
-          transactionHash: mockTxHash,
+          transactionHash: '',
           from: userAddress!,
           to: contractAddress,
           status: 'PENDING',
