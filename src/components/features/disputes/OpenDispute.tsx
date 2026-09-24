@@ -20,7 +20,6 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLTextAreaElement>(null);
-  useDialogFocus(isOpen, modalRef, firstFocusableRef, onClose);
 
   // Fetch dispute context
   const contractAddress = getContractAddress('TruthBountyWeighted');
@@ -103,6 +102,10 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
 
   // Combined loading state
   const isLoading = isLoadingContext || isSimulating || isSubmitting;
+  const closeIfIdle = () => {
+    if (!isLoading) onClose();
+  };
+  useDialogFocus(isOpen, modalRef, firstFocusableRef, closeIfIdle);
 
   // Combined error
   const displayError = submissionError || contextError || submissionHookError;
@@ -128,7 +131,8 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
             <h2 id="dispute-modal-title" className="text-base sm:text-lg font-bold text-white">Open Dispute</h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={closeIfIdle}
+            disabled={isLoading}
             className="text-zinc-500 hover:text-white p-1"
             aria-label="Close dispute modal"
           >
@@ -204,7 +208,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
           <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 mt-4 sm:mt-6">
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeIfIdle}
               disabled={isLoading}
               className="px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
               aria-label="Cancel dispute"

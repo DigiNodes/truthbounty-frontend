@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -11,7 +11,9 @@ export function useDialogFocus<T extends HTMLElement>(
   onClose: () => void,
 ) {
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open || !dialogRef.current) return;
@@ -33,11 +35,17 @@ export function useDialogFocus<T extends HTMLElement>(
       const dialogs = document.querySelectorAll('[aria-modal="true"]');
       return dialogs[dialogs.length - 1] === dialog;
     };
+    const isWalletModalEvent = (event: Event) =>
+      event.composedPath().some(
+        (target) =>
+          target instanceof Element &&
+          target.matches('w3m-modal, wcm-modal'),
+      );
 
     focusFirst();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isTopmost()) return;
+      if (!isTopmost() || isWalletModalEvent(event)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         onCloseRef.current();
@@ -53,19 +61,20 @@ export function useDialogFocus<T extends HTMLElement>(
       }
       const first = items[0];
       const last = items[items.length - 1];
-      if (!dialog.contains(document.activeElement)) {
+      const active = document.activeElement;
+      if (active === dialog || !dialog.contains(active)) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
+      } else if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
     };
     const onFocus = (event: FocusEvent) => {
-      if (!isTopmost()) return;
+      if (!isTopmost() || isWalletModalEvent(event)) return;
       if (!dialog.contains(event.target as Node)) focusFirst();
     };
 
