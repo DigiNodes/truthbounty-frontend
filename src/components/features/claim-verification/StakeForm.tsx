@@ -58,7 +58,7 @@ export function StakeForm({
 
       {balance !== null && (
         <p className="text-sm sm:text-sm mt-2 flex items-center gap-1.5">
-          <span>Balance:</span>
+          <span>Balance: </span>
           <FormattedToken amount={balance} symbol="TBNT" />
         </p>
       )}

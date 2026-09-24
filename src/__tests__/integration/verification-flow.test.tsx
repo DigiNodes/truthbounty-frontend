@@ -134,7 +134,9 @@ describe('Verification Flow Integration Tests', () => {
 
       // Wait for balance to load
       await waitFor(() => {
-        expect(screen.getByText(/Balance: 100 TBNT/)).toBeInTheDocument()
+        expect(
+          screen.getByText((_, el) => el?.textContent?.replace(/\s+/g, ' ').trim() === 'Balance: 100 TBNT')
+        ).toBeInTheDocument()
       })
     })
 
@@ -263,7 +265,9 @@ describe('Verification Flow Integration Tests', () => {
 
       // 2. Check stake form
       await waitFor(() => {
-        expect(screen.getByText(/Balance: 100 TBNT/)).toBeInTheDocument()
+        expect(
+          screen.getByText((_, el) => el?.textContent?.replace(/\s+/g, ' ').trim() === 'Balance: 100 TBNT')
+        ).toBeInTheDocument()
       })
 
       // 3. Enter stake amount

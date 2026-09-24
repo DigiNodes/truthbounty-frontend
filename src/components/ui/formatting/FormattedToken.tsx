@@ -73,7 +73,7 @@ export const FormattedToken: React.FC<FormattedTokenProps> = ({
       <span>{formattedValue}</span>
       {showSymbol && symbol && (
         <span className={cn("ml-1 font-sans text-xs opacity-75 font-normal", symbolClassName)}>
-          {symbol}
+          {" "}{symbol}
         </span>
       )}
     </span>

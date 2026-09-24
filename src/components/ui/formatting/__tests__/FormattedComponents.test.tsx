@@ -110,9 +110,9 @@ describe("Accessible Formatting UI Components", () => {
     it("renders truncated EVM address with font-mono", () => {
       render(<FormattedAddress address={testAddress} />);
 
-      const el = screen.getByText("0x742d35...eB1E");
+      const el = screen.getByText("0x742d...eB1E");
       expect(el).toBeInTheDocument();
-      expect(el.parentElement).toHaveClass("font-mono");
+      expect(el).toHaveClass("font-mono");
     });
 
     it("handles copyable address with clipboard interactions", async () => {

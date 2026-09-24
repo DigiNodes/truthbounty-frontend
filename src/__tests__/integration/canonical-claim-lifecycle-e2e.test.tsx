@@ -551,7 +551,23 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
       const appealCtx = context.current.context!;
 
       const { result: participation } = renderHook(() =>
-        useAppealParticipation({ contractAddress: CONTRACT, expectedChainId: OP_MAINNET }),
+        useAppealParticipation({
+          contractAddress: CONTRACT,
+          expectedChainId: OP_MAINNET,
+          abi: [
+            {
+              type: 'function',
+              name: 'participateInAppeal',
+              inputs: [
+                { name: 'appealId', type: 'bytes32' },
+                { name: 'support', type: 'bool' },
+                { name: 'amount', type: 'uint256' },
+              ],
+              outputs: [],
+              stateMutability: 'nonpayable',
+            },
+          ],
+        }),
       );
 
       const validation = participation.current.validateParticipation(
