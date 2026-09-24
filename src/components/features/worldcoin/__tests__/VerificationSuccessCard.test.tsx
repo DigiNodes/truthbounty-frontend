@@ -15,8 +15,8 @@ describe('VerificationSuccessCard', () => {
       />
     );
 
-    expect(screen.getByText(/Verified:/)).toHaveTextContent('UTC');
-    expect(screen.getByText(/Valid until:/)).toHaveTextContent('UTC');
+    expect(screen.getByText(/Verified:/).parentElement).toHaveTextContent('UTC');
+    expect(screen.getByText(/Valid until:/).parentElement).toHaveTextContent('UTC');
   });
 
   it('contains a single, labelled, keyboard-focusable action button', () => {

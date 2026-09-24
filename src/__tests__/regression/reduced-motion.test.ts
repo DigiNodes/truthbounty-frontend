@@ -16,7 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const ROOT = path.resolve(__dirname, '../..');
+const ROOT = path.resolve(__dirname, '../../..');
 const SRC = path.join(ROOT, 'src');
 
 function read(rel: string): string {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const mockHook = {
+const mockHook: any = {
   status: 'ready' as const,
   step: 'form' as const,
   draft: { recipient: '', amountWei: '', reason: '' },

@@ -164,7 +164,7 @@ export function encodeWithdrawTreasuryCall(input: {
     throw new Error('withdrawTreasury missing from canonical ABI — fail closed');
   }
   return encodeFunctionData({
-    abi: input.abi as never,
+    abi: input.abi as any,
     functionName: WITHDRAW_FN,
     args: [getAddress(input.recipient), BigInt(input.amountWei)],
   });

@@ -2,20 +2,26 @@ import { renderHook, act } from '@testing-library/react';
 
 const admin = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as const;
 
+const mockPublicClient = {
+  readContract: jest.fn(async () => 5_000_000_000_000_000_000n),
+  getBalance: jest.fn(async () => 5_000_000_000_000_000_000n),
+  estimateGas: jest.fn(async () => 21000n),
+  waitForTransactionReceipt: jest.fn(async () => ({ status: 'success', confirmations: 1 })),
+};
+
+const mockWalletClient = {
+  data: {
+    sendTransaction: jest.fn(async () => '0x' + 'ab'.repeat(32)),
+  },
+};
+
+const mockAccount = { address: admin, isConnected: true };
+
 jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: admin, isConnected: true }),
+  useAccount: () => mockAccount,
   useChainId: () => 11155420,
-  usePublicClient: () => ({
-    readContract: jest.fn(async () => 5_000_000_000_000_000_000n),
-    getBalance: jest.fn(async () => 5_000_000_000_000_000_000n),
-    estimateGas: jest.fn(async () => 21000n),
-    waitForTransactionReceipt: jest.fn(async () => ({ status: 'success', confirmations: 1 })),
-  }),
-  useWalletClient: () => ({
-    data: {
-      sendTransaction: jest.fn(async () => '0x' + 'ab'.repeat(32)),
-    },
-  }),
+  usePublicClient: () => mockPublicClient,
+  useWalletClient: () => mockWalletClient,
 }));
 
 jest.mock('@/lib/contracts/registry', () => ({
@@ -56,9 +62,17 @@ jest.mock('@/lib/pending-transactions', () => ({
 }));
 
 describe('useSafeTreasuryWithdrawal', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   it('loads balance and validates draft for admin', async () => {
     const { useSafeTreasuryWithdrawal } = await import('../useSafeTreasuryWithdrawal');
-    const { result } = renderHook(() => useSafeTreasuryWithdrawal());
+    const { result, unmount } = renderHook(() => useSafeTreasuryWithdrawal());
 
     await act(async () => {
       await result.current.refreshBalance();
@@ -80,11 +94,12 @@ describe('useSafeTreasuryWithdrawal', () => {
       result.current.goReview();
     });
     expect(result.current.step).toBe('review');
+    unmount();
   });
 
   it('requires simulation success before treating submit as ready', async () => {
     const { useSafeTreasuryWithdrawal } = await import('../useSafeTreasuryWithdrawal');
-    const { result } = renderHook(() => useSafeTreasuryWithdrawal());
+    const { result, unmount } = renderHook(() => useSafeTreasuryWithdrawal());
 
     await act(async () => {
       await result.current.refreshBalance();
@@ -101,7 +116,8 @@ describe('useSafeTreasuryWithdrawal', () => {
     await act(async () => {
       sim = await result.current.simulate();
     });
-    expect(sim.success).toBe(true);
-    expect(sim.calldata?.startsWith('0x')).toBe(true);
+    expect(sim!.success).toBe(true);
+    expect(sim!.calldata?.startsWith('0x')).toBe(true);
+    unmount();
   });
 });

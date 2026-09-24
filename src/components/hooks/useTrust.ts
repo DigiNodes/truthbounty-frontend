@@ -83,7 +83,7 @@ export function useTrustForAddress(address?: string): TrustInfo {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const base: Partial<TrustInfo> = {
+  const base: TrustInfo = {
     reputation: 0,
     accountAgeDays: 0,
     suspicious: false,
@@ -111,7 +111,7 @@ export function useTrustForAddress(address?: string): TrustInfo {
       : null;
   void storageUpdateTrigger;
 
-  return overrideInfo ? { ...trust, ...overrideInfo } : trust;
+  return overrideInfo ? ({ ...trust, ...overrideInfo } as TrustInfo) : trust;
 }
 
 /**

@@ -38,13 +38,13 @@ export function useApiFreshness(config: UseApiFreshnessConfig = {}): UseApiFresh
   const isFresh = query.data !== null && 
     !query.isLoading && 
     !query.isError && 
-    (query.data.freshness.lag <= maxAcceptableLag);
+    (query.data?.freshness.lag ?? Infinity) <= maxAcceptableLag;
 
   return {
     data: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
-    refetch: query.refetch,
+    refetch: async () => { await query.refetch(); },
     isFresh,
     isDegraded,
   };

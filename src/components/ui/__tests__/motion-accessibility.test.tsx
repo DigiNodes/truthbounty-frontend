@@ -26,21 +26,22 @@ function installMatchMedia() {
   })) as unknown as typeof window.matchMedia;
 }
 
+const originalMatchMedia = window.matchMedia;
+
+beforeEach(() => {
+  installMatchMedia();
+});
+
+afterAll(() => {
+  window.matchMedia = originalMatchMedia;
+});
+
 function Probe() {
   const reduced = usePrefersReducedMotion();
   return <div data-testid="probe">{reduced ? 'reduced' : 'full'}</div>;
 }
 
 describe('usePrefersReducedMotion (in MotionSafeStatus/Probe)', () => {
-  const originalMatchMedia = window.matchMedia;
-
-  beforeEach(() => {
-    installMatchMedia();
-  });
-
-  afterAll(() => {
-    window.matchMedia = originalMatchMedia;
-  });
 
   it('renders full motion by default', () => {
     render(<Probe />);
@@ -62,10 +63,7 @@ describe('MotionSafeStatus — V2-FE-071 status comprehension', () => {
 
   it('keeps the pulse class when motion is allowed', () => {
     render(<MotionSafeStatus label="Pending" tone="pending" pulse />);
-    const dot = screen.getByLabelText('Pending', { selector: '[aria-hidden="true"]' })
-      ? null
-      : null;
-    void dot;
+
     // The decorative dot is aria-hidden; assert via DOM query.
     const spans = document.querySelectorAll('span[aria-hidden="true"]');
     expect(spans.length).toBeGreaterThan(0);

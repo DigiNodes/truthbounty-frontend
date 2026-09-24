@@ -71,9 +71,9 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  const abi = getContractAbi('TruthBountyWeighted');
-  const contractAddress = getContractAddress('TruthBountyWeighted');
-  const roles = getCanonicalRoles();
+  const abi = useMemo(() => getContractAbi('TruthBountyWeighted'), []);
+  const contractAddress = useMemo(() => getContractAddress('TruthBountyWeighted'), []);
+  const roles = useMemo(() => getCanonicalRoles(), []);
 
   const gate = useMemo(
     () =>
@@ -349,7 +349,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
             txHash,
             chainId: chainId ?? null,
             status: 'failed',
-            confirmations: Number(conf.confirmations ?? 0),
+            confirmations: Number((conf as any).confirmations ?? 0),
             error: 'Transaction reverted on-chain',
             submittedAt: new Date().toISOString(),
           });
@@ -357,7 +357,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
           return;
         }
 
-        const confirmations = Number(conf.confirmations ?? 1);
+        const confirmations = Number((conf as any).confirmations ?? 1);
         setReceipt({
           txHash,
           chainId: chainId ?? null,

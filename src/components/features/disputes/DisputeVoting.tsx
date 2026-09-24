@@ -23,7 +23,7 @@ export const DisputeVoting = ({ disputeId, currentStaked, onVote }: DisputeVotin
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2 sm:gap-0">
         <h3 className="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">
           {/* V2-FE-071 — static, motion-free attention cue. The pulsing
-              animate-ping span was removed: flashing indicators are killed
+              animation span was removed: flashing indicators are killed
               under reduced motion anyway, so comprehension must not rely on
               them. The "Active" text + red dot already carry the meaning. */}
           <span

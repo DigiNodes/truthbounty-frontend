@@ -98,7 +98,7 @@ export function safeUrl(rawUrl: unknown): SafeUrlCheck {
   // Strip characters that can confuse URL parsers or hide schemes from
   // reviewers: control chars, whitespace inside the scheme, and bidi overrides.
   const cleaned = rawUrl
-    .replace(/[\u0000-\u0020\u007f-\u009f]/g, '')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
     .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
     .trim();
 
@@ -175,7 +175,7 @@ export function safeImageUrl(rawUrl: unknown): SafeUrlCheck {
   if (!result.ok) return result;
 
   if (result.kind === 'app') {
-    return { ok: false, reason: 'disallowed_scheme', message: result.message };
+    return { ok: false, reason: 'disallowed_scheme', message: 'This media was blocked for security reasons.' };
   }
 
   // ipfs: URIs are renderable after gateway conversion
@@ -191,7 +191,7 @@ export function safeImageUrl(rawUrl: unknown): SafeUrlCheck {
     try {
       return { ok: true, href: http, kind: 'external', url: new URL(http) };
     } catch {
-      return { ok: false, reason: 'unparseable', message: result.message };
+      return { ok: false, reason: 'unparseable', message: 'This media was blocked for security reasons.' };
     }
   }
 

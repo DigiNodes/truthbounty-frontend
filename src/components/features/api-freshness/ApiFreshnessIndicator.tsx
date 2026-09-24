@@ -7,7 +7,7 @@ import { useApiFreshness } from '@/app/queries/freshness.queries';
 import { formatLag, formatLastUpdate, getFreshnessStatus, FRESHNESS_THRESHOLDS } from '@/app/types/api-freshness';
 import { Wifi, AlertTriangle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-interface ApiFreshnessIndicatorProps {
+export interface ApiFreshnessIndicatorProps {
   /** Whether to show detailed breakdown */
   showDetails?: boolean;
   /** Compact mode for headers/toolbars */
@@ -56,8 +56,8 @@ export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
     return getFreshnessStatus(data.freshness.lag);
   }, [data, isLoading, error]);
 
-  const StatusIcon = status === 'loading' ? Loader2 : statusIcons[status] ?? AlertTriangle;
-  const statusClass = statusStyles[status] ?? statusStyles.critical;
+  const StatusIcon = status === 'loading' ? Loader2 : (statusIcons[status as keyof typeof statusIcons] ?? AlertTriangle);
+  const statusClass = statusStyles[status as keyof typeof statusStyles] ?? statusStyles.critical;
 
   if (compact) {
     return (
@@ -66,10 +66,10 @@ export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        aria-label={`API freshness: ${statusLabels[status] ?? status}`}
+        aria-label={`API freshness: ${statusLabels[status as keyof typeof statusLabels] ?? status}`}
       >
         <StatusIcon
-          className={`w-4 h-4 ${status === 'loading' ? 'animate-spin' : ''} ${status !== 'loading' && status !== 'unknown' && status !== 'error' ? statusStyles[status].split(' ')[0] : 'text-gray-400'}`}
+          className={`w-4 h-4 ${status === 'loading' ? 'animate-spin' : ''} ${status !== 'loading' && status !== 'unknown' && status !== 'error' ? statusStyles[status as keyof typeof statusStyles].split(' ')[0] : 'text-gray-400'}`}
           aria-hidden="true"
         />
         <span className="text-xs font-mono text-gray-400">
@@ -148,13 +148,13 @@ export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <StatusIcon
-            className={`w-5 h-5 ${status === 'loading' ? 'animate-spin' : ''} ${statusStyles[status].split(' ')[0]}`}
+            className={`w-5 h-5 ${status === 'loading' ? 'animate-spin' : ''} ${statusStyles[status as keyof typeof statusStyles]?.split(' ')[0] ?? ''}`}
             aria-hidden="true"
           />
           <div>
             <div className="text-sm font-medium text-white">API Freshness</div>
             <div className="text-xs text-[#a1a1aa]">
-              {statusLabels[status]} • Updated {lastUpdate}
+              {statusLabels[status as keyof typeof statusLabels]} • Updated {lastUpdate}
             </div>
           </div>
         </div>
@@ -200,7 +200,7 @@ export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
               label="Lag"
               value={formatLag(lag)}
               description={`Threshold: ${FRESHNESS_THRESHOLDS.DEGRADED_LAG} blocks`}
-              icon={<AlertTriangle className={`w-4 h-4 ${statusStyles[status].split(' ')[0]}`} />}
+              icon={<AlertTriangle className={`w-4 h-4 ${statusStyles[status as keyof typeof statusStyles]?.split(' ')[0] ?? ''}`} />}
             />
           </div>
 

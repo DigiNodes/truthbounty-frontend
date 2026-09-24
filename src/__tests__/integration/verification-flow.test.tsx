@@ -121,7 +121,7 @@ describe('Verification Flow Integration Tests', () => {
       await user.click(verifyButton)
 
       // Check for loading state
-      expect(screen.getByText(/pending/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/pending/i).length).toBeGreaterThan(0)
     })
   })
 

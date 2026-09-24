@@ -134,7 +134,7 @@ describe('ProtocolContractStatus', () => {
     const root = screen.getByTestId('protocol-contract-status');
     expect(root).toHaveAttribute('data-lifecycle', lifecycle);
     expect(root).toHaveAttribute('role', 'status');
-    expect(within(root).getByText(new RegExp(lifecycle === 'empty' ? 'No protocol transaction' : '.', 'i'))).toBeTruthy();
+    expect(within(root).getAllByText(new RegExp(lifecycle === 'empty' ? 'No protocol transaction' : '.', 'i')).length).toBeGreaterThan(0);
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });

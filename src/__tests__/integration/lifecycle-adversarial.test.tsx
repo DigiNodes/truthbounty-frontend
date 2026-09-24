@@ -403,7 +403,7 @@ describe('V2-FE-044 — Adversarial lifecycle disturbances', () => {
       const out = reconcileVerificationState({
         chainId: OP_MAINNET,
         claimId: 'claim-1',
-        projection: { status: 'confirmed', claimId: 'claim-1', chainId: OP_MAINNET },
+        projection: { status: 'confirmed', claimId: 'claim-1', chainId: OP_MAINNET, txHash: TX_HASH },
         onChain: null,
       });
       expect(out.status).toBe('stale');

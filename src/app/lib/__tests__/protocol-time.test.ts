@@ -95,8 +95,8 @@ describe('deriveDeadlineFromBlocks', () => {
     const result = deriveDeadlineFromBlocks(
       {
         anchorBlockNumber: '1000',
-        anchorBlockTimestampMs: String(ANCHOR_TS_MS),
-        avgBlockSeconds: '2',
+        anchorBlockTimestampMs: ANCHOR_TS_MS,
+        avgBlockSeconds: 2,
       },
       '1005'
     );

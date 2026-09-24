@@ -95,7 +95,7 @@ jest.mock('@/app/lib/api', () => ({
 
 jest.mock('@/lib/contracts/registry', () => ({
   getContractAddress: jest.fn(() => '0x742D35Cc6634c0532925A3b844BC9E7595f0eB1e'),
-  getContractAbi: jest.fn(() => []),
+  getContractAbi: jest.fn(() => [{ type: 'function', name: 'participateInAppeal' }]),
   getProtocolVersion: jest.fn(() => 'v2.1.0'),
   getProtocolRelease: jest.fn(() => ({})),
   getReleaseChainId: jest.fn(() => 11155420),
@@ -105,13 +105,14 @@ jest.mock('@/lib/contracts/registry', () => ({
 jest.mock('@/config/protocol/verification-artifact', () => ({
   ARTIFACT_VERSION: 'iv-verification-submission@v1.0.0',
   VERIFICATION_SUPPORTED_CHAINS: [10, 11155420],
-  claimRegistryAbi: [],
+  claimRegistryAbi: [{ type: 'function', name: 'participateInAppeal' }],
   verificationSubmissionAbi: [],
   erc20Abi: [],
   getVerificationArtifact: jest.fn(() => ({
     isDeployed: true,
     artifactVersion: 'iv-verification-submission@v1.0.0',
     addresses: { TruthBountyWeighted: '0x742D35Cc6634c0532925A3b844BC9E7595f0eB1e' },
+    abi: [{ type: 'function', name: 'participateInAppeal' }],
   })),
 }));
 
@@ -384,7 +385,7 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
       const projectionOnly = reconcileVerificationState({
         chainId: OP_MAINNET,
         claimId: CLAIM_ID,
-        projection: { status: 'confirmed', claimId: CLAIM_ID, chainId: OP_MAINNET },
+        projection: { status: 'confirmed', claimId: CLAIM_ID, chainId: OP_MAINNET, txHash: TX_HASH },
       });
       expect(projectionOnly.status).toBe('stale');
       expect(projectionOnly.status).not.toBe('confirmed');
@@ -559,6 +560,7 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
         'SUPPORT',
         '100000000000000000',
       );
+      console.log('VALIDATION ERRORS:', validation.errors);
       expect(validation.isValid).toBe(true);
       expect(validation.errors).toHaveLength(0);
     });
