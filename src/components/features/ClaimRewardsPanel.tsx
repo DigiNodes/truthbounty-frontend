@@ -3,6 +3,7 @@ import React from "react";
 import { useRewards } from "@/hooks/useRewards";
 import { ClaimRewardsPanelSkeleton } from "@/components/skeletons";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
+import { formatCurrency } from "@/lib/format";
 
 interface ClaimRewardsPanelProps {
   isLoading?: boolean;
@@ -55,11 +56,11 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
           <div className="text-right">
             <p className="text-xs text-[#a1a1aa]">Total available</p>
             <p
-              className={`text-xl font-bold transition-colors ${
+              className={`text-xl font-bold font-mono tabular-nums transition-colors ${
                 hasRewards ? "text-[#5b5bf6]" : "text-[#a1a1aa]"
               }`}
             >
-              ${totalClaimable.toFixed(2)}
+              {formatCurrency(totalClaimable)}
             </p>
           </div>
 
@@ -156,8 +157,8 @@ export default function ClaimRewardsPanel({ isLoading: externalLoading = false }
                 <div className="w-2 h-2 rounded-full bg-[#5b5bf6] shrink-0" />
                 <p className="text-white text-sm truncate">{reward.title}</p>
               </div>
-              <span className="text-[#5b5bf6] font-semibold text-sm ml-4 shrink-0">
-                +${reward.amount.toFixed(2)}
+              <span className="text-[#5b5bf6] font-semibold text-sm ml-4 shrink-0 font-mono tabular-nums">
+                +{formatCurrency(reward.amount)}
               </span>
             </div>
           ))

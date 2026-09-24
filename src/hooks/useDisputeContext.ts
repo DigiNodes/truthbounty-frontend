@@ -393,19 +393,7 @@ export function canOpenDispute(context: DisputeContext | null): boolean {
 
 /**
  * Utility: Get time remaining in dispute window (human-readable)
+ * Canonical implementation in @/lib/format
  */
-export function getDisputeTimeRemaining(
-  deadline: DisputeDeadline | null
-): string {
-  if (!deadline || deadline.timeRemaining <= 0) {
-    return 'Expired';
-  }
+export { getDisputeTimeRemaining } from '@/lib/format';
 
-  const hours = Math.floor(deadline.timeRemaining / 3600);
-  const minutes = Math.floor((deadline.timeRemaining % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-}

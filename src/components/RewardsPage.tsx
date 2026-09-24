@@ -10,6 +10,7 @@ import {
   getReleaseChainId,
 } from "@/lib/contracts/registry";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
+import { formatTokenAmount } from "@/lib/format";
 
 const publicClient = createPublicClient({
   chain: optimismSepolia,
@@ -104,7 +105,7 @@ export default function RewardsPage() {
         <strong>Wallet:</strong> {address || "Not connected"}
       </p>
       <p>
-        <strong>Balance:</strong> {balance}
+        <strong>Balance:</strong> {formatTokenAmount(balance, { symbol: "TBNT", showSymbol: true })}
       </p>
 
       <button onClick={handleClaim} disabled={!canClaim}>
@@ -130,7 +131,7 @@ export default function RewardsPage() {
         <ul>
           {rewards.map((r, i) => (
             <li key={i}>
-              {r.amount} tokens - {r.reason}
+              {formatTokenAmount(r.amount)} tokens - {r.reason}
             </li>
           ))}
         </ul>
