@@ -1,5 +1,6 @@
 import { TimelineEvent } from "@/app/types/dispute";
 import { Clock } from "lucide-react";
+import { formatAddress } from "@/lib/format";
 
 export const TimelineOfEvents = ({ events }: { events: TimelineEvent[] }) => {
   return (
@@ -12,19 +13,24 @@ export const TimelineOfEvents = ({ events }: { events: TimelineEvent[] }) => {
         {/* Vertical Line */}
         <div className="absolute left-3.75 top-2 bottom-2 w-0.5 bg-gray-800"></div>
         
-        {events.map((event) => (
-          <div key={event.id} className="relative flex items-start" >
-            <div className={`w-3 h-3 rounded-full mt-1.5 mr-4 z-10 ${event.isRecent ? 'bg-indigo-500' : 'bg-gray-600'}`}></div>
-            <div>
-              <p className="text-sm font-medium text-gray-200">{event.title}</p>
-              <div className="text-xs text-gray-500 flex space-x-2 mt-1">
-                <span>{event.timeAgo}</span>
-                <span>·</span>
-                <span>{event.actor}</span>
+        {events.map((event) => {
+          const isAddress = event.actor.startsWith("0x");
+          const displayedActor = isAddress ? formatAddress(event.actor) : event.actor;
+
+          return (
+            <div key={event.id} className="relative flex items-start" >
+              <div className={`w-3 h-3 rounded-full mt-1.5 mr-4 z-10 ${event.isRecent ? 'bg-indigo-500' : 'bg-gray-600'}`}></div>
+              <div>
+                <p className="text-sm font-medium text-gray-200">{event.title}</p>
+                <div className="text-xs text-gray-500 flex space-x-2 mt-1">
+                  <time className="font-mono tabular-nums">{event.timeAgo}</time>
+                  <span>·</span>
+                  <span className={isAddress ? "font-mono" : undefined}>{displayedActor}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

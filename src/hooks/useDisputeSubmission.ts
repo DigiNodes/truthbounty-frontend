@@ -417,13 +417,7 @@ export function getPrimaryError(validation: DisputeValidation): string | null {
 
 /**
  * Utility: Calculate bond in ETH (for display)
+ * Canonical implementation in @/lib/format
  */
-export function formatBondAmount(bondWei: string): string {
-  try {
-    const bondBigInt = BigInt(bondWei);
-    const ethValue = Number(bondBigInt) / 1e18;
-    return ethValue.toFixed(4);
-  } catch {
-    return '0.0000';
-  }
-}
+export { formatBondAmount } from '@/lib/format';
+

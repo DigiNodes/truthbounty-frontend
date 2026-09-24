@@ -101,8 +101,8 @@ export function TransactionItem({
           </div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-semibold text-white mb-1">{amount}</div>
-          <div className="text-xs text-slate-400">{timeAgo}</div>
+          <div className="text-lg font-semibold text-white mb-1 font-mono tabular-nums">{amount}</div>
+          <div className="text-xs text-slate-400 font-mono tabular-nums">{timeAgo}</div>
         </div>
       </div>
 

@@ -216,10 +216,10 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
           {context && (
             <div className="rounded-lg bg-zinc-900/50 border border-zinc-700 p-3">
               <div className="text-sm text-zinc-400 mb-1">Required Challenge Bond</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-lg font-bold text-white font-mono tabular-nums">
                 {formatBondAmount(context.bond.bondAmount)} ETH
               </div>
-              <div className="text-xs text-zinc-500 mt-1">
+              <div className="text-xs text-zinc-500 mt-1 font-mono tabular-nums">
                 Your balance: {formatBondAmount(context.walletPosition.currentBalance)} ETH
               </div>
             </div>
