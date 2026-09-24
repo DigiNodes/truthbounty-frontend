@@ -1,12 +1,30 @@
 'use client';
 
 import { useState } from 'react';
+import { useChainId } from 'wagmi';
 import { submitVerification } from '@/app/lib/api';
 import { TransactionStatus } from './TransactionStatus';
 import {
   clearPendingTransaction,
   trackPendingTransaction,
 } from '@/lib/pending-transactions';
+import { ProtocolContractBoundary } from '@/components/protocol/ProtocolContractBoundary';
+import type { ProtocolLifecycleState } from '@/lib/protocol-contract';
+
+function statusToLifecycle(
+  status: 'idle' | 'pending' | 'success' | 'error',
+): ProtocolLifecycleState | undefined {
+  switch (status) {
+    case 'pending':
+      return 'pending';
+    case 'success':
+      return 'confirmed';
+    case 'error':
+      return 'failed';
+    default:
+      return undefined;
+  }
+}
 
 export function VerificationActions({
   claimId,
@@ -15,6 +33,7 @@ export function VerificationActions({
   claimId: string;
   stakeAmount: number;
 }) {
+  const chainId = useChainId();
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
 
   const submit = async (decision: 'verify' | 'reject') => {
@@ -47,22 +66,28 @@ export function VerificationActions({
   };
 
   return (
-    <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6">
-      <button
-        onClick={() => submit('verify')}
-        className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
-      >
-        Verify
-      </button>
-      <button
-        onClick={() => submit('reject')}
-        className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
-      >
-        Reject
-      </button>
+    <ProtocolContractBoundary
+      chainId={chainId || 11155420}
+      lifecycle={statusToLifecycle(status)}
+      blockWhenNotReady={false}
+    >
+      <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6">
+        <button
+          onClick={() => submit('verify')}
+          className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+        >
+          Verify
+        </button>
+        <button
+          onClick={() => submit('reject')}
+          className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+        >
+          Reject
+        </button>
 
-      <TransactionStatus status={status} />
-    </div>
+        <TransactionStatus status={status} />
+      </div>
+    </ProtocolContractBoundary>
   );
 }
 
