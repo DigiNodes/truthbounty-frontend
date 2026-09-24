@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 const BUNDLE_EXTENSIONS = new Set([
@@ -75,31 +76,53 @@ function collectFiles(directory, predicate) {
   return files;
 }
 
-function stripComments(source) {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
-
-export function extractModuleSpecifiers(source) {
-  const code = stripComments(source);
+export function extractModuleSpecifiers(source, filePath = "boundary.tsx") {
+  const syntaxTree = ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
   const specifiers = new Set();
-  const patterns = [
-    /\b(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g,
-    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ];
 
-  for (const pattern of patterns) {
-    for (const match of code.matchAll(pattern)) {
-      specifiers.add(match[1]);
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      specifiers.add(node.moduleSpecifier.text);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      node.moduleReference.expression &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      specifiers.add(node.moduleReference.expression.text);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.arguments.length === 1 &&
+      (ts.isStringLiteral(node.arguments[0]) ||
+        ts.isNoSubstitutionTemplateLiteral(node.arguments[0])) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) &&
+          node.expression.text === "require"))
+    ) {
+      specifiers.add(node.arguments[0].text);
     }
+
+    ts.forEachChild(node, visit);
   }
+
+  visit(syntaxTree);
   return [...specifiers];
 }
 
 function isForbiddenRuntimePackage(specifier) {
   return FORBIDDEN_RUNTIME_PACKAGES.some(
     (pkg) =>
-      specifier === pkg || (pkg.endsWith("/") && specifier.startsWith(pkg)),
+      specifier === pkg ||
+      specifier.startsWith(pkg.endsWith("/") ? pkg : `${pkg}/`),
   );
 }
 
@@ -140,7 +163,7 @@ export function findSourceBoundaryViolations(rootDir = process.cwd()) {
   for (const filePath of productionFiles) {
     const importer = normalizeRelative(rootDir, filePath);
     const source = readFileSync(filePath, "utf8");
-    for (const specifier of extractModuleSpecifiers(source)) {
+    for (const specifier of extractModuleSpecifiers(source, filePath)) {
       if (isForbiddenRuntimePackage(specifier)) {
         violations.push(`${importer} imports test-only package "${specifier}"`);
         continue;
