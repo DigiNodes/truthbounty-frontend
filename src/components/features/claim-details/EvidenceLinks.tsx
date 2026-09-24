@@ -2,6 +2,11 @@ import { Evidence } from "@/app/types/dispute";
 import { ExternalLink, FileText, LinkIcon, AlertTriangle } from "lucide-react";
 import { validateEvidenceUri, getSafeEvidenceHref } from "@/lib/validation/evidenceUri";
 
+/**
+ * V2-FE-075 — Evidence links are untrusted API content. Titles, descriptions
+ * and URLs are sanitized; unsafe URLs fail closed to an accessible blocked
+ * placeholder instead of an anchor.
+ */
 export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6 mb-6">
