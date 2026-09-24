@@ -24,9 +24,6 @@ import {
 } from 'wagmi';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
-// ── Preference persistence ───────────────────────────────────────────────────
-// Only the connector id (e.g. "injected", "walletConnect") is stored.
-// Addresses, balances, or private keys are never written to storage.
 const PREF_KEY = 'truthbounty:wallet:connector';
 
 function readConnectorPref(): string | null {
@@ -43,7 +40,7 @@ function writeConnectorPref(connectorId: string): void {
   try {
     window.localStorage.setItem(PREF_KEY, connectorId);
   } catch {
-    // storage unavailable — silently skip
+    // Storage can be unavailable in privacy-restricted environments.
   }
 }
 
@@ -52,11 +49,9 @@ function clearConnectorPref(): void {
   try {
     window.localStorage.removeItem(PREF_KEY);
   } catch {
-    // storage unavailable — silently skip
+    // Storage can be unavailable in privacy-restricted environments.
   }
 }
-
-// ── Types ────────────────────────────────────────────────────────────────────
 
 export type WalletLifecycleState =
   | 'disconnected'
@@ -66,38 +61,22 @@ export type WalletLifecycleState =
   | 'error';
 
 export interface WalletLifecycle {
-  /** Hydration-safe: always false on the first SSR render. */
   isConnected: boolean;
-  /** True while a connection attempt or reconnect is in flight. */
   isPending: boolean;
-  /** Wallet address of the active account (undefined when disconnected). */
   address: `0x${string}` | undefined;
-  /** Chain id reported by the connected wallet. */
   chainId: number | undefined;
-  /** Last error from the connector layer (connect rejection, wrong network, etc.). */
   connectorError: Error | null;
-  /** The connector that is currently active. */
   activeConnector: Connector | undefined;
-  /** All available connectors (injected, WalletConnect, Coinbase…). */
   connectors: readonly Connector[];
-  /** Fine-grained lifecycle label. */
   state: WalletLifecycleState;
-  /** Connect using a specific connector. */
   connect: (connector: Connector) => void;
-  /** Reconnect using the persisted connector preference. */
   reconnect: () => void;
-  /** Disconnect and clear preferences. */
   disconnect: () => void;
-  /** Clear the connector error without disconnecting. */
   clearError: () => void;
 }
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useWallet(): WalletLifecycle {
   const mounted = useIsMounted();
-
-  // wagmi primitives
   const {
     address,
     isConnected: wagmiConnected,
@@ -108,10 +87,9 @@ export function useWallet(): WalletLifecycle {
   } = useAccount();
 
   const { connect: wagmiConnect } = useConnect();
+  const { connect: wagmiConnect, isPending: connectPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const connectors = useConnectors();
-
-  // Local error state — wagmi surfaces errors through event callbacks
   const [connectorError, setConnectorError] = useState<Error | null>(null);
   // True only while a user-initiated connect() is in flight. wagmi's own
   // `isConnecting`/`connectPending` flags also fire during its automatic
@@ -137,45 +115,28 @@ export function useWallet(): WalletLifecycle {
     chainId ?? connectorChains?.[0]?.id ?? undefined;
 
   // ── Account-change detection ───────────────────────────────────────────────
+  const previousAddress = useRef<`0x${string}` | undefined>(undefined);
+  const isConnected = mounted && wagmiConnected;
+
   useEffect(() => {
     if (!mounted) return;
-    const prev = prevAddressRef.current;
-    if (prev !== undefined && address !== undefined && prev !== address) {
-      // Account switched — clear any stale error
+    if (
+      previousAddress.current !== undefined &&
+      address !== undefined &&
+      previousAddress.current !== address
+    ) {
       setConnectorError(null);
     }
-    prevAddressRef.current = address;
+    previousAddress.current = address;
   }, [address, mounted]);
 
-  // ── Connector preference persistence ──────────────────────────────────────
   useEffect(() => {
-    if (!mounted) return;
-    if (isConnected && activeConnector?.id) {
+    if (mounted && isConnected && activeConnector?.id) {
       writeConnectorPref(activeConnector.id);
     }
   }, [isConnected, activeConnector?.id, mounted]);
 
-  // ── Reconnect on mount using persisted preference ─────────────────────────
-  // wagmi's autoConnect handles most reconnect cases, but if the user has
-  // a stored preference we can eagerly select the right connector.
-  const reconnect = useCallback(() => {
-    const savedId = readConnectorPref();
-    if (!savedId) return;
-    const target = connectors.find((c) => c.id === savedId);
-    if (!target) return;
-    setConnectorError(null);
-    wagmiConnect(
-      { connector: target },
-      {
-        onError(err) {
-          setConnectorError(err instanceof Error ? err : new Error(String(err)));
-        },
-      },
-    );
-  }, [connectors, wagmiConnect]);
-
-  // ── Connect ────────────────────────────────────────────────────────────────
-  const connect = useCallback(
+  const connectWith = useCallback(
     (connector: Connector) => {
       setConnectorError(null);
       setUserConnecting(true);
@@ -188,6 +149,10 @@ export function useWallet(): WalletLifecycle {
           onError(err) {
             setUserConnecting(false);
             setConnectorError(err instanceof Error ? err : new Error(String(err)));
+          onError(error) {
+            setConnectorError(
+              error instanceof Error ? error : new Error(String(error)),
+            );
           },
         },
       );
@@ -195,14 +160,18 @@ export function useWallet(): WalletLifecycle {
     [wagmiConnect],
   );
 
-  // ── Disconnect ─────────────────────────────────────────────────────────────
+  const reconnect = useCallback(() => {
+    const connectorId = readConnectorPref();
+    const connector = connectors.find(({ id }) => id === connectorId);
+    if (connector) connectWith(connector);
+  }, [connectors, connectWith]);
+
   const disconnect = useCallback(() => {
     clearConnectorPref();
     setConnectorError(null);
     wagmiDisconnect();
   }, [wagmiDisconnect]);
 
-  // ── clearError ─────────────────────────────────────────────────────────────
   const clearError = useCallback(() => setConnectorError(null), []);
 
   // ── Lifecycle state label ──────────────────────────────────────────────────
@@ -215,6 +184,14 @@ export function useWallet(): WalletLifecycle {
     if (isConnected) return 'connected';
     return 'disconnected';
   }, [connectorError, userConnecting, isConnected]);
+  }, [
+    mounted,
+    connectorError,
+    isConnecting,
+    connectPending,
+    isReconnecting,
+    isConnected,
+  ]);
 
   return {
     isConnected,
@@ -225,7 +202,7 @@ export function useWallet(): WalletLifecycle {
     activeConnector: isConnected ? activeConnector : undefined,
     connectors,
     state,
-    connect,
+    connect: connectWith,
     reconnect,
     disconnect,
     clearError,

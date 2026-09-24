@@ -272,5 +272,8 @@ export async function reconcileWithProjection(
         request.decision === 'VERIFY' ? 'TRUE' : 'FALSE',
       ) ??
       undefined,
+    decision: projection.decision ?? positionToDecision(
+      request.decision === 'VERIFY' ? 'TRUE' : 'FALSE'
+    ) ?? undefined,
   };
 }

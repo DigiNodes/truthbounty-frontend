@@ -189,6 +189,24 @@ export function parseVerificationTuple(
     verdict: Number(record.verdict),
     stake: record.stake,
     submittedAt: record.submittedAt,
+    return {
+      id: raw[0] as bigint,
+      claimId: raw[1] as bigint,
+      verifier: raw[2] as `0x${string}`,
+      verdict: Number(raw[3]),
+      stake: raw[4] as bigint,
+      submittedAt: raw[5] as bigint,
+    };
+  }
+
+  const named = raw as RawVerificationTuple;
+  return {
+    id: named.id,
+    claimId: named.claimId,
+    verifier: named.verifier,
+    verdict: named.verdict,
+    stake: named.stake,
+    submittedAt: named.submittedAt,
   };
 }
 

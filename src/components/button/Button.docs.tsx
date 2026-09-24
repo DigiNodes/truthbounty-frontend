@@ -4,12 +4,22 @@ export const ButtonDocs = () => {
   return (
     <div style={{ padding: '20px' }}>
       <h2>Button Component</h2>
-
       <p>A reusable button component used across the app.</p>
 
       <h3>Usage</h3>
       <pre>
 {`<Button variant="default" onClick={() => console.log("clicked")}>
+      <h3>Props</h3>
+      <ul>
+        <li><strong>variant</strong>: {`"default" | "outline" | "ghost" | "secondary" | "destructive" | "link"`}</li>
+        <li><strong>size</strong>: {`"default" | "sm" | "lg" | "xs" | "icon"`}</li>
+        <li><strong>children</strong>: ReactNode — Button content</li>
+        <li><strong>onClick</strong>: {`() => void`} — Click handler</li>
+      </ul>
+
+      <h3>Usage</h3>
+      <pre>
+        {`<Button variant="default" onClick={() => handleClick()}>
   Click Me
 </Button>`}
       </pre>
@@ -18,6 +28,7 @@ export const ButtonDocs = () => {
       <Button variant="default" onClick={() => alert('Clicked')}>
         Click Me
       </Button>
+      <Button variant="default">Click Me</Button>
     </div>
   );
 };

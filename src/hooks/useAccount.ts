@@ -13,31 +13,41 @@
 
 import { useMemo } from 'react';
 import { useAccount as useWagmiAccount } from 'wagmi';
+'use client';
+
+import { useMemo } from 'react';
+import {
+  useAccount as useWagmiAccount,
+  useDisconnect as useWagmiDisconnect,
+} from 'wagmi';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 export { useDisconnect } from 'wagmi';
 
 export interface AccountInfo {
-  /** Full checksummed EVM address. */
   address: `0x${string}`;
-  /** Truncated address for display: "0xABCD…EF12". */
   displayName: string;
-  /** Chain id reported by the wallet at connection time. */
   chainId: number | undefined;
+  isConnected: boolean;
+  isConnecting: boolean;
+  isDisconnected: boolean;
 }
 
 /**
- * Returns the connected account or null.
- *
- * Returns null on the server and on the first client render to prevent
- * a hydration mismatch ("phantom connected" flash).
+ * Returns the connected EVM account, or null before hydration/disconnection.
  */
 export function useAccount(): AccountInfo | null {
   const mounted = useIsMounted();
   const { address, isConnected, chainId } = useWagmiAccount();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    isDisconnected,
+    chainId,
+  } = useWagmiAccount();
 
   return useMemo<AccountInfo | null>(() => {
-    // Guard: never report connected state before client hydration.
     if (!mounted || !isConnected || !address) {
       return null;
     }
@@ -48,4 +58,33 @@ export function useAccount(): AccountInfo | null {
       chainId,
     };
   }, [mounted, isConnected, address, chainId]);
+  }, [
+    mounted,
+    isConnected,
+    isConnecting,
+    isDisconnected,
+    address,
+    chainId,
+  ]);
+}
+
+/**
+ * Callable disconnect helper that also supports Wagmi-style destructuring.
+ */
+export function useDisconnect() {
+  const { disconnect, disconnectAsync, ...rest } = useWagmiDisconnect();
+
+  const disconnectAccount = async () => {
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  return Object.assign(disconnectAccount, {
+    disconnect,
+    disconnectAsync,
+    ...rest,
+  });
 }
