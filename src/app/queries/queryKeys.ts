@@ -22,4 +22,10 @@ export const queryKeys = {
     reputation: (userId: string) => ['user', userId, 'reputation'] as const,
     verification: (userId: string) => ['user', userId, 'verification'] as const,
   },
+  freshness: {
+    all: ['api', 'freshness'] as const,
+    data: ['api', 'freshness', 'data'] as const,
+    degraded: ['api', 'freshness', 'degraded'] as const,
+    dependencies: ['api', 'freshness', 'dependencies'] as const,
+  },
 };
