@@ -200,3 +200,26 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
     expect(content).not.toContain('from "@stellar/freighter-api"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. V2-FE-046 — identity invalidation has no mock/simulator deps
+// ---------------------------------------------------------------------------
+
+describe('wallet identity invalidation — no mock/placeholder runtime dependencies', () => {
+  const productionFiles = [
+    path.resolve(__dirname, '../../lib/wallet/identity.ts'),
+    path.resolve(__dirname, '../../hooks/useWalletIdentityInvalidation.ts'),
+  ];
+
+  it.each(productionFiles)('%s does not import mocks or simulators', (filePath) => {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/mock-wagmi|transaction-simulator|@stellar\/freighter-api/i);
+    expect(content).not.toContain('Math.random');
+  });
+
+  it('identity policy is pure — no wallet SDK, React, or storage imports', () => {
+    const filePath = path.resolve(__dirname, '../../lib/wallet/identity.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/from 'wagmi'|from 'react'|localStorage|sessionStorage/);
+  });
+});

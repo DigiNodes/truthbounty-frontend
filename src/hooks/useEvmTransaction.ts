@@ -13,7 +13,7 @@
  *  - contract ABIs throw NotImplemented until V2-FE-003/005 are merged
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   useAccount,
   useChainId,
@@ -126,6 +126,20 @@ export function useEvmTransaction(
     ...machineOpts,
     allowLocalDev,
   });
+
+  // V2-FE-046: discard a local (unsigned) transaction intent when the wallet
+  // identity changes mid-flight. A submitted transaction keeps its canonical
+  // hash and receipt — only intents that never reached the chain are cleared.
+  const identityKey = `${address?.toLowerCase() ?? 'none'}:${chainId ?? 'none'}`;
+  const previousIdentityKeyRef = useRef(identityKey);
+  useEffect(() => {
+    const previousKey = previousIdentityKeyRef.current;
+    previousIdentityKeyRef.current = identityKey;
+    if (previousKey === identityKey) return;
+    if (state.status === 'preparing' || state.status === 'signature-requested') {
+      reset();
+    }
+  }, [identityKey, state.status, reset]);
 
   // Watch receipt for the current submitted/confirming hash
   const submittedHash =
