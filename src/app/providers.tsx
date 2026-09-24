@@ -13,6 +13,7 @@ import {
   WalletStateGuard,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -25,13 +26,15 @@ export function Providers({ children }: ProvidersProps) {
         <QueryProvider>
           <RainbowKitThemedProvider>
             <SiweAuthProvider>
-              <WalletStateGuard>
-                <FeatureFlagProvider enablePersistence={true}>
-                  {children}
-                  {/* Feature flag panel for development debugging */}
-                  <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                </FeatureFlagProvider>
-              </WalletStateGuard>
+              <FeatureFlagProvider enablePersistence={true}>
+                <ErrorBoundary>
+                  <WalletStateGuard>
+                    {children}
+                    {/* Feature flag panel for development debugging */}
+                    <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                  </WalletStateGuard>
+                </ErrorBoundary>
+              </FeatureFlagProvider>
             </SiweAuthProvider>
           </RainbowKitThemedProvider>
         </QueryProvider>
