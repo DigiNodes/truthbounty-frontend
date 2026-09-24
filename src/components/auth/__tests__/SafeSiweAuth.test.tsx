@@ -78,22 +78,41 @@ describe('SafeSiweAuth Component', () => {
     expect(screen.getByText('Verifying')).toBeInTheDocument();
   });
 
-  it('renders error state and calls resetError / begin on retry', () => {
+  it('renders error state and handles Cancel', () => {
     mockUseSiweAuth.mockReturnValue({ 
       ...defaultAuthMock, 
       status: 'error', 
       error: { message: 'User rejected signature' } 
     });
     
-    render(<SafeSiweAuth />);
+    const { rerender } = render(<SafeSiweAuth />);
     expect(screen.getByText('Sign-In Failed')).toBeInTheDocument();
     expect(screen.getByText('User rejected signature')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(defaultAuthMock.resetError).toHaveBeenCalled();
 
+    mockUseSiweAuth.mockReturnValue({ ...defaultAuthMock, status: 'idle' });
+    rerender(<SafeSiweAuth />);
+    expect(screen.getByText('Sign In With Ethereum')).toBeInTheDocument();
+  });
+
+  it('renders error state and handles Retry', () => {
+    mockUseSiweAuth.mockReturnValue({ 
+      ...defaultAuthMock, 
+      status: 'error', 
+      error: { message: 'Network failed' } 
+    });
+    
+    const { rerender } = render(<SafeSiweAuth />);
+    expect(screen.getByText('Sign-In Failed')).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(defaultAuthMock.begin).toHaveBeenCalled();
+
+    mockUseSiweAuth.mockReturnValue({ ...defaultAuthMock, status: 'requesting-challenge', isBusy: true });
+    rerender(<SafeSiweAuth />);
+    expect(screen.getByText('Preparing Sign-In')).toBeInTheDocument();
   });
 
   it('renders authenticated state and calls clear on sign out', () => {

@@ -124,7 +124,13 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
 
   const doSign = options.signMessage ?? signWithWagmi;
 
-  const isAuthenticated = isSessionActive(session, options.now?.() ?? Date.now());
+  const isAuthenticated = Boolean(
+    isSessionActive(session, options.now?.() ?? Date.now()) &&
+    address !== null &&
+    chainId !== null &&
+    session?.address.toLowerCase() === address.toLowerCase() &&
+    session?.chainId === chainId
+  );
   const isBusy =
     status === 'requesting-challenge' ||
     status === 'signing' ||

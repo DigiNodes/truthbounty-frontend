@@ -29,6 +29,7 @@ export function SafeSiweAuth() {
     resetError,
     address,
     displayMessage,
+    session,
   } = useSiweAuth();
 
   // 1. Wallet is disconnected
@@ -44,6 +45,12 @@ export function SafeSiweAuth() {
             Connect your wallet to sign in.
           </p>
         </div>
+        {session && (
+          <Button variant="outline" onClick={clear} className="w-full gap-2 mt-4" aria-label="Sign out">
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </Button>
+        )}
       </div>
     );
   }
