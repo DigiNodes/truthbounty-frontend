@@ -200,3 +200,33 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
     expect(content).not.toContain('from "@stellar/freighter-api"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. V2-FE-047 — secure SIWE session UX has no mock/placeholder dependencies
+// ---------------------------------------------------------------------------
+
+describe('SIWE session UX — no mock/placeholder runtime dependencies', () => {
+  const productionFiles = [
+    path.resolve(__dirname, '../../lib/auth/siwe-presentation.ts'),
+    path.resolve(__dirname, '../../components/auth/SiweSessionPanel.tsx'),
+  ];
+
+  it.each(productionFiles)('%s does not import mocks or simulators', (filePath) => {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/mock-wagmi|transaction-simulator|@stellar\/freighter-api/i);
+    expect(content).not.toContain('Math.random');
+  });
+
+  it('siwe-presentation.ts is pure — no React, wallet SDK, or storage imports', () => {
+    const filePath = path.resolve(__dirname, '../../lib/auth/siwe-presentation.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/from 'react'|from 'wagmi'|localStorage|sessionStorage/);
+  });
+
+  it('identity page never fabricates a wallet address', () => {
+    const filePath = path.resolve(__dirname, '../../app/(dashboard)/identity/page.tsx');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('Math.random');
+    expect(content).not.toMatch(/mockAddress/i);
+  });
+});
