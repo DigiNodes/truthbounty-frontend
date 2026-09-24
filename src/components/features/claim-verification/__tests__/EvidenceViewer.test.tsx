@@ -93,3 +93,46 @@ describe('EvidenceViewer - scroll lock', () => {
     expect(container.style.maxHeight).toBe('60vh');
   });
 });
+
+describe('EvidenceViewer - unsafe evidence rendering', () => {
+  it('renders safe links as anchors and unsafe links as plain text', () => {
+    render(
+      <EvidenceViewer
+        claimId="claim-1"
+        evidence={[
+          { type: 'link', value: 'https://example.com/evidence' },
+          { type: 'link', value: 'javascript:alert(1)' },
+        ]}
+      />
+    );
+
+    const safeLink = screen.getByRole('link', { name: /example\.com\/evidence/ });
+    expect(safeLink).toHaveAttribute('href', 'https://example.com/evidence');
+    expect(safeLink).toHaveAttribute('target', '_blank');
+    expect(safeLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /javascript:/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders safe image sources and blocks unsafe image sources', () => {
+    render(
+      <EvidenceViewer
+        claimId="claim-1"
+        evidence={[
+          { type: 'image', value: '/evidence/img1.png' },
+          { type: 'image', value: 'data:text/html,<script>alert(1)</script>' },
+        ]}
+      />
+    );
+
+    const safeImg = screen.getByAltText('Evidence image') as HTMLImageElement;
+    expect(safeImg.src).toContain('/evidence/img1.png');
+
+    expect(
+      screen.getByText(/Evidence image blocked: unsafe source/)
+    ).toBeInTheDocument();
+  });
+});

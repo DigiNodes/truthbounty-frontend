@@ -1,6 +1,7 @@
 
 import { Evidence } from "@/app/types/dispute";
 import { ExternalLink, FileText, LinkIcon } from "lucide-react";
+import { isSafeRenderUrl } from "@/lib/safe-url";
 
 export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
   return (
@@ -19,9 +20,15 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
                 <p className="text-xs text-gray-500">{evidence.description}</p>
               </div>
             </div>
-            <a href={evidence.url} className="text-sm text-gray-400 hover:text-white flex items-center transition-colors">
-              View <ExternalLink size={14} className="ml-1" />
-            </a>
+            {isSafeRenderUrl(evidence.url) ? (
+              <a href={evidence.url} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-white flex items-center transition-colors">
+                View <ExternalLink size={14} className="ml-1" />
+              </a>
+            ) : (
+              <span aria-label="Unsafe evidence link" className="text-sm text-gray-500 flex items-center">
+                Blocked
+              </span>
+            )}
           </div>
         ))}
       </div>
