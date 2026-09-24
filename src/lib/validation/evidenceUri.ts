@@ -125,7 +125,7 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
 }
 
 /**
- * Resolves a safe gateway URL for UI navigation or rendering.
+ * Resolves a safe gateway URL for UI navigation or rendering using an origin-isolated gateway.
  * Returns null if the URI is invalid, contains credentials, or is unsupported.
  */
 export function getSafeEvidenceHref(uri: string): string | null {
@@ -144,7 +144,7 @@ export function getSafeEvidenceHref(uri: string): string | null {
       const remainder = parsed.pathname.startsWith('/') && parsed.hostname
         ? parsed.pathname
         : parsed.pathname.replace(new RegExp(`^\\/?\\/?${cid}`), '');
-      return `https://ipfs.io/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
+      return `https://dweb.link/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
     }
   } catch {
     return null;
