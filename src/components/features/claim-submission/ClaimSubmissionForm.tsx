@@ -10,6 +10,7 @@ import {
   usePublicClient,
   useChainId,
 } from "wagmi";
+import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
@@ -163,6 +164,8 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const { connect } = useConnect();
   const connectors = useConnectors();
   const isWalletConnected = !!account?.address && account?.chainId !== undefined;
+  const { connect, connectors } = useConnect();
+  const isWalletConnected = !!account?.address;
 
   const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
   const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
@@ -172,6 +175,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   // values never trigger a warning.
   const lowReputation = trust.reputation !== null && trust.reputation < 20;
   const newWallet = trust.accountAgeDays !== null && trust.accountAgeDays < 7;
+
+  const lowReputation = trust.reputation < 20;
+  const newWallet = trust.accountAgeDays < 7;
   const lowTrust =
     !trust.isVerified || lowReputation || newWallet || trust.suspicious === true;
 

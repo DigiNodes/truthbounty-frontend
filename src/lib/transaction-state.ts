@@ -8,7 +8,6 @@
 
 import type {
   Transaction,
-  TransactionState,
   TransactionStateName,
   TransactionSubmitted,
   TransactionConfirmed,
@@ -71,7 +70,14 @@ export function isTerminal(tx: Transaction): boolean {
 /**
  * Check if transaction has receipt/confirmation data
  */
-export function hasReceipt(tx: Transaction): boolean {
+type TransactionWithReceipt =
+  | TransactionConfirmed
+  | TransactionSafe
+  | TransactionFinalized
+  | TransactionIndexing
+  | TransactionIndexed;
+
+export function hasReceipt(tx: Transaction): tx is TransactionWithReceipt {
   return isConfirmed(tx) || isSafe(tx) || isFinalized(tx) || isIndexing(tx) || isIndexed(tx);
 }
 
@@ -87,7 +93,7 @@ export function getTxHash(tx: Transaction): string | null {
  */
 export function getBlockNumber(tx: Transaction): bigint | null {
   if (!hasReceipt(tx)) return null;
-  return (tx as TransactionConfirmed | TransactionSafe | TransactionFinalized | TransactionIndexing | TransactionIndexed).blockNumber;
+  return tx.blockNumber;
 }
 
 /**
@@ -99,6 +105,7 @@ export function getReceiptStatus(tx: Transaction): 'success' | 'reverted' | 'fai
     receipt?: { status?: 'success' | 'reverted' | 'failed' };
   };
   return withReceipt.receipt?.status ?? null;
+  return tx.receipt?.status ?? null;
 }
 
 /**
@@ -139,7 +146,7 @@ export function getStateName(state: TransactionStateName): string {
  */
 export function canTransitionToState(
   currentTx: Transaction,
-  nextState: TransactionStateName,
+  nextState: Transaction['state'],
   config: ChainFinality
 ): boolean {
   if (!('state' in currentTx)) return false;
@@ -147,7 +154,7 @@ export function canTransitionToState(
   const current = currentTx.state;
 
   // Valid state transitions
-  const validTransitions: Record<TransactionStateName, TransactionStateName[]> = {
+  const validTransitions: Record<Transaction['state'], Transaction['state'][]> = {
     submitted: ['confirmed', 'failed', 'rejected'],
     confirmed: ['safe', 'failed', 'rejected', 'reverted'],
     safe: ['finalized', 'failed', 'rejected'],
@@ -159,7 +166,7 @@ export function canTransitionToState(
     reverted: [],
   };
 
-  return validTransitions[current as TransactionStateName]?.includes(nextState) ?? false;
+  return validTransitions[current].includes(nextState);
 }
 
 /**
@@ -208,6 +215,10 @@ export function shouldWaitForFinality(
     // For TruthBounty, we may want to wait for full indexing
     // before displaying rewards/verdicts
     return config.isL2; // Only require for L2s where batching delay exists
+  // 4. On L2, finality is not sufficient for projection-backed UI.
+  // Wait until the canonical indexer has observed the finalized transaction.
+  if (config.isL2 && (isFinalized(tx) || isIndexing(tx))) {
+    return true;
   }
 
   return false;
@@ -291,7 +302,7 @@ export function getStateMessage(
 export function getProgressPercentage(tx: Transaction): number {
   if (!('state' in tx)) return 0;
 
-  const progressMap: Record<TransactionStateName, number> = {
+  const progressMap: Record<Transaction['state'], number> = {
     submitted: 10,
     confirmed: 30,
     safe: 50,
@@ -303,7 +314,7 @@ export function getProgressPercentage(tx: Transaction): number {
     reverted: 100, // Reverted = complete (just failed)
   };
 
-  return progressMap[tx.state as TransactionStateName] ?? 0;
+  return progressMap[tx.state];
 }
 
 /**
@@ -359,6 +370,10 @@ export function validateTransaction(
       errors.push({ field: 'blockNumber', error: 'Missing block number' });
     }
     if (!txRecord.receipt || !txRecord.receipt.status) {
+    if (!tx.blockNumber || typeof tx.blockNumber !== 'bigint') {
+      errors.push({ field: 'blockNumber', error: 'Missing block number' });
+    }
+    if (!tx.receipt?.status) {
       errors.push({ field: 'receipt.status', error: 'Missing receipt status' });
     }
   }
@@ -376,6 +391,8 @@ export function assertNoFabricatedData(tx: Transaction): void {
   }
 
   // Validate addresses are not dummy/generated
+  // Validate addresses before hash heuristics so a dummy address is
+  // reported deterministically even when the supplied hash is also suspicious.
   const dummyPatterns = [
     '0x0000000000000000000000000000000000000000',
     '0x1111111111111111111111111111111111111111',
@@ -406,5 +423,17 @@ export function assertNoFabricatedData(tx: Transaction): void {
   const uniqueChars = new Set(hash.slice(2)).size;
   if (uniqueChars < 8) {
     throw new Error(`Suspicious transaction hash (low entropy): ${hash}`);
+  if ('fromAddress' in tx && typeof tx.fromAddress === 'string' && dummyPatterns.includes(tx.fromAddress)) {
+    throw new Error('Dummy fromAddress detected - must use real addresses');
+  }
+
+  if ('toAddress' in tx && typeof tx.toAddress === 'string' && dummyPatterns.includes(tx.toAddress)) {
+    throw new Error('Dummy toAddress detected - must use real addresses');
+  }
+
+  // Flag obviously fabricated hashes after validating the more specific fields.
+  const uniqueChars = new Set(tx.hash.slice(2)).size;
+  if (uniqueChars < 8) {
+    throw new Error(`Suspicious transaction hash (low entropy): ${tx.hash}`);
   }
 }

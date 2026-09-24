@@ -1,0 +1,44 @@
+name: V2 Policy Advisory
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-policy:
+    name: Architecture Policy (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Inspect changed production files
+        shell: bash
+        run: |
+          set -u
+          git diff --name-only "origin/${{ github.base_ref || 'main' }}...HEAD" |
+            grep -E '^(app|src|components|hooks)/.*\.(ts|tsx|js|jsx)$' |
+            grep -Ev '(__tests__|\.test\.|\.spec\.|/mocks?/)' > /tmp/truthbounty-files || true
+
+          if [[ ! -s /tmp/truthbounty-files ]]; then
+            echo "No changed production frontend files."
+            exit 0
+          fi
+
+          while IFS= read -r file; do
+            if grep -Ein '@stellar/freighter-api|soroban|stellar-sdk|freighter' "$file"; then
+              echo "::warning file=$file::Alternate-chain wallet/runtime reference detected. TruthBounty V2 is Optimism/EVM-only."
+            fi
+            if grep -Ein 'from[[:space:]]+["'\'']msw|mockServiceWorker|setupWorker' "$file"; then
+              echo "::warning file=$file::Mock runtime reference detected in a production source path."
+            fi
+            if grep -Ein 'Math\.random\(\).*(hash|tx)|fake(Transaction|Tx|Receipt)|mock(Transaction|Receipt)' "$file"; then
+              echo "::warning file=$file::Potential fabricated transaction state detected."
+            fi
+          done < /tmp/truthbounty-files
+
+          echo "Advisory mode: findings do not fail this workflow."
