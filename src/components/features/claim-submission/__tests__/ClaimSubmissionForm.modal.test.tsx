@@ -6,8 +6,11 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
+
+let mockApiPending = false;
 
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => ({
@@ -27,7 +30,7 @@ jest.mock('@/hooks/useAccount', () => ({
 }));
 
 jest.mock('@/app/queries/claims.queries', () => ({
-  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: mockApiPending }),
 }));
 
 jest.mock('wagmi', () => ({
@@ -40,11 +43,30 @@ jest.mock('wagmi', () => ({
 }));
 
 describe('ClaimSubmissionForm modal layout', () => {
+  beforeEach(() => {
+    mockApiPending = false;
+  });
+
   it('uses modal shell and panel classes for mobile-safe spacing', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const modal = screen.getByTestId('claim-submission-modal');
     expect(modal.className).toContain('modal-shell');
     const form = modal.querySelector('form');
     expect(form?.className).toContain('modal-panel');
+  });
+
+  it('keeps the dialog open on Escape while submission is pending', async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    mockApiPending = true;
+    const { rerender } = render(<ClaimSubmissionForm onClose={onClose} />);
+
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    mockApiPending = false;
+    rerender(<ClaimSubmissionForm onClose={onClose} />);
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -170,7 +170,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-  useDialogFocus(true, modalRef, firstInputRef, onClose);
+  useDialogFocus(true, modalRef, firstInputRef, () => {
+    if (!isPending) onClose();
+  });
 
   const validateField = (name: string, value: string): string | undefined => {
     switch (name) {
