@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { validateEvidenceUri, getSafeEvidenceHref } from '@/lib/validation/evidenceUri';
 
 export function EvidenceViewer({ claimId: _claimId }: { claimId: string }) {
   void _claimId;
   const [expanded, setExpanded] = useState(true);
 
-  // Assume evidence comes with claim fetch or separate endpoint
+  // Canonical evidence projection mock
   const evidence = [
     { type: 'link', value: 'https://example.com' },
     { type: 'text', value: 'Witness testimony text' },
@@ -35,13 +36,29 @@ export function EvidenceViewer({ claimId: _claimId }: { claimId: string }) {
         >
           {evidence.map((e, idx) => {
             if (e.type === 'link') {
+              const validation = validateEvidenceUri(e.value);
+              const safeHref = getSafeEvidenceHref(e.value);
+
+              if (!validation.isValid || !safeHref) {
+                return (
+                  <div
+                    key={idx}
+                    className="text-xs font-mono p-2 bg-red-950/30 text-red-400 border border-red-900/40 rounded"
+                    role="alert"
+                  >
+                    <span>Invalid or unsupported evidence URI: </span>
+                    <span className="break-all">{e.value}</span>
+                  </div>
+                );
+              }
+
               return (
                 <a
                   key={idx}
-                  href={e.value}
+                  href={safeHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1"
+                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
                   aria-label={`Evidence link: ${e.value} (opens in new tab)`}
                 >
                   {e.value}
