@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 
+
 jest.mock('wagmi', () => ({
   useAccount: () => ({ address: '0xabc' }),
   useWriteContract: () => ({ data: null, writeContract: jest.fn(), isPending: false }),
