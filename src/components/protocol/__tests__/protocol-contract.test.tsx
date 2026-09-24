@@ -202,7 +202,7 @@ describe('ProtocolContractBoundary', () => {
         <span>Awaiting wallet</span>
       </ProtocolContractBoundary>,
     );
-    expect(screen.getByText(/transaction pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/protocol lifecycle pending/i)).toBeInTheDocument();
     expect(screen.getByText(/awaiting wallet/i)).toBeInTheDocument();
     expect(screen.queryByText(/settled|reward claimed|finalized on-chain automatically/i)).not.toBeInTheDocument();
   });

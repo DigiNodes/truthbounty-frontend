@@ -152,11 +152,11 @@ export const PROTOCOL_LIFECYCLE_LABELS: Record<ProtocolLifecycleState, string> =
   loading: 'Loading protocol state',
   empty: 'No protocol transaction',
   stale: 'Stale protocol data',
-  rejected: 'Wallet rejected',
-  failed: 'Transaction failed',
-  pending: 'Transaction pending',
-  confirmed: 'Transaction confirmed',
-  finalized: 'Transaction finalized',
+  rejected: 'Wallet rejected the request',
+  failed: 'Protocol lifecycle failed',
+  pending: 'Protocol lifecycle pending',
+  confirmed: 'Protocol lifecycle confirmed',
+  finalized: 'Protocol lifecycle finalized',
   reorged: 'Block reorg detected',
 };
 
