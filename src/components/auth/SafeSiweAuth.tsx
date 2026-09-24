@@ -158,6 +158,12 @@ export function SafeSiweAuth() {
       <Button onClick={begin} disabled={isBusy} className="w-full mt-2">
         Begin Sign-In
       </Button>
+      {session && (
+        <Button variant="outline" onClick={clear} className="w-full gap-2" aria-label="Sign out">
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </Button>
+      )}
     </div>
   );
 }
