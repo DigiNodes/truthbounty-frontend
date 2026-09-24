@@ -9,7 +9,7 @@ import { validateEvidenceUri } from '@/lib/validation/evidenceUri';
 export interface EvidencePayload {
   claimId: string;
   evidenceUri: string;
-  evidenceDigest?: string; // e.g. SHA-256 hash of the content
+  evidenceDigest?: string;
 }
 
 export interface EvidenceValidation {
@@ -29,7 +29,6 @@ interface UseEvidenceRegistrationConfig {
 }
 
 const OPTIMISM_MAINNET_CHAIN_ID = 10;
-const SUBMIT_EVIDENCE_SELECTOR = '0x1a2b3c4d'; // Mock selector for submitEvidence
 
 export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = {}) {
   const contractAddress = config.contractAddress ?? getContractAddress('TruthBountyWeighted');
@@ -68,13 +67,6 @@ export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = 
     };
   }, [isConnected, userAddress, currentChainId, expectedChainId]);
 
-  const encodeEvidenceCall = useCallback((payload: EvidencePayload): string => {
-    // Mock encoding for now
-    const encodedClaimId = payload.claimId.padStart(64, '0');
-    const encodedUri = Buffer.from(payload.evidenceUri).toString('hex').padEnd(64, '0');
-    return SUBMIT_EVIDENCE_SELECTOR + encodedClaimId + encodedUri;
-  }, []);
-
   const submitEvidence = useCallback(async (payload: EvidencePayload): Promise<EvidenceTransaction> => {
     setIsSubmitting(true);
     setError(null);
@@ -84,11 +76,6 @@ export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = 
         throw new Error(validation.errors.join('; '));
       }
 
-      // Encode canonical add or version action
-      const calldata = encodeEvidenceCall(payload);
-      void calldata;
-
-      // Submission requires a wallet writeContract call
       throw new Error('Evidence registration requires wallet writeContract integration; no synthetic transaction hash is emitted.');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Submission failed';
@@ -97,7 +84,7 @@ export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = 
     } finally {
       setIsSubmitting(false);
     }
-  }, [validateEvidence, encodeEvidenceCall]);
+  }, [validateEvidence]);
 
   return {
     validateEvidence,
