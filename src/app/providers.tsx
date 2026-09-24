@@ -3,7 +3,15 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { QueryProvider, ThemeProvider, FeatureFlagProvider, FeatureFlagPanel } from '@/components/providers';
+import {
+  QueryProvider,
+  ThemeProvider,
+  Web3Provider,
+  RainbowKitThemedProvider,
+  FeatureFlagProvider,
+  FeatureFlagPanel,
+} from '@/components/providers';
+import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -12,13 +20,19 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider defaultTheme="system">
-      <FeatureFlagProvider enablePersistence={true}>
+      <Web3Provider>
         <QueryProvider>
-          {children}
+          <RainbowKitThemedProvider>
+            <SiweAuthProvider>
+              <FeatureFlagProvider enablePersistence={true}>
+                {children}
+                {/* Feature flag panel for development debugging */}
+                <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+              </FeatureFlagProvider>
+            </SiweAuthProvider>
+          </RainbowKitThemedProvider>
         </QueryProvider>
-        {/* Feature flag panel for development debugging */}
-        <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-      </FeatureFlagProvider>
+      </Web3Provider>
     </ThemeProvider>
   );
 }

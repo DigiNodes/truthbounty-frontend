@@ -1,3 +1,13 @@
+/**
+ * Pending transaction registry — V2 schema.
+ *
+ * V2-FE-009: Extended PendingTransactionEntry with txHash, chainId, and
+ * machineState so entries carry enough data for reload recovery. Storage key
+ * bumped to v2 to discard stale v1 records that lack these fields.
+ */
+
+import type { TransactionStatus } from '@/lib/transaction-machine/transaction-machine.types';
+
 export type PendingTransactionKind = 'verification' | 'rewards' | 'dispute';
 
 export interface PendingTransactionEntry {
@@ -6,9 +16,16 @@ export interface PendingTransactionEntry {
   title: string;
   description: string;
   createdAt: number;
+  /** On-chain transaction hash, or null while still in preparing/signature-requested. */
+  txHash: `0x${string}` | null;
+  /** Chain ID the transaction was submitted on. */
+  chainId: number | null;
+  /** Current state machine status for this transaction. */
+  machineState: TransactionStatus;
 }
 
-const STORAGE_KEY = 'truthbounty-pending-transactions';
+// Bump key to v2 — stale v1 entries (without txHash/chainId/machineState) are discarded
+const STORAGE_KEY = 'truthbounty-pending-transactions-v2';
 const EVENT_NAME = 'truthbounty:pending-transactions';
 
 function isBrowser(): boolean {
@@ -22,7 +39,15 @@ function readStore(): PendingTransactionEntry[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    // Guard: must be an array; entries without machineState are stale v1 — discard
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e): e is PendingTransactionEntry =>
+        typeof e === 'object' &&
+        e !== null &&
+        typeof e.id === 'string' &&
+        typeof e.machineState === 'string',
+    );
   } catch {
     return [];
   }
@@ -38,7 +63,9 @@ export function getPendingTransactions(): PendingTransactionEntry[] {
   return readStore().sort((left, right) => right.createdAt - left.createdAt);
 }
 
-export function trackPendingTransaction(entry: Omit<PendingTransactionEntry, 'createdAt'>): void {
+export function trackPendingTransaction(
+  entry: Omit<PendingTransactionEntry, 'createdAt'>,
+): void {
   const existing = readStore().filter((item) => item.id !== entry.id);
   existing.push({ ...entry, createdAt: Date.now() });
   writeStore(existing);

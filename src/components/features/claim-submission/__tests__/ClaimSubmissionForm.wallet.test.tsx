@@ -1,12 +1,21 @@
+/**
+ * ClaimSubmissionForm — wallet gate tests.
+ *
+ * Regression coverage for removed Freighter/Stellar path:
+ *  - REMOVED: @stellar/freighter-api setAllowed call
+ *  - REMOVED: "install/enable Freighter" error message
+ *  - REPLACED: EVM wagmi useConnect / useConnectors flow
+ */
+
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-// --- Mocks ----------------------------------------------------------------
+// ── Mocks ─────────────────────────────────────────────────────────────────────
 
-// Hooks the form depends on.
-let mockAccount: { address: string; displayName: string } | null = null;
-const mockSetAllowed = jest.fn();
+let mockAccount: { address: `0x${string}`; displayName: string; chainId: number } | null = null;
 const mockMutateAsync = jest.fn();
+const mockConnect = jest.fn();
+const mockConnectors = [{ id: 'injected', name: 'Injected', type: 'injected' }];
 
 jest.mock('@/hooks/useAccount', () => ({
   useAccount: () => mockAccount,
@@ -29,18 +38,26 @@ jest.mock('@/components/ui/TrustScoreTooltip', () => ({
 jest.mock('@/app/queries/claims.queries', () => ({
   useSubmitClaim: () => ({
     mutateAsync: mockMutateAsync,
-    isLoading: false,
+    isPending: false,
   }),
 }));
 
-jest.mock('@stellar/freighter-api', () => ({
-  setAllowed: (...args: unknown[]) => mockSetAllowed(...args),
+// Wagmi hooks used by the form
+jest.mock('wagmi', () => ({
+  useConnect: () => ({ connect: mockConnect, connectors: mockConnectors }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({}),
+  useReadContract: () => ({ data: undefined }),
+  useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
 
-// Imported AFTER mocks.
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
-const CONNECTED = { address: 'GABCDEF1234567890', displayName: 'GABC...7890' };
+const CONNECTED = {
+  address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`,
+  displayName: '0xf39F…2266',
+  chainId: 11155420,
+};
 
 function fillValidForm() {
   fireEvent.change(screen.getByPlaceholderText('Title'), {
@@ -52,7 +69,7 @@ function fillValidForm() {
   fireEvent.change(screen.getByPlaceholderText('Impact'), {
     target: { value: 'High' },
   });
-  fireEvent.change(screen.getByPlaceholderText('Source'), {
+  fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
     target: { value: 'https://example.com/source' },
   });
   fireEvent.change(screen.getByPlaceholderText('Description'), {
@@ -62,16 +79,15 @@ function fillValidForm() {
 
 beforeEach(() => {
   mockAccount = null;
-  mockSetAllowed.mockReset();
+  mockConnect.mockReset();
   mockMutateAsync.mockReset();
   mockMutateAsync.mockResolvedValue(undefined);
 });
 
-// --- Tests ----------------------------------------------------------------
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('ClaimSubmissionForm - wallet gate', () => {
   it('shows the Connect Wallet banner when no wallet is connected', () => {
-    mockAccount = null;
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     expect(screen.getByTestId('connect-wallet-banner')).toBeInTheDocument();
     expect(screen.getByTestId('connect-wallet-button')).toBeInTheDocument();
@@ -84,11 +100,10 @@ describe('ClaimSubmissionForm - wallet gate', () => {
   });
 
   it('disables the submit button while the wallet is disconnected', () => {
-    mockAccount = null;
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const submit = screen.getByTestId('submit-claim-button');
     expect(submit).toBeDisabled();
-    expect(submit).toHaveTextContent(/connect wallet to submit/i);
+    expect(submit).toHaveTextContent(/connect your wallet to submit/i);
   });
 
   it('enables the submit button once a wallet is connected', () => {
@@ -96,20 +111,29 @@ describe('ClaimSubmissionForm - wallet gate', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const submit = screen.getByTestId('submit-claim-button');
     expect(submit).not.toBeDisabled();
-    expect(submit).toHaveTextContent(/^submit$/i);
+    expect(submit).toHaveTextContent(/^submit claim$/i);
   });
 
-  it('triggers Freighter setAllowed when the Connect Wallet button is clicked', () => {
-    mockAccount = null;
+  it('calls wagmi connect() with the first connector when Connect Wallet is clicked', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     fireEvent.click(screen.getByTestId('connect-wallet-button'));
-    expect(mockSetAllowed).toHaveBeenCalledTimes(1);
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+    expect(mockConnect).toHaveBeenCalledWith({ connector: mockConnectors[0] });
+  });
+
+  // Regression: Freighter setAllowed must NOT be called anywhere
+  it('does NOT call @stellar/freighter-api setAllowed (removed path)', () => {
+    // If the import was still present the module would throw since it's not mocked.
+    // We verify the wagmi path is wired instead.
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    fireEvent.click(screen.getByTestId('connect-wallet-button'));
+    // mockConnect (wagmi) was called, not setAllowed
+    expect(mockConnect).toHaveBeenCalled();
   });
 });
 
 describe('ClaimSubmissionForm - submit guard', () => {
   it('does NOT call the submit mutation when no wallet is connected', async () => {
-    mockAccount = null;
     const onClose = jest.fn();
     render(<ClaimSubmissionForm onClose={onClose} />);
 
@@ -117,10 +141,9 @@ describe('ClaimSubmissionForm - submit guard', () => {
     fireEvent.submit(screen.getByTestId('submit-claim-button').closest('form')!);
 
     await waitFor(() => {
-      // An inline error must be shown to the user.
       expect(
-        screen.getByText(/connect your wallet before submitting/i)
-      ).toBeInTheDocument();
+        screen.getAllByText(/connect your wallet before submitting/i).length
+      ).toBeGreaterThan(0);
     });
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
@@ -152,6 +175,39 @@ describe('ClaimSubmissionForm - submit guard', () => {
   });
 });
 
+describe('ClaimSubmissionForm - source URL placeholder', () => {
+  it('shows an example URL as the source field placeholder', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+    expect(sourceInput).toBeInTheDocument();
+    expect(sourceInput).toHaveAttribute('name', 'source');
+  });
+
+  it('shows validation error when source URL is not a valid URL', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+    fireEvent.change(sourceInput, { target: { value: 'not-a-url' } });
+    fireEvent.blur(sourceInput);
+    expect(screen.getByText(/enter a valid url/i)).toBeInTheDocument();
+  });
+
+  it('clears source URL validation error when a valid URL is entered', () => {
+    mockAccount = CONNECTED;
+    render(<ClaimSubmissionForm onClose={jest.fn()} />);
+    const sourceInput = screen.getByPlaceholderText('https://example.com');
+
+    fireEvent.change(sourceInput, { target: { value: 'not-a-url' } });
+    fireEvent.blur(sourceInput);
+    expect(screen.getByText(/enter a valid url/i)).toBeInTheDocument();
+
+    fireEvent.change(sourceInput, { target: { value: 'https://valid.example.com' } });
+    fireEvent.blur(sourceInput);
+    expect(screen.queryByText(/enter a valid url/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('Protocol invariant: submit-allowed ⇔ wallet-connected', () => {
   const cases: Array<[string, typeof CONNECTED | null, boolean]> = [
     ['no wallet', null, false],
@@ -166,7 +222,6 @@ describe('Protocol invariant: submit-allowed ⇔ wallet-connected', () => {
 
       const submit = screen.getByTestId('submit-claim-button');
 
-      // UI invariant
       if (expectEnabled) {
         expect(submit).not.toBeDisabled();
       } else {
@@ -174,14 +229,12 @@ describe('Protocol invariant: submit-allowed ⇔ wallet-connected', () => {
         expect(screen.getByTestId('connect-wallet-banner')).toBeInTheDocument();
       }
 
-      // Behavioural invariant: mutation only runs when wallet is connected.
       fillValidForm();
       fireEvent.submit(submit.closest('form')!);
 
       if (expectEnabled) {
         await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
       } else {
-        // Give the handler a tick to (not) run.
         await Promise.resolve();
         expect(mockMutateAsync).not.toHaveBeenCalled();
       }

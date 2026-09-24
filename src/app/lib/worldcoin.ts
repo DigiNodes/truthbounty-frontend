@@ -3,7 +3,7 @@
  */
 
 import type { WorldcoinVerification, WorldcoinVerificationResult, IDKitResponse } from '@/app/types/worldcoin';
-import { shouldUseMockVerification } from '@/config/worldcoin-client';
+import { shouldUseMockVerification, isWorldcoinConfigured } from '@/config/worldcoin-client';
 
 /**
  * Submit Worldcoin verification proof to backend
@@ -75,8 +75,9 @@ function isIDKitResponse(proof: WorldcoinVerificationResult | IDKitResponse): pr
  * The actual widget is shown by the IDKit package based on configuration
  */
 export async function verifyWithIDKit(
-  walletAddress: string
+  _walletAddress: string
 ): Promise<WorldcoinVerification> {
+  void _walletAddress;
   // For client-side verification, this is typically called from a React component
   // The actual IDKit flow is initiated there
   throw new Error(

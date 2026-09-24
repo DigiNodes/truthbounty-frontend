@@ -1,31 +1,52 @@
 /**
- * Tests for Stellar explorer URL generation
+ * Tests for EVM explorer URL generation (Optimism mainnet + Sepolia).
  */
 
-import { describe, it, expect } from 'vitest';
-import { getTransactionExplorerUrl, getAccountExplorerUrl } from '@/lib/explorer';
+import {
+  DEFAULT_CHAIN_ID,
+  getAccountExplorerUrl,
+  getTransactionExplorerUrl,
+} from '@/lib/explorer';
 
-describe('Stellar Explorer URLs', () => {
-  const mockTxHash = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
-  const mockAddress = 'GD5XQKZLQNXJY5L7F5RQ5Y7K2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6';
+describe('EVM Explorer URLs', () => {
+  const mockTxHash =
+    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+  const mockAddress = '0x1234567890abcdef1234567890abcdef12345678';
 
-  it('should generate correct transaction explorer URL for public network', () => {
-    const url = getTransactionExplorerUrl(mockTxHash, 1);
-    expect(url).toBe('https://steexp.com/tx/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890');
+  it('generates the Optimism mainnet transaction URL', () => {
+    expect(getTransactionExplorerUrl(mockTxHash, 10)).toBe(
+      `https://optimistic.etherscan.io/tx/${mockTxHash}`,
+    );
   });
 
-  it('should generate correct account explorer URL for public network', () => {
-    const url = getAccountExplorerUrl(mockAddress, 1);
-    expect(url).toBe('https://steexp.com/account/GD5XQKZLQNXJY5L7F5RQ5Y7K2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6');
+  it('generates the Optimism Sepolia transaction URL', () => {
+    expect(getTransactionExplorerUrl(mockTxHash, 11155420)).toBe(
+      `https://sepolia-optimism.etherscan.io/tx/${mockTxHash}`,
+    );
   });
 
-  it('should default to public network when no network specified', () => {
-    const url = getTransactionExplorerUrl(mockTxHash);
-    expect(url).toBe('https://steexp.com/tx/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890');
+  it('generates the Optimism mainnet account URL', () => {
+    expect(getAccountExplorerUrl(mockAddress, 10)).toBe(
+      `https://optimistic.etherscan.io/address/${mockAddress}`,
+    );
   });
 
-  it('should handle unknown network by falling back to public network', () => {
-    const url = getTransactionExplorerUrl(mockTxHash, 999);
-    expect(url).toBe('https://steexp.com/tx/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890');
+  it('generates the Optimism Sepolia account URL', () => {
+    expect(getAccountExplorerUrl(mockAddress, 11155420)).toBe(
+      `https://sepolia-optimism.etherscan.io/address/${mockAddress}`,
+    );
+  });
+
+  it('defaults to Optimism mainnet when no chain ID is supplied', () => {
+    expect(getTransactionExplorerUrl(mockTxHash)).toBe(
+      `https://optimistic.etherscan.io/tx/${mockTxHash}`,
+    );
+    expect(DEFAULT_CHAIN_ID).toBe(10);
+  });
+
+  it('falls back to Optimism mainnet for an unknown chain ID', () => {
+    expect(getTransactionExplorerUrl(mockTxHash, 999999)).toBe(
+      `https://optimistic.etherscan.io/tx/${mockTxHash}`,
+    );
   });
 });

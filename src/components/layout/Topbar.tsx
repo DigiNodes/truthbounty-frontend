@@ -6,12 +6,10 @@ import TrustIndicator from "@/components/ui/TrustIndicator";
 import { WebSocketIndicator } from "@/components/ui/WebSocketStatus";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { WalletConnection } from "../WalletConnection";
-import { FeatureFlagGate, useFeatureFlags } from "@/components/providers";
-
+import { FeatureFlagGate } from "@/components/providers";
 
 const Topbar = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
-  const { isEnabled } = useFeatureFlags();
 
   const handleSubmit = (data: ClaimFormData) => {
     // TODO: Integrate with backend or state

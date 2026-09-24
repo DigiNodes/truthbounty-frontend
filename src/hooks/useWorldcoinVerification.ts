@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { WorldcoinVerification, WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
 import { getVerificationStatus, submitWorldcoinVerification, mockWorldcoinVerification, shouldUseMock } from '@/app/lib/worldcoin';
-import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
+import { isWorldcoinConfigured } from '@/config/worldcoin-client';
 import { queryKeys } from '@/app/queries/queryKeys';
 
 /** Polling interval in ms — re-checks verification status to keep badge in sync */
@@ -47,7 +47,6 @@ export function useWorldcoinVerification({
   const [error, setError] = useState<string | null>(null);
   const [isMockMode] = useState(() => shouldUseMock());
   const [isConfigured] = useState(() => isWorldcoinConfigured());
-  const idkitRef = useRef<any>(null);
   const queryClient = useQueryClient();
 
   const refresh = useCallback(async () => {
@@ -109,7 +108,7 @@ export function useWorldcoinVerification({
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress, isMockMode]);
+  }, [walletAddress, isMockMode, queryClient]);
 
   /**
    * Handle real IDKit verification proof
@@ -139,7 +138,7 @@ export function useWorldcoinVerification({
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress]);
+  }, [walletAddress, queryClient]);
 
   // Auto-check verification status on mount
   useEffect(() => {

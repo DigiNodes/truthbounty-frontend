@@ -1,34 +1,28 @@
-import Button from "./Button";
+import { Button } from '@/components/ui/button';
 
 export const ButtonDocs = () => {
   return (
-    <div style={{ padding: "20px" }}>
+    <div style={{ padding: '20px' }}>
       <h2>Button Component</h2>
-
       <p>A reusable button component used across the app.</p>
 
       <h3>Props</h3>
       <ul>
-        <li><strong>label</strong>: string — Text inside the button</li>
-        <li><strong>onClick</strong>: () => void — Click handler</li>
-        <li><strong>variant</strong>: "primary" | "secondary"</li>
+        <li><strong>variant</strong>: {`"default" | "outline" | "ghost" | "secondary" | "destructive" | "link"`}</li>
+        <li><strong>size</strong>: {`"default" | "sm" | "lg" | "xs" | "icon"`}</li>
+        <li><strong>children</strong>: ReactNode — Button content</li>
+        <li><strong>onClick</strong>: {`() => void`} — Click handler</li>
       </ul>
 
       <h3>Usage</h3>
       <pre>
-{`<Button 
-  label="Click Me" 
-  variant="primary" 
-  onClick={() => console.log("clicked")} 
-/>`}
+        {`<Button variant="default" onClick={() => handleClick()}>
+  Click Me
+</Button>`}
       </pre>
 
       <h3>Preview</h3>
-      <Button 
-        label="Click Me" 
-        variant="primary" 
-        onClick={() => alert("Clicked")} 
-      />
+      <Button variant="default">Click Me</Button>
     </div>
   );
 };

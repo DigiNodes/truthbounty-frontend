@@ -4,19 +4,28 @@
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { WebSocketConfig, WebSocketEvent } from '@/app/types/websocket';
+import type {
+  WebSocketConfig,
+  WebSocketEvent,
+  WebSocketConnectionState,
+  WebSocketEventHandler,
+  WebSocketEventType,
+} from '@/app/types/websocket';
 
 export interface WebSocketContextValue {
   isConnected: boolean;
-  connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
+  connectionState: WebSocketConnectionState;
   lastMessage: WebSocketEvent | null;
+  lastCursor: string | null;
+  reconnectAttempts: number;
   connect: () => void;
   disconnect: () => void;
-  subscribe: <T extends string>(
+  subscribe: <T extends WebSocketEventType>(
     eventType: T,
-    handler: (payload: any) => void
+    handler: WebSocketEventHandler<T>
   ) => () => void;
   send: (message: unknown) => void;
+  clearPersistedCursor: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -29,15 +38,18 @@ interface WebSocketProviderProps {
 export function WebSocketProvider({ children, config }: WebSocketProviderProps) {
   const websocket = useWebSocket(config);
 
-  const contextValue = useMemo(
+  const contextValue = useMemo<WebSocketContextValue>(
     () => ({
       isConnected: websocket.isConnected,
       connectionState: websocket.connectionState,
       lastMessage: websocket.lastMessage,
+      lastCursor: websocket.lastCursor,
+      reconnectAttempts: websocket.reconnectAttempts,
       connect: websocket.connect,
       disconnect: websocket.disconnect,
       subscribe: websocket.subscribe,
       send: websocket.send,
+      clearPersistedCursor: websocket.clearPersistedCursor,
     }),
     [websocket]
   );
@@ -57,10 +69,7 @@ export function useWebSocketContext(): WebSocketContextValue {
   return context;
 }
 
-/**
- * Hook to check if WebSocket is connected
- */
 export function useWebSocketStatus() {
-  const { isConnected, connectionState } = useWebSocketContext();
-  return { isConnected, connectionState };
+  const { isConnected, connectionState, reconnectAttempts } = useWebSocketContext();
+  return { isConnected, connectionState, reconnectAttempts };
 }

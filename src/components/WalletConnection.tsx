@@ -1,26 +1,32 @@
-'use client'
+'use client';
 
-import { useAccount, useDisconnect } from '@/hooks/useAccount'
-import { useIsMounted } from '@/hooks/useIsMounted'
-import { ConnectButton } from '@/components/ui/ConnectButton'
-import styles from './style.module.css'
+import React, { useState } from 'react';
+import { useAccount, useDisconnect } from '@/hooks/useAccount';
+import { useIsMounted } from '@/hooks/useIsMounted';
+import { ConnectButton } from '@/components/ui/ConnectButton';
+import styles from './style.module.css';
 
-// TODO: Eliminate flash of unconnected content on loading
 export function WalletConnection() {
-  const mounted = useIsMounted()
-  const account = useAccount()
-  const disconnect = useDisconnect()
+  const mounted = useIsMounted();
+  const account = useAccount();
+  const disconnect = useDisconnect();
+  const [copyStatus, setCopyStatus] = useState('');
 
   const handleDisconnect = async () => {
-    await disconnect()
-  }
+    await disconnect();
+  };
 
-  const handleCopyAddress = () => {
-    if (account?.address) {
-      navigator.clipboard.writeText(account.address)
-      alert('Address copied to clipboard')
+  const handleCopyAddress = async () => {
+    if (account?.address && typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(account.address);
+        setCopyStatus('Address copied to clipboard');
+        setTimeout(() => setCopyStatus(''), 3000);
+      } catch (error) {
+        console.error('Failed to copy address:', error);
+      }
     }
-  }
+  };
 
   return (
     <>
@@ -36,14 +42,17 @@ export function WalletConnection() {
             {account.displayName}
           </button>
 
-          {/* Screen-reader feedback (instead of alert) */}
-          <span className="sr-only" aria-live="polite" id="copy-status" />
+          {/* Screen-reader feedback for copy status */}
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {copyStatus}
+          </span>
 
-          {/* Disconnect button (already good, just improve semantics) */}
+          {/* Disconnect button */}
           <button
             type="button"
             className={styles.disconnectButton}
             onClick={handleDisconnect}
+            aria-label="Disconnect wallet"
           >
             Disconnect
           </button>
@@ -52,5 +61,7 @@ export function WalletConnection() {
         <ConnectButton label="Connect Wallet" />
       )}
     </>
-  )
+  );
 }
+
+export default WalletConnection;

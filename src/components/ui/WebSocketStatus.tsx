@@ -11,13 +11,28 @@ interface WebSocketStatusProps {
 }
 
 export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketStatusProps) {
-  const { isConnected, connectionState } = useWebSocketStatus();
+  const { isConnected, connectionState, reconnectAttempts } = useWebSocketStatus();
 
-  if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+  const statusText = connectionState === 'connecting' || connectionState === 'reconnecting'
+    ? 'Connecting...'
+    : isConnected
+      ? 'Live'
+      : 'Offline';
+
+  if (connectionState === 'connecting') {
     return (
       <div className={`flex items-center gap-2 text-amber-500 ${className}`}>
         <Loader2 className="w-4 h-4 animate-spin" />
         {showLabel && <span className="text-sm">Connecting...</span>}
+      </div>
+    );
+  }
+
+  if (connectionState === 'reconnecting') {
+    return (
+      <div className={`flex items-center gap-2 text-amber-500 ${className}`}>
+        <Loader2 className="w-4 h-4 animate-spin" />
+        {showLabel && <span className="text-sm">Reconnecting... (Attempt {reconnectAttempts})</span>}
       </div>
     );
   }
@@ -32,9 +47,14 @@ export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketS
   }
 
   return (
-    <div className={`flex items-center gap-2 text-gray-400 ${className}`}>
-      <WifiOff className="w-4 h-4" />
-      {showLabel && <span className="text-sm">Offline</span>}
+    <div
+      className={`flex items-center gap-2 text-gray-400 ${className}`}
+      aria-live="polite"
+      aria-atomic="true"
+      aria-label={`WebSocket status: ${statusText}`}
+    >
+      <WifiOff className="w-4 h-4" aria-hidden="true" />
+      {showLabel && <span className="text-sm">{statusText}</span>}
     </div>
   );
 }
@@ -43,19 +63,42 @@ export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketS
  * Compact indicator for use in headers/toolbars
  */
 export function WebSocketIndicator({ className = '' }: { className?: string }) {
-  const { isConnected, connectionState } = useWebSocketStatus();
+  const { connectionState } = useWebSocketStatus();
 
-  const color =
-    connectionState === 'connected'
-      ? 'bg-green-500'
-      : connectionState === 'reconnecting' || connectionState === 'connecting'
-        ? 'bg-amber-500 animate-pulse'
-        : 'bg-gray-400';
+  const getColor = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'bg-green-500';
+      case 'connecting':
+      case 'reconnecting':
+        return 'bg-amber-500 animate-pulse';
+      case 'disconnected':
+      case 'error':
+      default:
+        return 'bg-gray-400';
+    }
+  };
+
+  const getTitle = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'Real-time updates active';
+      case 'connecting':
+        return 'Connecting to real-time service...';
+      case 'reconnecting':
+        return 'Reconnecting to real-time service...';
+      case 'disconnected':
+      case 'error':
+      default:
+        return 'Real-time updates offline';
+    }
+  };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div className={`w-2 h-2 rounded-full ${color}`} />
-      {isConnected && <span className="text-xs text-gray-500">Real-time</span>}
-    </div>
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${getColor()} ${className}`}
+      title={getTitle()}
+      aria-hidden="true"
+    />
   );
 }
