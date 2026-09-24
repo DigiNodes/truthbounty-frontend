@@ -8,8 +8,33 @@ export type SupportedEvidenceScheme = typeof SUPPORTED_EVIDENCE_SCHEMES[number];
 
 export const MAX_EVIDENCE_URI_LENGTH = 1024;
 
-// Sensitive keyword detection to prevent accidental credential leakage
-const SENSITIVE_KEYWORD_REGEX = /(password|secret|key|token)=/i;
+// Sensitive parameter names that indicate credentials or presigned query secrets
+const SENSITIVE_PARAM_NAMES = new Set([
+  'password',
+  'secret',
+  'token',
+  'key',
+  'api_key',
+  'apikey',
+  'access_token',
+  'authorization',
+  'credential',
+  'sig',
+  'signature',
+  'x-amz-signature',
+  'x-amz-credential',
+  'x-amz-security-token',
+  'x-goog-signature',
+  'x-goog-credential',
+]);
+
+/**
+ * IPFS CID validation:
+ * - CIDv0: base58btc starting with Qm (exactly 46 characters: Qm + 44 base58 chars)
+ * - CIDv1: multibase base32 starting with 'b' (e.g. bafy..., baga...) using RFC 4648 base32 [a-z2-7]
+ * Anchored end-to-end to reject trailing invalid characters.
+ */
+const IPFS_CID_REGEX = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/i;
 
 export interface EvidenceUriValidationResult {
   isValid: boolean;
@@ -35,15 +60,7 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
     return {
       isValid: false,
       scheme: null,
-      error: 'Oversized input: evidence URI must be under 1024 characters',
-    };
-  }
-
-  if (SENSITIVE_KEYWORD_REGEX.test(trimmed)) {
-    return {
-      isValid: false,
-      scheme: null,
-      error: 'Raw secrets detected in URI. Please remove sensitive information.',
+      error: 'Oversized input: evidence URI must be at most 1024 characters',
     };
   }
 
@@ -68,13 +85,36 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
     };
   }
 
-  // Prevent embedded credentials (e.g., https://user:pass@example.com)
+  // Prevent embedded authority credentials (e.g., https://user:pass@example.com)
   if (parsed.username || parsed.password) {
     return {
       isValid: false,
       scheme,
       error: 'Raw secrets detected in URI. Please remove sensitive information.',
     };
+  }
+
+  // Inspect query parameters for secrets, credentials, or presigned signatures
+  for (const [key] of parsed.searchParams.entries()) {
+    if (SENSITIVE_PARAM_NAMES.has(key.toLowerCase())) {
+      return {
+        isValid: false,
+        scheme,
+        error: 'Raw secrets detected in URI. Please remove sensitive information.',
+      };
+    }
+  }
+
+  // If ipfs: validate CID host or path
+  if (scheme === 'ipfs:') {
+    const rawCid = parsed.hostname || parsed.pathname.replace(/^\/\//, '').split('/')[0];
+    if (!rawCid || !IPFS_CID_REGEX.test(rawCid)) {
+      return {
+        isValid: false,
+        scheme,
+        error: 'Invalid IPFS CID in evidence URI',
+      };
+    }
   }
 
   return {
@@ -85,8 +125,8 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
 }
 
 /**
- * Returns a safe URL for rendering in the UI, or null if the URI is not safe to navigate to.
- * Maps ipfs:// to a public gateway if direct web navigation is needed.
+ * Resolves a safe gateway URL for UI navigation or rendering.
+ * Returns null if the URI is invalid, contains credentials, or is unsupported.
  */
 export function getSafeEvidenceHref(uri: string): string | null {
   const result = validateEvidenceUri(uri);
@@ -100,9 +140,11 @@ export function getSafeEvidenceHref(uri: string): string | null {
       return parsed.href;
     }
     if (parsed.protocol === 'ipfs:') {
-      // Retain canonical ipfs: scheme for compliant handlers or gateway resolution
-      const cidPath = uri.replace(/^ipfs:\/\//i, '');
-      return `https://ipfs.io/ipfs/${cidPath}`;
+      const cid = parsed.hostname || parsed.pathname.replace(/^\/\//, '').split('/')[0];
+      const remainder = parsed.pathname.startsWith('/') && parsed.hostname
+        ? parsed.pathname
+        : parsed.pathname.replace(new RegExp(`^\\/?\\/?${cid}`), '');
+      return `https://ipfs.io/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
     }
   } catch {
     return null;
