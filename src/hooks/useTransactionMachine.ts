@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * V2-FE-009 — Shared Transaction State Machine
+ * V2-FE-051 — Shared Transaction State Machine
  * useTransactionMachine — React hook wrapping the pure reducer.
  *
  * Features:
@@ -9,8 +9,8 @@
  *  - Syncs to localStorage on every active state change
  *  - Clears persisted state when idle or after terminal success (finalized)
  *  - Typed `send(event)` validates the transition before applying
- *  - Safe retry: RETRY from reverted/dropped → idle
- *  - Callbacks: onFinalized, onReverted, onDropped fired exactly once per lifecycle
+ *  - Safe retry: RETRY from reverted/dropped/reorged → idle
+ *  - Callbacks: onFinalized, onReverted, onDropped, onReorged fired exactly once per lifecycle
  */
 
 import { useReducer, useEffect, useRef, useCallback } from 'react';
@@ -47,6 +47,8 @@ export interface UseTransactionMachineOptions {
   onReverted?: (txHash: `0x${string}`) => void;
   /** Called once when the transaction is `dropped`. */
   onDropped?: () => void;
+  /** Called once when a previously observed receipt is orphaned (`reorged`). */
+  onReorged?: (txHash: `0x${string}`) => void;
 }
 
 export interface UseTransactionMachineReturn {
@@ -120,11 +122,13 @@ export function useTransactionMachine(
   const onFinalizedRef = useRef(opts.onFinalized);
   const onRevertedRef = useRef(opts.onReverted);
   const onDroppedRef = useRef(opts.onDropped);
+  const onReorgedRef = useRef(opts.onReorged);
   useEffect(() => {
     onFinalizedRef.current = opts.onFinalized;
     onRevertedRef.current = opts.onReverted;
     onDroppedRef.current = opts.onDropped;
-  }, [opts.onFinalized, opts.onReverted, opts.onDropped]);
+    onReorgedRef.current = opts.onReorged;
+  }, [opts.onFinalized, opts.onReverted, opts.onDropped, opts.onReorged]);
 
   // Track whether terminal callbacks have fired for this lifecycle
   const callbackFiredRef = useRef<Set<string>>(new Set());
@@ -170,6 +174,9 @@ export function useTransactionMachine(
     } else if (status === 'dropped') {
       callbackFiredRef.current.add(callbackKey);
       onDroppedRef.current?.();
+    } else if (status === 'reorged' && txState.txHash) {
+      callbackFiredRef.current.add(callbackKey);
+      onReorgedRef.current?.(txState.txHash);
     }
   }, [txState, id]);
 

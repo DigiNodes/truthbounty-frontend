@@ -429,3 +429,90 @@ describe('Indexing path', () => {
     expect(finalized.txHash).toBe(MOCK_HASH_1);
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// Reorg path (V2-FE-051)
+// ---------------------------------------------------------------------------
+
+describe('Reorg path', () => {
+  it('transitions confirming → reorged on REORG', () => {
+    const state = drive([
+      { type: 'PREPARE', chainId: OP_MAINNET },
+      { type: 'REQUEST_SIGNATURE' },
+      { type: 'SUBMIT', txHash: MOCK_HASH_1 },
+      { type: 'CONFIRM', blockNumber: BigInt(100), confirmations: 1, receiptChainId: OP_MAINNET },
+    ]);
+    const next = transitionTxState(state, {
+      type: 'REORG',
+      orphanedBlockHash: ('0x' + 'cc' * 32) as `0x${string}`,
+    });
+    expect(next.status).toBe('reorged');
+    expect(next.txHash).toBe(MOCK_HASH_1);
+    if (next.status === 'reorged') {
+      expect(next.error).toBe('REORGED');
+      expect(next.orphanedBlockHash).toBe(('0x' + 'cc' * 32) as `0x${string}`);
+      expect(next.blockNumber).toBe(BigInt(100));
+    }
+  });
+
+  it('transitions safe → reorged on REORG', () => {
+    const state = drive([
+      { type: 'PREPARE', chainId: OP_MAINNET },
+      { type: 'REQUEST_SIGNATURE' },
+      { type: 'SUBMIT', txHash: MOCK_HASH_1 },
+      { type: 'CONFIRM', blockNumber: BigInt(100), confirmations: 1, receiptChainId: OP_MAINNET },
+      { type: 'MARK_SAFE' },
+    ]);
+    const next = transitionTxState(state, { type: 'REORG' });
+    expect(next.status).toBe('reorged');
+  });
+
+  it('transitions indexing → reorged on REORG', () => {
+    const state = drive([
+      { type: 'PREPARE', chainId: OP_MAINNET },
+      { type: 'REQUEST_SIGNATURE' },
+      { type: 'SUBMIT', txHash: MOCK_HASH_1 },
+      { type: 'CONFIRM', blockNumber: BigInt(100), confirmations: 1, receiptChainId: OP_MAINNET },
+      { type: 'MARK_SAFE' },
+      { type: 'INDEXING' },
+    ]);
+    const next = transitionTxState(state, { type: 'REORG' });
+    expect(next.status).toBe('reorged');
+  });
+
+  it('reorged is terminal — does NOT transition to safe or finalized', () => {
+    const reorged = drive([
+      { type: 'PREPARE', chainId: OP_MAINNET },
+      { type: 'REQUEST_SIGNATURE' },
+      { type: 'SUBMIT', txHash: MOCK_HASH_1 },
+      { type: 'CONFIRM', blockNumber: BigInt(100), confirmations: 1, receiptChainId: OP_MAINNET },
+      { type: 'REORG' },
+    ]);
+    expect(() => transitionTxState(reorged, { type: 'MARK_SAFE' })).toThrow(
+      TransactionMachineError,
+    );
+    expect(() => transitionTxState(reorged, { type: 'FINALIZE' })).toThrow(
+      TransactionMachineError,
+    );
+  });
+
+  it('reorged allows RETRY → idle for recovery', () => {
+    const reorged = drive([
+      { type: 'PREPARE', chainId: OP_MAINNET },
+      { type: 'REQUEST_SIGNATURE' },
+      { type: 'SUBMIT', txHash: MOCK_HASH_1 },
+      { type: 'CONFIRM', blockNumber: BigInt(100), confirmations: 1, receiptChainId: OP_MAINNET },
+      { type: 'REORG' },
+    ]);
+    const next = transitionTxState(reorged, { type: 'RETRY' });
+    expect(next.status).toBe('idle');
+    expect(next.txHash).toBeNull();
+  });
+
+  it('rejects REORG from idle (no fabricated orphan path)', () => {
+    expect(() => transitionTxState(idle(), { type: 'REORG' })).toThrow(
+      TransactionMachineError,
+    );
+  });
+});
