@@ -19,3 +19,11 @@ export {
   FeatureFlagDisabled 
 } from './FeatureFlag';
 export { FeatureFlagPanel } from './FeatureFlagPanel';
+
+// Telemetry — V2-FE-149
+export {
+  TelemetryProvider,
+  TelemetryContext,
+  useTelemetryContext,
+} from './TelemetryProvider';
+export type { TelemetryContextValue, TelemetryProviderProps } from './TelemetryProvider';

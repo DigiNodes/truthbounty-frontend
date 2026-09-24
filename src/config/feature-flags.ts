@@ -25,7 +25,9 @@ export type FeatureFlag =
   | 'TRUST_SCORE_DISPLAY'
   | 'NOTIFICATION_BELL'
   | 'ADVANCED_FILTERS'
-  | 'BETA_FEATURES';
+  | 'BETA_FEATURES'
+  /** V2-FE-149: Privacy-safe error and incident telemetry. */
+  | 'PRIVACY_SAFE_TELEMETRY';
 
 // Feature flag metadata for documentation and UI
 export interface FeatureFlagMeta {
@@ -56,6 +58,8 @@ export const DEFAULT_FLAGS: Record<FeatureFlag, boolean> = {
   
   // Beta/Experimental
   BETA_FEATURES: false,
+  // V2-FE-149: Privacy-safe telemetry — disabled by default; enabled via env var or runtime toggle
+  PRIVACY_SAFE_TELEMETRY: process.env.NEXT_PUBLIC_FEATURE_PRIVACY_SAFE_TELEMETRY === 'true',
 };
 
 // Metadata for each flag (useful for debug panels and documentation)
@@ -132,6 +136,12 @@ export const FLAG_METADATA: Record<FeatureFlag, FeatureFlagMeta> = {
     defaultValue: false,
     category: 'beta',
   },
+  PRIVACY_SAFE_TELEMETRY: {
+    name: 'PRIVACY_SAFE_TELEMETRY',
+    description: 'Enable privacy-safe error and incident telemetry (V2-FE-149). All events are redacted before transport.',
+    defaultValue: false,
+    category: 'experimental',
+  },
 };
 
 /**
@@ -156,6 +166,7 @@ function getEnvFlags(): Partial<Record<FeatureFlag, boolean>> {
     { key: 'NOTIFICATION_BELL', envKey: 'NEXT_PUBLIC_FEATURE_NOTIFICATION_BELL' },
     { key: 'ADVANCED_FILTERS', envKey: 'NEXT_PUBLIC_FEATURE_ADVANCED_FILTERS' },
     { key: 'BETA_FEATURES', envKey: 'NEXT_PUBLIC_FEATURE_BETA_FEATURES' },
+    { key: 'PRIVACY_SAFE_TELEMETRY', envKey: 'NEXT_PUBLIC_FEATURE_PRIVACY_SAFE_TELEMETRY' },
   ];
   
   for (const { key, envKey } of envOverrides) {
