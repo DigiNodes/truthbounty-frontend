@@ -1,11 +1,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { EvidenceViewer } from '@/components/features/claim-verification/EvidenceViewer';
 import { StakeForm } from '@/components/features/claim-verification/StakeForm';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
+import { getClaimById } from '@/app/lib/api';
+import { Claim } from '@/app/types/claim';
 
 export default function ClaimDetailPage({
   params,
@@ -14,6 +16,25 @@ export default function ClaimDetailPage({
 }) {
   const [stakeAmount, setStakeAmount] = useState(0);
   const [claimNotFound, setClaimNotFound] = useState(false);
+  const [claim, setClaim] = useState<Claim | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (params.id) {
+      setIsLoading(true);
+      getClaimById(params.id)
+        .then((data) => {
+          setClaim(data);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          if (err.message === 'CLAIM_NOT_FOUND') {
+            setClaimNotFound(true);
+          }
+          setIsLoading(false);
+        });
+    }
+  }, [params.id]);
 
   const handleStakeChange = (stake: string) => {
     const value = parseFloat(stake) || 0;
@@ -143,7 +164,10 @@ export default function ClaimDetailPage({
               </div>
 
               <div className="p-5 sm:p-6">
-                <EvidenceViewer claimId={params.id} />
+                <EvidenceViewer 
+                  claimId={params.id} 
+                  evidence={claim?.evidence || []} 
+                />
               </div>
             </div>
           </section>
@@ -281,4 +305,3 @@ export default function ClaimDetailPage({
     </main>
   );
 }
-
