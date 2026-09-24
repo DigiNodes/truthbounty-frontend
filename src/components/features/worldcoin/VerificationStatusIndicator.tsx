@@ -3,6 +3,13 @@
 import { Shield, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import type { WorldcoinVerificationStatus } from '@/app/types/worldcoin';
 import { cn } from '@/lib/utils';
+import { formatLocalDateTime, formatUtcDateTime } from '@/app/lib/format';
+import { useNow } from '@/components/hooks/useNow';
+import {
+  isDeadlineWithinHorizon,
+  parseTimestampMs,
+  resolveDeadlineState,
+} from '@/app/lib/protocol-time';
 
 interface VerificationStatusIndicatorProps {
   status: WorldcoinVerificationStatus;
@@ -11,6 +18,8 @@ interface VerificationStatusIndicatorProps {
   className?: string;
   showLabel?: boolean;
 }
+
+const EXPIRING_SOON_HORIZON_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function VerificationStatusIndicator({
   status,
@@ -67,12 +76,37 @@ export function VerificationStatusIndicator({
   const config = getStatusConfig();
   const Icon = config.icon;
 
-  const isExpiringSoon = expiresAt && status === 'SUCCESS' 
-    ? new Date(expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 
-    : false;
+  const deadlineMs = expiresAt ? parseTimestampMs(expiresAt) : null;
+  const nowMs = useNow();
+
+  const deadlineState = resolveDeadlineState({
+    deadlineMs,
+    nowMs,
+    canonicallyExpired: status === 'EXPIRED',
+  });
+  const expired = deadlineState === 'EXPIRED';
+
+  const expiringSoon =
+    status === 'SUCCESS' &&
+    !expired &&
+    isDeadlineWithinHorizon({
+      deadlineMs,
+      nowMs,
+      horizonMs: EXPIRING_SOON_HORIZON_MS,
+    }) === true;
+
+  const statusSuffix = expired ? ' (expired)' : expiringSoon ? ' (expires soon)' : '';
+  const absoluteContext =
+    deadlineMs !== null
+      ? ` · Expires ${formatLocalDateTime(deadlineMs)} (${formatUtcDateTime(deadlineMs)})`
+      : '';
+  const accessibleName = `${config.label}${statusSuffix}${absoluteContext}`;
 
   return (
     <div
+      role="status"
+      aria-label={accessibleName}
+      title={accessibleName}
       className={cn(
         'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border',
         config.bgColor,
@@ -80,13 +114,13 @@ export function VerificationStatusIndicator({
         className
       )}
     >
-      <Icon className={cn('size-4', config.color)} />
+      <Icon className={cn('size-4', config.color)} aria-hidden="true" />
       {showLabel && (
         <span className={cn('text-sm font-medium', config.color)}>
           {config.label}
         </span>
       )}
-      {isExpiringSoon && (
+      {expiringSoon && (
         <span className="text-xs text-orange-600 dark:text-orange-400">
           (Expires soon)
         </span>
