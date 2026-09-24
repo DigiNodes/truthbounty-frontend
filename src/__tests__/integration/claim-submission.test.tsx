@@ -570,6 +570,19 @@ describe('Claim Submission Integration Tests', () => {
       await userTab.tab()
       expect(screen.getByPlaceholderText('Description')).toHaveFocus()
 
+      // Tab through the evidence section (URI input, digest input, label input, Add button)
+      await userTab.tab()
+      expect(screen.getByTestId('evidence-uri-input')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByTestId('evidence-digest-input')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByTestId('evidence-label-input')).toHaveFocus()
+
+      await userTab.tab()
+      expect(screen.getByTestId('add-evidence-button')).toHaveFocus()
+
       // Tab to cancel button
       await userTab.tab()
       expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()

@@ -399,6 +399,84 @@ interface ClaimCreatedEvent {
 - **Graph QL**: More efficient data fetching
 - **WebAssembly**: Performance-critical computations
 
+---
+
+## Local Draft State Model (V2-FE-105)
+
+### Motivation
+
+Claim creation is a multi-field, latency-sensitive user journey. Losing form progress due to a wallet rejection, browser refresh, or accidental navigation is a poor experience. Local drafts allow the UI to persist work-in-progress without inventing protocol state.
+
+### Invariants
+
+1. **Drafts are purely local.** They live in `localStorage` under the key `tb:claim-drafts` and are never transmitted to the chain or the API.
+2. **No fabricated protocol state.** A `ClaimDraft` object carries only the fields the user has typed: `title`, `category`, `impact`, `source`, `description`, and pre-submission evidence attachments. It explicitly MUST NOT contain `txHash`, `claimId`, `status`, `bountyAmount`, `rewards`, or any on-chain identifier.
+3. **Discard on success.** When a claim transaction is successfully submitted, the active draft is deleted (`deleteDraft(draftId)`) so the protocol ledger (chain + indexer) becomes the canonical record — not localStorage.
+4. **Never auto-discard on timeout or navigation.** Drafts persist until the user explicitly deletes them or a successful submission discards the active draft. Stale drafts (> 7 days old) are flagged in the UI but never silently removed.
+
+### Data Model
+
+```typescript
+// src/hooks/useClaimDrafts.ts
+
+interface DraftEvidenceItem {
+  id: string;           // local crypto.randomUUID()
+  uri: string;          // https:// or ipfs:// URI
+  digest?: string;      // optional SHA-256 hex (integrity hint, not on-chain)
+  label?: string;       // human-readable annotation
+}
+
+interface ClaimDraft {
+  id: string;           // local crypto.randomUUID()
+  title: string;
+  category: string;
+  impact: string;
+  source: string;
+  description: string;
+  evidence: DraftEvidenceItem[];
+  savedAt: string;      // ISO-8601 timestamp
+  // 🚫 NO txHash, claimId, status, bountyAmount, rewards
+}
+```
+
+### Lifecycle
+
+```
+Form opens → createDraft() (new id)
+    ↓
+User types → useDebounce(300 ms) → saveDraft(id, fields)
+    ↓
+User clicks "Drafts" → DraftManager opens → lists saved drafts
+    ↓
+User clicks "Restore" → fields hydrated → draftRestored banner shown
+    ↓
+User submits successfully → deleteDraft(id) → onClose()
+    ↓
+(On failure) draft is NOT deleted; user can fix and retry
+```
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `src/hooks/useClaimDrafts.ts` | Hook: CRUD over localStorage, staleness annotation |
+| `src/components/features/claim-submission/DraftManager.tsx` | Accessible draft list with Restore/Delete |
+| `src/components/features/claim-submission/ClaimSubmissionForm.tsx` | Auto-save, restore, evidence attachment |
+
+### Evidence Attachment (Pre-Submission)
+
+Evidence items (`DraftEvidenceItem`) are local-only before a claim is created. They are intended to help the user gather reference links before submission. **No IPFS upload is performed** by the draft system; the IPFS viewer and `useEvidenceRegistration` hook handle on-chain evidence *after* a claim exists on-chain.
+
+- Only `https://` and `ipfs://` URIs are accepted (validated client-side).
+- An optional content digest (SHA-256 or SHA-512 hex) helps reviewers verify integrity offline.
+- Secrets detected in URIs (e.g. `?password=…`) are rejected at the input layer.
+
+### Staleness
+
+Drafts older than 7 days (`DRAFT_TTL_MS`) are annotated with `isStale: true` by `useClaimDrafts`. The UI displays a visible badge and may advise the user to verify that sources are still accurate. Stale drafts are never auto-deleted.
+
+---
+
 ## Conclusion
 
 The TruthBounty frontend architecture is designed to be:
