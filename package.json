@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "verify-artifacts": "node scripts/verify-artifacts.mjs",
+    "test:production-smoke": "node scripts/production-smoke.mjs",
+    "test:production-smoke:unit": "node --test scripts/__tests__/production-smoke.test.mjs",
     "prebuild": "node scripts/verify-artifacts.mjs",
     "build": "next build",
     "start": "next start",
