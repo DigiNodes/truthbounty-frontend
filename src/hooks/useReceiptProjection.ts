@@ -98,6 +98,12 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       typeof txHash === 'string' &&
       receiptHash.toLowerCase() !== txHash.toLowerCase();
 
+    // Projection must agree with the receipt hash (API lag / reorg guard).
+    const projectionReceiptHashMismatch =
+      typeof projectionHash === 'string' &&
+      typeof receiptHash === 'string' &&
+      projectionHash.toLowerCase() !== receiptHash.toLowerCase();
+
     const hasReceipt = Boolean(receipt);
     const hasProjection = Boolean(projection);
     const receiptConfirmed = receiptStatus === '0x1' || receiptStatus === 'confirmed' || receiptStatus === 'success';
@@ -109,7 +115,14 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
         !projection?.claimId ||
         typeof projection?.chainId !== 'number');
 
-    if (chainMismatch || contractMismatch || claimMismatch || versionMismatch || hashMismatch) {
+    if (
+      chainMismatch ||
+      contractMismatch ||
+      claimMismatch ||
+      versionMismatch ||
+      hashMismatch ||
+      projectionReceiptHashMismatch
+    ) {
       return {
         status: 'mismatch' as ReceiptProjectionStatus,
         isMismatch: true,
