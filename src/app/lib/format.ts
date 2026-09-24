@@ -68,6 +68,60 @@ export function formatDateTime(date?: string | Date): string {
   });
 }
 
+function toValidDate(date?: string | Date | number): Date | null {
+  if (date === undefined || date === null) return null;
+
+  const d = date instanceof Date ? date : new Date(date);
+
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Format date + time in the user's local timezone.
+ * Example: Jan 25, 2026, 2:32 PM
+ */
+export function formatLocalDateTime(
+  date?: string | Date | number,
+  opts?: { includeSeconds?: boolean }
+): string {
+  const d = toValidDate(date);
+  if (!d) return '—';
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: opts?.includeSeconds ? '2-digit' : undefined,
+  }).format(d);
+}
+
+/**
+ * Format date + time as an absolute UTC value.
+ * Example: Jan 25, 2026, 14:32:05 UTC
+ */
+export function formatUtcDateTime(
+  date?: string | Date | number,
+  opts?: { includeSeconds?: boolean }
+): string {
+  const d = toValidDate(date);
+  if (!d) return '—';
+
+  const value = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: opts?.includeSeconds ? '2-digit' : undefined,
+    hour12: false,
+  }).format(d);
+
+  return `${value} UTC`;
+}
+
 /**
  * Human-friendly status labels
  */
