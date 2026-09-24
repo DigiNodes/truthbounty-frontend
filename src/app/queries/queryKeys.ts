@@ -5,6 +5,8 @@ export const queryKeys = {
     all: ['claims'] as const,
     detail: (claimId: string) => ['claims', claimId] as const,
     byStatus: (status: string) => ['claims', 'status', status] as const,
+    /** Canonical paginated projection read path (V2-FE-109). */
+    list: (params: unknown) => ['claims', 'list', params] as const,
   },
   verifications: {
     all: ['verifications'] as const,
