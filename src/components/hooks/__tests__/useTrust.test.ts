@@ -52,9 +52,11 @@ describe("useTrust", () => {
 
     await waitFor(() => {
       expect(result.current.isVerified).toBe(false);
-      expect(typeof result.current.reputation).toBe("number");
-      expect(typeof result.current.accountAgeDays).toBe("number");
-      expect(typeof result.current.suspicious).toBe("boolean");
+      // Without a full override the current-user fields default to null
+      // (real values come from the backend once STAB-FE-001/002 are ready).
+      expect(result.current.reputation).toBeNull();
+      expect(result.current.accountAgeDays).toBeNull();
+      expect(result.current.suspicious).toBeNull();
     });
   });
 
