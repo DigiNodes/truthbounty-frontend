@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useChainId } from 'wagmi';
 import { submitVerification } from '@/app/lib/api';
 import { TransactionStatus } from './TransactionStatus';
 import {
@@ -9,6 +8,7 @@ import {
   trackPendingTransaction,
 } from '@/lib/pending-transactions';
 import { ProtocolContractBoundary } from '@/components/protocol/ProtocolContractBoundary';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 import type { ProtocolLifecycleState } from '@/lib/protocol-contract';
 
 function statusToLifecycle(
@@ -29,11 +29,14 @@ function statusToLifecycle(
 export function VerificationActions({
   claimId,
   stakeAmount,
+  chainId,
 }: {
   claimId: string;
   stakeAmount: number;
+  /** Active wallet chain; defaults to the pinned release chain. */
+  chainId?: number;
 }) {
-  const chainId = useChainId();
+  const resolvedChainId = chainId ?? getReleaseChainId();
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
 
   const submit = async (decision: 'verify' | 'reject') => {
@@ -67,7 +70,7 @@ export function VerificationActions({
 
   return (
     <ProtocolContractBoundary
-      chainId={chainId || 11155420}
+      chainId={resolvedChainId}
       lifecycle={statusToLifecycle(status)}
       blockWhenNotReady={false}
     >

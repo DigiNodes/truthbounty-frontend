@@ -11,10 +11,6 @@ import { StakeForm } from '../StakeForm';
 
 expect.extend(toHaveNoViolations);
 
-jest.mock('wagmi', () => ({
-  useChainId: () => 11155420,
-}));
-
 jest.mock('@/app/lib/api', () => ({
   submitVerification: jest.fn(),
 }));
