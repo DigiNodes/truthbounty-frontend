@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeInitScript } from "@/lib/theme-init";
+import { NONCE_HEADER } from "@/lib/security/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Truth Bounty - Decentralized Claim Verification",
-  description: "A decentralized protocol for verifying claims through community consensus and staking",
+  description:
+    "A decentralized protocol for verifying claims through community consensus and staking",
 };
 
 export default async function RootLayout({
@@ -25,8 +27,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headersList = await headers();
-  const nonce = headersList.get('x-nonce') ?? undefined;
+  const headerStore = await headers();
+  const nonce = headerStore.get(NONCE_HEADER) ?? undefined;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -35,20 +37,20 @@ export default async function RootLayout({
         <ThemeInitScript nonce={nonce} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-    {/* Skip link for keyboard users */}
-    <a
-      href="#main"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 bg-white text-black px-3 py-2 rounded"
-    >
-      Skip to content
-    </a>
+        {/* Skip link for keyboard users */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 bg-white text-black px-3 py-2 rounded"
+        >
+          Skip to content
+        </a>
 
-    <Providers>
-      <main id="main" tabIndex={-1} role="main">
-        {children}
-      </main>
-    </Providers>
-  </body>
-</html>
+        <Providers>
+          <main id="main" tabIndex={-1} role="main">
+            {children}
+          </main>
+        </Providers>
+      </body>
+    </html>
   );
 }
