@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// 8. V2-FE-047 — secure SIWE session UX has no mock/placeholder dependencies
+// 8. Feature-branch regression checks — no mock/placeholder runtime deps
 // ---------------------------------------------------------------------------
 
-describe('SIWE session UX — no mock/placeholder runtime dependencies', () => {
+describe('V2-FE-047 — secure SIWE session UX has no mock/placeholder dependencies', () => {
   const productionFiles = [
     path.resolve(__dirname, '../../lib/auth/siwe-presentation.ts'),
     path.resolve(__dirname, '../../components/auth/SiweSessionPanel.tsx'),
@@ -28,8 +28,29 @@ describe('SIWE session UX — no mock/placeholder runtime dependencies', () => {
   });
 });
 
+describe('V2-FE-048 — session lifecycle has no mock/placeholder dependencies', () => {
+  const productionFiles = [
+    path.resolve(__dirname, '../../lib/auth/session-lifecycle.ts'),
+    path.resolve(__dirname, '../../lib/auth/session-sync.ts'),
+    path.resolve(__dirname, '../../hooks/useSessionLifecycle.ts'),
+    path.resolve(__dirname, '../../components/auth/SessionLifecycleBanner.tsx'),
+  ];
+
+  it.each(productionFiles)('%s does not import mocks or simulators', (filePath) => {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/mock-wagmi|transaction-simulator|@stellar\/freighter-api/i);
+    expect(content).not.toContain('Math.random');
+  });
+
+  it('session-lifecycle policy is pure — no React, wallet SDK, or storage', () => {
+    const filePath = path.resolve(__dirname, '../../lib/auth/session-lifecycle.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/from 'react'|from 'wagmi'|localStorage|sessionStorage/);
+  });
+});
+
 // ---------------------------------------------------------------------------
-// 8b. Production bundle must not import mock datasets or fabricate runtime state
+// 9. Production bundle must not import mock datasets or fabricate runtime state
 // ---------------------------------------------------------------------------
 
 describe('production bundle — mock isolation', () => {
