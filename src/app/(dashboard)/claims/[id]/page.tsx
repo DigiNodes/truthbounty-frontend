@@ -7,6 +7,7 @@ import { ClaimDetails } from '@/components/features/claim-verification/ClaimDeta
 import { EvidenceViewer } from '@/components/features/claim-verification/EvidenceViewer';
 import { StakeForm } from '@/components/features/claim-verification/StakeForm';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
+import { FeatureErrorBoundary } from '@/components/common/FeatureErrorBoundary';
 
 export default function ClaimDetailPage() {
   // Route params are read through useParams() rather than the page props:
@@ -126,10 +127,12 @@ export default function ClaimDetailPage() {
               </div>
 
               <div className="p-5 sm:p-6">
-                <ClaimDetails
-                  claimId={claimId}
-                  onNotFound={handleNotFound}
-                />
+                <FeatureErrorBoundary scope="claim-details">
+                  <ClaimDetails
+                    claimId={claimId}
+                    onNotFound={handleNotFound}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
@@ -146,7 +149,9 @@ export default function ClaimDetailPage() {
               </div>
 
               <div className="p-5 sm:p-6">
-                <EvidenceViewer claimId={claimId} />
+                <FeatureErrorBoundary scope="evidence">
+                  <EvidenceViewer claimId={claimId} />
+                </FeatureErrorBoundary>
               </div>
             </div>
           </section>
@@ -222,10 +227,12 @@ export default function ClaimDetailPage() {
               </div>
 
               <div className="p-5">
-                <StakeForm
-                  claimId={claimId}
-                  onStakeChange={handleStakeChange}
-                />
+                <FeatureErrorBoundary scope="stake">
+                  <StakeForm
+                    claimId={claimId}
+                    onStakeChange={handleStakeChange}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
@@ -242,10 +249,12 @@ export default function ClaimDetailPage() {
               </div>
 
               <div className="p-5">
-                <VerificationActions
-                  claimId={claimId}
-                  stakeAmount={stakeAmount}
-                />
+                <FeatureErrorBoundary scope="verification-actions">
+                  <VerificationActions
+                    claimId={claimId}
+                    stakeAmount={stakeAmount}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
