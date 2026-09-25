@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -15,19 +16,6 @@ import {
   formatStatus,
   getPaginationWindow,
 } from "@/app/lib/format";
-
-const activeClaims: Array<{
-  category: string;
-  impact: string;
-  title: string;
-  source: string;
-  status: string;
-  confidence: string;
-  votes: string;
-  stake: string;
-  time: string;
-  actions: string;
-}> = [];
 
 interface ActiveClaimsTableProps {
   /** Force the skeleton view while parent-level data is loading. */

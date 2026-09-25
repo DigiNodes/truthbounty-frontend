@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { UseSafeTreasuryWithdrawalResult } from '@/hooks/useSafeTreasuryWithdrawal';
 
-const mockHook = {
+const mockHook: UseSafeTreasuryWithdrawalResult = {
   status: 'ready' as const,
   step: 'form' as const,
   draft: { recipient: '', amountWei: '', reason: '' },
