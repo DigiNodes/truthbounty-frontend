@@ -4,11 +4,15 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useEffect, useState } from 'react';
 import { WorldcoinVerificationPanel } from '@/components/features/worldcoin';
 import { Button } from '@/components/ui/button';
 import { Wallet, Info } from 'lucide-react';
+import { useAccount } from '@/hooks/useAccount';
 
 export default function IdentityPage() {
+  const account = useAccount();
+  const [walletAddress, setWalletAddress] = useState<string | undefined>();
   const [isVerified, setIsVerified] = useState(false);
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -18,9 +22,18 @@ export default function IdentityPage() {
   // (Wagmi/RainbowKit) — never fabricated client-side (V2-FE-016).
   const walletAddress = isConnected && address ? address : undefined;
 
+  useEffect(() => {
+    setWalletAddress(account?.address);
+  }, [account?.address]);
+
   const handleConnectWallet = () => {
     // Open the real wallet connection modal. No synthetic address is created.
     openConnectModal?.();
+    if (!account?.address) {
+      setWalletAddress(undefined);
+      return;
+    }
+    setWalletAddress(account.address);
   };
 
   const handleDisconnectWallet = () => {

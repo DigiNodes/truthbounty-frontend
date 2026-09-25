@@ -28,6 +28,9 @@
       { "name": "owner", "type": "address" },
       { "name": "spender", "type": "address" }
     ],
+    "name": "treasuryBalance",
+    "stateMutability": "view",
+    "inputs": [],
     "outputs": [{ "name": "", "type": "uint256" }]
   },
   {
@@ -39,6 +42,13 @@
       { "name": "amount", "type": "uint256" }
     ],
     "outputs": [{ "name": "", "type": "bool" }]
+    "name": "withdrawTreasury",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "to", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": []
   },
   {
     "type": "function",
@@ -67,5 +77,15 @@
     "stateMutability": "nonpayable",
     "inputs": [{ "name": "claimId", "type": "bytes32" }],
     "outputs": []
+  },
+  {
+    "type": "event",
+    "name": "TreasuryWithdrawn",
+    "inputs": [
+      { "name": "to", "type": "address", "indexed": true },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "by", "type": "address", "indexed": true }
+    ],
+    "anonymous": false
   }
 ]

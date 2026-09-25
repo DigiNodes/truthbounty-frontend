@@ -5,6 +5,9 @@
  * dependencies.
  * V2-FE-016: Replaced NotImplemented stubs with real readContract/writeContract
  * calls using the canonical TruthBountyWeighted contract artifacts.
+ * V2-FE-009: Removed synthetic hash generation and Stellar dependencies.
+ * Real implementations are blocked on V2-FE-003 (contract ABI freeze)
+ * and V2-FE-005 (indexer API interface).
  *
  * claimRewards remains NotImplemented pending V2-FE-003 (full rewards ABI freeze).
  */

@@ -11,10 +11,15 @@
  *   3. Clicking the X clears the input value.
  *   4. After clearing, focus returns to the search input so keyboard
  *      users do not lose their place.
+ *
+ * Updated for V2-FE-109: the table now renders the canonical claims list
+ * projection (React Query), so tests wrap in a QueryClientProvider, mock the
+ * projection endpoint, and await async rendering. The invariants are unchanged.
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ActiveClaimsTable, { ActiveClaimRow } from '@/components/features/ActiveClaimsTable';
 import { activeClaims } from '@/__tests__/fixtures/mock-data';
@@ -40,7 +45,43 @@ function renderTable() {
 describe('ActiveClaimsTable — search clear button', () => {
   it('does not render the clear button when the search input is empty', () => {
     renderTable();
+import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
+import {
+  makeClaimItem,
+  makeEnvelope,
+  makeJsonResponse,
+} from '@/hooks/__tests__/claim-list-fixtures';
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
+
+function mockFetchEnvelope(payload: unknown) {
+  return jest
+    .spyOn(global, 'fetch')
+    .mockResolvedValue(makeJsonResponse(payload));
+}
+
+describe('ActiveClaimsTable — search clear button', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('does not render the clear button when the search input is empty', async () => {
+    mockFetchEnvelope(makeEnvelope());
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+
+    // Wait for the canonical projection to arrive; the clear button must
+    // stay hidden the whole time.
+    await waitFor(() =>
+      expect(screen.getByLabelText(/active claims/i)).toBeInTheDocument()
+    );
     expect(
       screen.queryByRole('button', { name: /clear search/i })
     ).not.toBeInTheDocument();
@@ -48,6 +89,13 @@ describe('ActiveClaimsTable — search clear button', () => {
 
   it('renders the clear button after the user types into the search input', () => {
     renderTable();
+  it('renders the clear button after the user types into the search input', async () => {
+    mockFetchEnvelope(makeEnvelope());
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
+    );
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'climate' } });
@@ -60,6 +108,13 @@ describe('ActiveClaimsTable — search clear button', () => {
 
   it('clicking the clear button empties the input and re-focuses it', () => {
     renderTable();
+  it('clicking the clear button empties the input and re-focuses it', async () => {
+    mockFetchEnvelope(makeEnvelope());
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
+    );
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'climate' } });
@@ -78,27 +133,54 @@ describe('ActiveClaimsTable — search clear button', () => {
 
   it('renders a friendly empty state when the selected filter matches no claims', () => {
     renderTable();
+  it('renders a friendly empty state when the filter yields no indexed claims', async () => {
+    mockFetchEnvelope(makeEnvelope({ items: [] }));
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /disputed/i })).toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /disputed/i }));
 
-    expect(
-      screen.getByText(/no claims match the current search or filter/i)
-    ).toBeInTheDocument();
+    // Filtering the full canonical projection down to an empty result set
+    // is presented as the indexed-empty guidance (server owns the filtering).
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(/no claims match the current search or filter/i).length
+      ).toBeGreaterThan(0)
+    );
   });
 
   it('renders a friendly empty state when the search yields no results', () => {
     renderTable();
+  it('renders a friendly empty state when the search yields no results', async () => {
+    mockFetchEnvelope(makeEnvelope({ items: [] }));
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
+    );
 
     const searchInput = screen.getByLabelText(/search claims/i) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'impossible-text' } });
 
-    expect(
-      screen.getByText(/no claims match the current search or filter/i)
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(/no claims match the current search or filter/i).length
+      ).toBeGreaterThan(0)
+    );
   });
 
   it('clear button has type="button" so it never submits an enclosing form', () => {
     renderTable();
+  it('clear button has type="button" so it never submits an enclosing form', async () => {
+    mockFetchEnvelope(makeEnvelope());
+
+    render(<ActiveClaimsTable />, { wrapper: createWrapper() });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
+    );
 
     const searchInput = screen.getByLabelText(/search claims/i);
     fireEvent.change(searchInput, { target: { value: 'x' } });

@@ -6,6 +6,8 @@ import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { StatsCardsSkeleton } from "@/components/skeletons";
 
+const platformStats: Array<{ label: string; value: string }> = [];
+
 interface StatsCardsProps {
   isLoading?: boolean;
 }
