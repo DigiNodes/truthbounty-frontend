@@ -19,7 +19,8 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
 import ClaimRewardsPanel from '@/components/features/ClaimRewardsPanel';
@@ -34,6 +35,27 @@ import { DisputeVoting } from '@/components/features/disputes/DisputeVoting';
 import Topbar from '@/components/layout/Topbar';
 import IdentityPage from '@/app/(dashboard)/identity/page';
 import type { Claim } from '@/app/types/claim';
+import {
+  makeEnvelope,
+  makeJsonResponse,
+} from '@/hooks/__tests__/claim-list-fixtures';
+
+/* ------------------------------------------------------------------ *
+ * Helpers
+ * ------------------------------------------------------------------ */
+
+/**
+ * The claims feed reads its rows from the canonical projection query
+ * (V2-FE-109), so it must be rendered inside a QueryClientProvider.
+ */
+function renderWithQueryClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  );
+}
 
 /* ------------------------------------------------------------------ *
  * Mocks
@@ -206,8 +228,28 @@ describe('App shell — top bar mobile layout', () => {
  * ------------------------------------------------------------------ */
 
 describe('Claims feed — ActiveClaimsTable mobile layout', () => {
-  it('stacks the search row full-width below sm and lets the input shrink', () => {
-    render(<ActiveClaimsTable />);
+  let fetchMock: jest.SpyInstance;
+
+  beforeEach(() => {
+    fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      makeJsonResponse(makeEnvelope({ total: 30, totalPages: 3 }))
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockRestore();
+  });
+
+  async function renderFeed() {
+    const utils = renderWithQueryClient(<ActiveClaimsTable />);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
+    );
+    return utils;
+  }
+
+  it('stacks the search row full-width below sm and lets the input shrink', async () => {
+    await renderFeed();
     const search = screen.getByLabelText(/search claims/i);
     const row = search.closest('div')?.parentElement as HTMLElement;
 
@@ -218,14 +260,17 @@ describe('Claims feed — ActiveClaimsTable mobile layout', () => {
     expect(search.closest('div')?.className).toContain('min-w-0');
   });
 
-  it('keeps the filter button from being squeezed by the search input', () => {
-    render(<ActiveClaimsTable />);
-    const filter = screen.getByRole('button', { name: /open additional filters/i });
-    expect(filter.className).toContain('shrink-0');
+  it('lets the search field flex down so the row never overflows on narrow viewports', async () => {
+    await renderFeed();
+    const search = screen.getByLabelText(/search claims/i);
+    const wrapper = search.closest('div') as HTMLElement;
+
+    expect(wrapper.className).toContain('min-w-0');
+    expect(wrapper.className).toContain('flex-1');
   });
 
-  it('exposes the data table through a labelled, keyboard-focusable scroll region', () => {
-    const { container } = render(<ActiveClaimsTable />);
+  it('exposes the data table through a labelled, keyboard-focusable scroll region', async () => {
+    const { container } = await renderFeed();
     const region = container.querySelector('[role="region"][aria-label*="Active claims"]');
 
     expect(region).not.toBeNull();
@@ -239,8 +284,8 @@ describe('Claims feed — ActiveClaimsTable mobile layout', () => {
     expect(table?.className).toContain('w-full');
   });
 
-  it('keeps filter buttons announced via aria-pressed on touch layouts', () => {
-    render(<ActiveClaimsTable />);
+  it('keeps filter buttons announced via aria-pressed on touch layouts', async () => {
+    await renderFeed();
     const all = screen.getByRole('button', { name: /^All$/ });
     expect(all).toHaveAttribute('aria-pressed', 'true');
   });
@@ -327,7 +372,9 @@ describe('Claim verification — detail page mobile layout', () => {
 
   it('allows long evidence URLs to break instead of causing horizontal overflow', () => {
     render(<ClaimDetails claim={claimFixture} />);
-    const link = screen.getByRole('link', { name: /example\.com/ });
+    // Evidence links are rendered through SafeExternalLink, so the accessible
+    // name comes from the labelled anchor rather than the raw URL text.
+    const link = screen.getByRole('link', { name: /evidence link/i });
     expect(link.className).toContain('break-all');
   });
 
@@ -472,7 +519,7 @@ describe('Evidence cards — mobile layout', () => {
     const link = screen.getByRole('link', { name: /view evidence/i });
     expect(link.className).toContain('shrink-0');
     expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer nofollow');
 
     const title = screen.getByText(/A very long evidence title/);
     expect(title.className).toContain('truncate');

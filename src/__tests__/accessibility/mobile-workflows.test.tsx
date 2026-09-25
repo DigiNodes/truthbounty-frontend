@@ -9,9 +9,14 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { assertAccessible } from '../utils/axe';
+import {
+  makeEnvelope,
+  makeJsonResponse,
+} from '@/hooks/__tests__/claim-list-fixtures';
 
 import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
 import ClaimRewardsPanel from '@/components/features/ClaimRewardsPanel';
@@ -84,8 +89,24 @@ beforeEach(() => {
 
 describe('Accessibility: mobile responsive workflow components', () => {
   it('ActiveClaimsTable (claims feed) has no axe violations', async () => {
-    const { container } = render(<ActiveClaimsTable />);
+    // The claims feed reads rows from the canonical projection query, so it
+    // needs a QueryClientProvider and a resolved projection to render content.
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(makeJsonResponse(makeEnvelope()));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <ActiveClaimsTable />
+      </QueryClientProvider>
+    );
+    await waitFor(() =>
+      expect(container.querySelector('table')).not.toBeNull()
+    );
     await assertAccessible(container);
+    jest.restoreAllMocks();
   });
 
   it('ClaimRewardsPanel (rewards claim) has no axe violations', async () => {
