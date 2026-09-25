@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useEvidenceRegistration } from '../useEvidenceRegistration';
 import { useAccount, useChainId } from 'wagmi';
 import { getContractAddress } from '@/lib/contracts/registry';
@@ -142,7 +142,8 @@ describe('useEvidenceRegistration', () => {
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
-      await expect(
+      await act(async () => {
+        await expect(
         result.current.submitEvidence({
           claimId: validClaimId,
           evidenceUri: validCidUri,
@@ -150,4 +151,5 @@ describe('useEvidenceRegistration', () => {
       ).rejects.toThrow('Evidence registration requires wallet writeContract integration; no synthetic transaction hash is emitted.');
     });
   });
+});
 });
