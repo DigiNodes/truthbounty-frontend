@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from 'next/link';
-import { ClaimSubmissionForm, type ClaimFormData } from "@/components/features/claim-submission";
+import { useRouter } from "next/navigation";
 import { FaGithub, FaDiscord, FaCog, FaBug } from "react-icons/fa";
 import { HiOutlineDocumentText, HiOutlineQuestionMarkCircle } from "react-icons/hi";
 import {
@@ -30,7 +30,7 @@ const RESOURCE_LINKS = {
 };
 
 const Sidebar = () => {
-  const [showClaimModal, setShowClaimModal] = useState(false);
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransactionEntry[]>(() => getPendingTransactions());
   const { isEnabled } = useFeatureFlags();
@@ -56,14 +56,10 @@ const Sidebar = () => {
     return items.filter(item => item.flag === null || isEnabled(item.flag));
   }, [isEnabled]);
 
-  const handleSubmit = (data: ClaimFormData) => {
-    console.log("Claim submitted:", data);
-  };
-
   const handleNavClick = useCallback((label: string) => {
-    if (label === "Submit Claim") setShowClaimModal(true);
+    if (label === "Submit Claim") router.push("/claims/new");
     setIsMobileMenuOpen(false);
-  }, []);
+  }, [router]);
 
   return (
     <>
@@ -201,12 +197,6 @@ const Sidebar = () => {
           </button>
         </div>
       </aside>
-      {showClaimModal && (
-        <ClaimSubmissionForm
-          onSubmit={handleSubmit}
-          onClose={() => setShowClaimModal(false)}
-        />
-      )}
     </>
   );
 };
