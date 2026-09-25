@@ -5,6 +5,15 @@
  * lifecycle behavior without loading connector transports or browser wallets.
  */
 
+jest.unmock('wagmi');
+
+import React from 'react';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { http } from 'viem';
+import { optimismSepolia } from 'viem/chains';
+import { createConfig, mock } from 'wagmi';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Connector } from 'wagmi';
 import { useWallet } from '../useWallet';
@@ -98,6 +107,46 @@ describe('useWallet', () => {
 
     await waitFor(() => expect(result.current.state).toBe('connected'));
     expect(result.current.address).toMatch(/^0x/);
+    expect(result.current.connectorError).toBeNull();
+
+    // Leave the store disconnected so later tests observe a clean slate.
+    act(() => {
+      result.current.disconnect();
+    });
+    await waitFor(() => expect(result.current.isConnected).toBe(false));
+  });
+
+  it('exposes the chain id when connected', async () => {
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.connect(getFirstConnector());
+    });
+
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+
+    expect(typeof result.current.chainId).toBe('number');
+  });
+
+  it('transitions back to disconnected after disconnect()', async () => {
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.connect(getFirstConnector());
+    });
+
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+
+    act(() => {
+      result.current.disconnect();
+    });
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('disconnected');
+    });
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.address).toBeUndefined();
     expect(result.current.chainId).toBe(11155420);
     await waitFor(() =>
       expect(localStorage.getItem('truthbounty:wallet:connector')).toBe(mockConnector.id),
@@ -140,6 +189,14 @@ describe('useWallet', () => {
     localStorage.setItem('truthbounty:wallet:connector', mockConnector.id);
     const { result } = renderHook(() => useWallet());
 
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+    expect(result.current.address).toMatch(/^0x/);
+
+    // Leave the store disconnected so later tests observe a clean slate.
+    act(() => {
+      result.current.disconnect();
+    });
+    await waitFor(() => expect(result.current.isConnected).toBe(false));
     act(() => result.current.reconnect());
     expect(mockConnect).toHaveBeenCalledWith(
       { connector: mockConnector },

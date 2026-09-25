@@ -1,15 +1,14 @@
 "use client";
 
 /**
- * useRewards — V2 update (V2-FE-009)
+ * useRewards — V2 update (V2-FE-009 + V2-FE-016)
  *
- * Updated to:
- *  - Pass v2 PendingTransactionEntry fields (txHash, chainId, machineState)
- *    to trackPendingTransaction.
- *  - claimRewards from wallet.ts now throws NotImplemented pending V2-FE-003.
- *    This hook gracefully surfaces that error to the user as an `error` state.
- *  - lastTxHash is typed as `0x${string} | null` to match V2 integrity rules
- *    (no string-typed fake hash).
+ * - claimRewards from wallet.ts throws NotImplemented pending V2-FE-003;
+ *   this hook gracefully surfaces that error as an `error` state.
+ * - No reward fixtures are seeded: pendingRewards is empty until the rewards
+ *   indexer/contract integration (V2-FE-003) provides authoritative data.
+ *   Fabricated claimable rewards were removed in V2-FE-016 (web3 cleanup).
+ * - lastTxHash is typed as `0x${string} | null` — never a fabricated hash.
  */
 
 import { useState, useCallback } from "react";
@@ -29,6 +28,11 @@ import {
 
 export type ClaimStatus = "idle" | "loading" | "success" | "error";
 
+/** A claimable reward sourced from the rewards indexer/contract. */
+export interface ClaimableReward {
+  claimId: string;
+  title: string;
+  amount: number; // in USD
 /** Reward entitlement sourced from the rewards API / indexer — never fixtures. */
 export interface ClaimableReward {
   claimId: string;
@@ -47,6 +51,8 @@ export interface UseRewardsReturn {
 }
 
 export function useRewards(): UseRewardsReturn {
+  // Rewards are only displayed when the backend/indexer supplies them;
+  // no fixtures are seeded in production (V2-FE-016).
   // V2-FE-044: start empty — production must not seed rewards from mock fixtures.
   // Entitlements are loaded from the canonical rewards API when available (V2-FE-003).
   const [pendingRewards, setPendingRewards] =

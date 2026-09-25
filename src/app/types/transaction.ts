@@ -220,9 +220,10 @@ export type TransactionState =
   | TransactionIndexed;
 
 /**
- * Transaction state name for type guards and state machines
+ * Transaction state name for type guards and state machines.
+ * Includes the terminal failure states carried by TransactionFailed.
  */
-export type TransactionStateName = TransactionState['state'];
+export type TransactionStateName = Transaction['state'];
 
 /**
  * Failed/rejected transaction state (terminal)

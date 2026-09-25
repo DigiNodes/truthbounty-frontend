@@ -9,9 +9,11 @@ export default function TrustWarningBanner() {
   const { isVerified, reputation, accountAgeDays, suspicious } = useTrust();
   const [showExplanation, setShowExplanation] = useState(false);
 
-  const lowReputation = reputation < 20;
-  const newWallet = accountAgeDays < 7;
-  const zeroWeight = !isVerified || suspicious;
+  // Trust signals are only warned about when the backend actually provides
+  // them; null means “unknown” and never triggers a warning (V2-FE-016).
+  const lowReputation = reputation !== null && reputation < 20;
+  const newWallet = accountAgeDays !== null && accountAgeDays < 7;
+  const zeroWeight = !isVerified || suspicious === true;
   const lowTrust = zeroWeight || lowReputation || newWallet;
 
   const warnings = useMemo(() => {
@@ -19,7 +21,7 @@ export default function TrustWarningBanner() {
     if (!isVerified) items.push("you have not completed identity verification");
     if (lowReputation) items.push(`your reputation score is only ${reputation}`);
     if (newWallet) items.push("this wallet is very new");
-    if (suspicious) items.push("suspicious activity has been detected");
+    if (suspicious === true) items.push("suspicious activity has been detected");
     return items;
   }, [isVerified, lowReputation, reputation, newWallet, suspicious]);
 

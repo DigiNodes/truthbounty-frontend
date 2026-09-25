@@ -140,6 +140,22 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
 
   const submit = useCallback(
     async (to: Address, data: string, value?: bigint) => {
+      const chainId = account.chainId;
+      const address = account.address;
+
+      // Validate chain
+      if (typeof chainId !== 'number' || !isSupportedChain(chainId)) {
+        const error = new Error(`Unsupported chain: ${account.chainId}`);
+        setError(error);
+        onError?.(error);
+        throw error;
+      }
+
+      if (!address) {
+        const error = new Error('Wallet not connected');
+        setError(error);
+        onError?.(error);
+        throw error;
       const { address, chainId } = account;
       if (!address) {
         const walletError = new Error('Wallet not connected');
@@ -158,12 +174,15 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
       setError(null);
 
       try {
+        // Submit transaction
+        const hash = await writeContractAsync({
         const hash = await sendTransactionAsync({
           account: address,
           to,
           data: data as Hex,
           value,
           chainId,
+        } as never);
         });
 
         const submitted: TransactionSubmitted = {
@@ -176,6 +195,7 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
           data,
           amount: value?.toString(),
         };
+
         const config = getChainConfig(chainId);
         setMetadata({
           id: hash,
@@ -205,6 +225,90 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
         setIsLoading(false);
       }
     },
+    [account, writeContractAsync, onError, updateTransaction]
+  );
+
+  // Wait for transaction confirmation
+  const waitForConfirmation = useCallback(
+    async (hash: string): Promise<Transaction> => {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+
+      const chainId = account.chainId;
+      const address = account.address;
+
+      if (!account.isConnected || !address) {
+        throw new Error('Account not connected');
+      }
+
+      if (typeof chainId !== 'number') {
+        throw new Error('Unknown network');
+      }
+
+      const config = getChainConfig(chainId);
+
+      try {
+        // Wait for receipt
+        const txReceipt = await publicClient.waitForTransactionReceipt({
+          hash: hash as `0x${string}`,
+          timeout: config.staleness.maxConfirmationTimeMs,
+        });
+
+        // Create confirmed state
+        const confirmed: TransactionConfirmed = {
+          state: 'confirmed',
+          hash,
+          fromAddress: address,
+          toAddress: txReceipt.to ?? address,
+          chainId,
+          timestamp: Date.now(),
+          blockNumber: txReceipt.blockNumber,
+          blockHash: txReceipt.blockHash,
+          transactionIndex: txReceipt.transactionIndex,
+          confirmations: 1,
+          receipt: {
+            status: txReceipt.status === 'success' ? 'success' : 'reverted',
+            gasUsed: txReceipt.gasUsed,
+            cumulativeGasUsed: txReceipt.cumulativeGasUsed,
+            contractAddress: txReceipt.contractAddress ?? undefined,
+            logs: txReceipt.logs.map((log) => ({
+              address: log.address,
+              topics: log.topics,
+              data: log.data,
+            })),
+          },
+        };
+
+        updateTransaction(confirmed);
+
+        // Update metadata
+        if (metadata) {
+          setMetadata({
+            ...metadata,
+            updatedAt: Date.now(),
+          });
+        }
+
+        return confirmed;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        // Create failed transaction
+        const failedTx: Transaction = {
+          state: 'failed',
+          hash,
+          chainId,
+          timestamp: Date.now(),
+          reason: 'timeout',
+          error: error.message,
+        };
+
+        updateTransaction(failedTx);
+        throw error;
+      }
+    },
+    [publicClient, account, metadata, updateTransaction]
     [account, sendTransactionAsync, onError, updateTransaction, waitForConfirmation],
   );
 
@@ -213,6 +317,11 @@ export function useTransaction(options: UseTransactionOptions = {}): UseTransact
     const chainId = account.chainId;
     if (typeof chainId !== 'number' || !isSupportedChain(chainId)) {
       throw new Error(`Unsupported chain: ${chainId ?? 'unknown'}`);
+    }
+
+    const chainId = account.chainId;
+    if (typeof chainId !== 'number') {
+      return;
     }
 
     const config = getChainConfig(chainId);

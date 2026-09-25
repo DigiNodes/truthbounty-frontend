@@ -64,10 +64,19 @@ export function getPendingTransactions(): PendingTransactionEntry[] {
 }
 
 export function trackPendingTransaction(
-  entry: Omit<PendingTransactionEntry, 'createdAt'>,
+  entry: Omit<PendingTransactionEntry, 'createdAt' | 'txHash' | 'chainId' | 'machineState'> &
+    Partial<Pick<PendingTransactionEntry, 'txHash' | 'chainId' | 'machineState'>>,
 ): void {
   const existing = readStore().filter((item) => item.id !== entry.id);
-  existing.push({ ...entry, createdAt: Date.now() });
+  existing.push({
+    ...entry,
+    // Entries tracked before submission legitimately have no hash/chain yet;
+    // the state machine drives them to signature-requested/submitted later.
+    txHash: entry.txHash ?? null,
+    chainId: entry.chainId ?? null,
+    machineState: entry.machineState ?? 'preparing',
+    createdAt: Date.now(),
+  });
   writeStore(existing);
 }
 
