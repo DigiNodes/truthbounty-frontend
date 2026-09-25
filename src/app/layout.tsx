@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeInitScript } from "@/lib/theme-init";
@@ -19,16 +20,19 @@ export const metadata: Metadata = {
   description: "A decentralized protocol for verifying claims through community consensus and staking",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <ThemeInitScript />
+        <ThemeInitScript nonce={nonce} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
     {/* Skip link for keyboard users */}
