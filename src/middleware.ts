@@ -1,27 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateNonce, buildCsp } from '@/lib/csp';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import {
+  NONCE_HEADER,
+  buildSecurityHeaders,
+  createRequestNonce,
+} from "@/lib/security/headers";
 
-export function middleware(req: NextRequest) {
-  const nonce = generateNonce();
-  const csp = buildCsp(nonce);
+/**
+ * Enforce CSP + security headers on every matched request.
+ * Nonce is forwarded to Server Components via x-nonce for ThemeInitScript.
+ */
+export function middleware(request: NextRequest) {
+  const nonce = createRequestNonce();
+  const isDevelopment = process.env.NODE_ENV === "development";
 
-  // Copy incoming request headers cleanly (preserves multi-value headers)
-  // then append x-nonce so the layout Server Component can read it.
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-nonce', nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(NONCE_HEADER, nonce);
 
-  const res = NextResponse.next({
-    request: { headers: requestHeaders },
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
   });
 
-  res.headers.set('Content-Security-Policy', csp);
+  const securityHeaders = buildSecurityHeaders({
+    nonce,
+    isDevelopment,
+    reportOnly: false,
+  });
 
-  return res;
+  for (const [name, value] of Object.entries(securityHeaders)) {
+    response.headers.set(name, value);
+  }
+
+  return response;
 }
 
 export const config = {
-  // Run on all routes except Next.js internals and static files
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico).*)',
+    {
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    },
   ],
 };
