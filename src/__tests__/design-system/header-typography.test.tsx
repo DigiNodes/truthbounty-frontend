@@ -15,6 +15,22 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 
+// V2-FE-016: no mock wallet provider wraps tests anymore — mock wagmi
+// directly so components using wallet hooks render in isolation.
+jest.mock('wagmi', () => ({
+  // useDisputeContext destructures useAccount() — return a connected account
+  // object, not null.
+  useAccount: () => ({
+    address: '0x1234567890123456789012345678901234567890',
+    chainId: 10,
+    isConnected: true,
+  }),
+  useChainId: () => 10,
+  useBlockNumber: () => ({ data: undefined }),
+  usePublicClient: () => ({}),
+  useWaitForTransactionReceipt: () => ({ data: undefined, isLoading: false, error: null }),
+}));
+
 import { ClaimStats } from '@/components/features/claim-details/ClaimStats';
 import { TopVerifiers } from '@/components/features/claim-details/TopVerifiers';
 import { MainClaimCard } from '@/components/features/claim-details/MainClaimCard';

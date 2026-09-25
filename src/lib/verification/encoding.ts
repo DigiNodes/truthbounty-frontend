@@ -169,6 +169,26 @@ export function parseVerificationTuple(
   raw: RawVerificationTuple | readonly unknown[]
 ): OnChainVerification {
   if (Array.isArray(raw)) {
+    // Positional tuple returned by multicall (order mirrors the struct below).
+    const arr = raw as readonly unknown[];
+    return {
+      id: arr[0] as bigint,
+      claimId: arr[1] as bigint,
+      verifier: arr[2] as `0x${string}`,
+      verdict: Number(arr[3]),
+      stake: arr[4] as bigint,
+      submittedAt: arr[5] as bigint,
+    };
+  }
+
+  const record = raw as RawVerificationTuple;
+  return {
+    id: record.id,
+    claimId: record.claimId,
+    verifier: record.verifier,
+    verdict: Number(record.verdict),
+    stake: record.stake,
+    submittedAt: record.submittedAt,
     return {
       id: raw[0] as bigint,
       claimId: raw[1] as bigint,

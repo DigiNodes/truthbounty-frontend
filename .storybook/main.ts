@@ -14,7 +14,8 @@ const config: StorybookConfig = {
   ],
   "framework": "@storybook/nextjs-vite",
   "staticDirs": [
-    "..\\public"
+    // POSIX path ("../public") so the build works on Linux CI as well as Windows.
+    "../public"
   ]
 };
 export default config;

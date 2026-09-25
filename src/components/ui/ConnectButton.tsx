@@ -1,3 +1,13 @@
+import React from 'react'
+import { ConnectButton as RainbowKitConnectButton } from '@rainbow-me/rainbowkit'
+import styles from './style.module.css'
+
+export interface ConnectButtonProps {
+  label: string
+  isHigher?: boolean
+}
+
+export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
 'use client';
 
 import React from 'react';
@@ -42,6 +52,24 @@ export function ConnectButton({
               },
             })}
           >
+            {(() => {
+              if (!connected) {
+                return (
+                  <button
+                    className={styles.button}
+                    style={{ height: isHigher ? 50 : 38 }}
+                    onClick={openConnectModal}
+                    aria-label={label}
+                  >
+                    {label}
+                  </button>
+                );
+              }
+
+              return (
+                <RainbowKitConnectButton />
+              );
+            })()}
             {!connected ? (
               <button
                 type="button"
@@ -59,6 +87,8 @@ export function ConnectButton({
         );
       }}
     </RainbowKitConnectButton.Custom>
+  )
+}
   );
 }
 

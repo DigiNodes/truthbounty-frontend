@@ -1,14 +1,16 @@
 "use client";
 
+import React, { useMemo } from "react";
 import React from "react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/MainLayout";
 import StatsCards from "@/components/features/StatsCards";
 import ActivityAndNodes from "@/components/features/ActivityAndNodes";
 import VerificationNodes from "@/components/features/VerificationNodes";
-import ActiveClaimsTable from "@/components/features/ActiveClaimsTable";
+import ActiveClaimsTable, { ActiveClaimRow } from "@/components/features/ActiveClaimsTable";
 import ClaimRewardsPanel from "@/components/features/ClaimRewardsPanel";
 import { useClaims } from "@/app/queries/claims.queries";
+import type { Claim } from "@/app/types/claim";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { NETWORK_COPY } from "@/lib/network-copy";
@@ -79,7 +81,44 @@ function OfflineEmptyState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+const CLAIM_STATUS_LABELS: Record<Claim["status"], string> = {
+  OPEN: "Open",
+  UNDER_REVIEW: "Under Review",
+  VERIFIED: "Verified",
+  REJECTED: "Rejected",
+  DISPUTED: "Disputed",
+};
+
+/**
+ * Maps real claim records (claims API/indexer) into table rows.
+ * Fields the Claim type does not carry yet are rendered as “—” instead of
+ * being fabricated (V2-FE-016: contracts/indexed projections are
+ * authoritative; no synthetic protocol state).
+ */
+function mapClaimsToRows(claims: Claim[]): ActiveClaimRow[] {
+  return claims.map((claim) => ({
+    category: "—",
+    impact: "—",
+    title: claim.title,
+    source: claim.claimantAddress,
+    status: CLAIM_STATUS_LABELS[claim.status] ?? claim.status,
+    confidence: "—",
+    votes: "—",
+    stake: `${(claim.totalStaked ?? 0).toLocaleString()} wei`,
+    time: claim.createdAt
+      ? new Date(claim.createdAt).toLocaleDateString()
+      : "—",
+    actions: "View",
+  }));
+}
+
 const DashboardPage = () => {
+  const { data: claims, isLoading: claimsLoading } = useClaims();
+
+  const claimRows = useMemo(
+    () => mapClaimsToRows(claims ?? []),
+    [claims],
+  );
   const {
     data,
     isPending,
@@ -154,6 +193,7 @@ const DashboardPage = () => {
             <VerificationNodes isLoading={claimsLoading && !hasData} />
           </div>
         </div>
+        <ActiveClaimsTable claims={claimRows} isLoading={claimsLoading} />
         <ActiveClaimsTable isLoading={claimsLoading && !hasData} />
       </div>
     </MainLayout>

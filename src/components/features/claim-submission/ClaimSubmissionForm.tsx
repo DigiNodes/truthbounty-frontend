@@ -1,11 +1,19 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useAccount } from "@/hooks/useAccount";
+import {
+  useConnect,
+  useConnectors,
+  useWriteContract,
+  useReadContract,
+  usePublicClient,
+  useChainId,
+} from "wagmi";
 import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
-import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
 import { keccak256, stringToHex, parseAbi } from "viem";
 
 const claimAbi = parseAbi([
@@ -116,7 +124,6 @@ function useCreateClaimTransaction() {
 
   return { submitClaim, isPending, error, transactionHash };
 }
-import { useAccount } from "@/hooks/useAccount";
 
 export interface ClaimFormData {
   title: string;
@@ -154,6 +161,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const trust = useTrust();
   const account = useAccount();
+  const { connect } = useConnect();
+  const connectors = useConnectors();
+  const isWalletConnected = !!account?.address && account?.chainId !== undefined;
   const { connect, connectors } = useConnect();
   const isWalletConnected = !!account?.address;
 

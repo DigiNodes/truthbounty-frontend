@@ -6,6 +6,9 @@ export const ButtonDocs = () => {
       <h2>Button Component</h2>
       <p>A reusable button component used across the app.</p>
 
+      <h3>Usage</h3>
+      <pre>
+{`<Button variant="default" onClick={() => console.log("clicked")}>
       <h3>Props</h3>
       <ul>
         <li><strong>variant</strong>: {`"default" | "outline" | "ghost" | "secondary" | "destructive" | "link"`}</li>
@@ -22,6 +25,9 @@ export const ButtonDocs = () => {
       </pre>
 
       <h3>Preview</h3>
+      <Button variant="default" onClick={() => alert('Clicked')}>
+        Click Me
+      </Button>
       <Button variant="default">Click Me</Button>
     </div>
   );

@@ -101,6 +101,10 @@ export function getBlockNumber(tx: Transaction): bigint | null {
  */
 export function getReceiptStatus(tx: Transaction): 'success' | 'reverted' | 'failed' | null {
   if (!hasReceipt(tx)) return null;
+  const withReceipt = tx as Transaction & {
+    receipt?: { status?: 'success' | 'reverted' | 'failed' };
+  };
+  return withReceipt.receipt?.status ?? null;
   return tx.receipt?.status ?? null;
 }
 
@@ -130,6 +134,9 @@ export function getStateName(state: TransactionStateName): string {
     finalized: 'Finalized',
     indexing: 'Indexing',
     indexed: 'Complete',
+    failed: 'Failed',
+    rejected: 'Rejected',
+    reverted: 'Reverted',
   };
   return names[state] ?? state;
 }
@@ -203,6 +210,11 @@ export function shouldWaitForFinality(
   // 3. Safe but not finalized (for critical operations)
   if (isSafe(tx) && !isFinalized(tx)) return true;
 
+  // 4. Finalized but not yet indexed (subgraph may be behind)
+  if (isFinalized(tx) && !isIndexed(tx)) {
+    // For TruthBounty, we may want to wait for full indexing
+    // before displaying rewards/verdicts
+    return config.isL2; // Only require for L2s where batching delay exists
   // 4. On L2, finality is not sufficient for projection-backed UI.
   // Wait until the canonical indexer has observed the finalized transaction.
   if (config.isL2 && (isFinalized(tx) || isIndexing(tx))) {
@@ -358,6 +370,14 @@ export function validateTransaction(
 
   // Validate receipt if present
   if (hasReceipt(tx)) {
+    const txRecord = tx as Transaction & {
+      blockNumber?: unknown;
+      receipt?: { status?: unknown };
+    };
+    if (!txRecord.blockNumber || typeof txRecord.blockNumber !== 'bigint') {
+      errors.push({ field: 'blockNumber', error: 'Missing block number' });
+    }
+    if (!txRecord.receipt || !txRecord.receipt.status) {
     if (!tx.blockNumber || typeof tx.blockNumber !== 'bigint') {
       errors.push({ field: 'blockNumber', error: 'Missing block number' });
     }
@@ -378,6 +398,7 @@ export function assertNoFabricatedData(tx: Transaction): void {
     throw new Error('Transaction hash is required - never generate mock hashes');
   }
 
+  // Validate addresses are not dummy/generated
   // Validate addresses before hash heuristics so a dummy address is
   // reported deterministically even when the supplied hash is also suspicious.
   const dummyPatterns = [
@@ -386,6 +407,30 @@ export function assertNoFabricatedData(tx: Transaction): void {
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   ];
 
+  const withAddresses = tx as Transaction & {
+    fromAddress?: string;
+    toAddress?: string;
+  };
+
+  if (
+    'fromAddress' in tx &&
+    dummyPatterns.includes(withAddresses.fromAddress ?? '')
+  ) {
+    throw new Error('Dummy fromAddress detected - must use real addresses');
+  }
+
+  if (
+    'toAddress' in tx &&
+    dummyPatterns.includes(withAddresses.toAddress ?? '')
+  ) {
+    throw new Error('Dummy toAddress detected - must use real addresses');
+  }
+
+  // Random hashes are 64 hex chars with specific patterns - flag suspicious ones
+  const hash = tx.hash;
+  const uniqueChars = new Set(hash.slice(2)).size;
+  if (uniqueChars < 8) {
+    throw new Error(`Suspicious transaction hash (low entropy): ${hash}`);
   if ('fromAddress' in tx && typeof tx.fromAddress === 'string' && dummyPatterns.includes(tx.fromAddress)) {
     throw new Error('Dummy fromAddress detected - must use real addresses');
   }
