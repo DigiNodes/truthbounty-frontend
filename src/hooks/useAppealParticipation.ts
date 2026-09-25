@@ -23,6 +23,7 @@ import {
   AppealValidation,
   AppealParticipationContext,
 } from '@/app/types/appeal';
+import { erc20Abi } from '@/config/protocol/verification-artifact';
 import {
   APPEAL_ARTIFACT_VERSION,
   appealErc20Abi,
@@ -140,6 +141,11 @@ export function useAppealParticipation(
 
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();
+  const publicClient = usePublicClient() as AppealPublicClient | undefined;
+  // A wallet may be absent (disconnected provider, unsupported connector, or a
+  // provider that exposes no write path). Degrade to `undefined` so submission
+  // fails closed with a clear error instead of throwing during render.
+  const { writeContractAsync } = useWriteContract() ?? {};
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
@@ -523,6 +529,51 @@ export function useAppealParticipation(
       setError(null);
 
       try {
+        // ---- Fail-closed preconditions (no fabricated calldata/hashes) ----
+        if (!isConnected || !userAddress) {
+          return fail('UNCONNECTED', 'Wallet not connected.');
+        }
+        if (!writeContractAsync) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            'Wallet write path unavailable: the connected wallet cannot submit transactions.',
+            'unsupported'
+          );
+        }
+        if (!isValidChain(currentChainId)) {
+          return fail(
+            'UNSUPPORTED_CHAIN',
+            `Chain ${currentChainId} is not a supported Optimism chain.`
+          );
+        }
+        if (currentChainId !== expectedChainId) {
+          return fail(
+            'WRONG_NETWORK',
+            `Connected to chain ${currentChainId}, expected ${expectedChainId}.`
+          );
+        }
+        if (!isValidContractAddress(contractAddress)) {
+          return fail(
+            'INVALID_CONTRACT_ADDRESS',
+            'Contract address is not a valid canonical EVM address.'
+          );
+        }
+        if (artifactVersion !== canonicalVersion) {
+          return fail(
+            'INVALID_ARTIFACT',
+            `Unsupported artifact version ${artifactVersion}.`
+          );
+        }
+        if (!abiFunctionSupported) {
+          return fail(
+            'UNSUPPORTED_ABI',
+            `The canonical ABI does not expose ${APPEAL_PARTICIPATION_FUNCTION}; appeal participation is unavailable.`,
+            'unsupported'
+          );
+        }
+
+        setPhase('validating');
+        const validation = validateParticipation(context, decision, stakeAmount);
         const validation = validateParticipation(
           context,
           decision,

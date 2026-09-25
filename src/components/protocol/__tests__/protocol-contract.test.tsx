@@ -10,6 +10,7 @@ import { render, screen, within } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import {
   resolveProtocolContractUi,
+  PROTOCOL_LIFECYCLE_LABELS,
   type ProtocolLifecycleState,
   type ProtocolContractSnapshot,
 } from '@/lib/protocol-contract';
@@ -43,6 +44,9 @@ const diagnostics: ProtocolDiagnostics = {
   gitCommit: '0000000000000000000000000000000000000000',
   artifactPath: 'release',
   verifiedAt: '2026-09-24T00:00:00.000Z',
+  abiVersion: '2.0.0',
+  abiHash: '0'.repeat(64),
+  environment: 'development',
   contracts: { TruthBountyWeighted: CANONICAL },
 };
 
@@ -134,7 +138,7 @@ describe('ProtocolContractStatus', () => {
     const root = screen.getByTestId('protocol-contract-status');
     expect(root).toHaveAttribute('data-lifecycle', lifecycle);
     expect(root).toHaveAttribute('role', 'status');
-    expect(within(root).getByText(new RegExp(lifecycle === 'empty' ? 'No protocol transaction' : '.', 'i'))).toBeTruthy();
+    expect(within(root).getByText(PROTOCOL_LIFECYCLE_LABELS[lifecycle])).toBeTruthy();
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });

@@ -39,6 +39,9 @@ jest.mock('@/hooks/useDisputeContext', () => ({
   }),
 }));
 
+/** Toggled per test to exercise the canonical-ABI gate. */
+let mockIsDisputeSupported = true;
+
 jest.mock('@/hooks/useDisputeSubmission', () => ({
   useDisputeSubmission: () => ({
     validateDispute: mockValidateDispute,
@@ -47,6 +50,7 @@ jest.mock('@/hooks/useDisputeSubmission', () => ({
     isSimulating: false,
     isSubmitting: false,
     error: null,
+    isDisputeSupported: mockIsDisputeSupported,
   }),
   formatBondAmount: (wei: string) => {
     try {
@@ -76,6 +80,7 @@ function fillReason() {
 describe('OpenDispute — write readiness gate (V2-FE-100)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsDisputeSupported = true;
     mockReadiness = {
       isReady: true,
       message: null,
@@ -85,7 +90,7 @@ describe('OpenDispute — write readiness gate (V2-FE-100)', () => {
     mockValidateDispute.mockReturnValue({ isValid: true, errors: [], warnings: [] });
     mockSimulateDispute.mockResolvedValue({
       success: true,
-      projectedState: { disputeId: 'dispute-projected' },
+      projectedState: { bondLocked: '1', newStatus: 'DISPUTED' },
     });
     mockSubmitDispute.mockRejectedValue(
       new Error(
@@ -180,5 +185,33 @@ describe('OpenDispute — write readiness gate (V2-FE-100)', () => {
     });
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('blocks submission and explains when the canonical ABI has no dispute function', async () => {
+    mockIsDisputeSupported = false;
+    mockReadiness = {
+      isReady: true,
+      message: null,
+      primaryCode: null,
+      codes: [],
+    };
+
+    render(
+      <OpenDispute claimId="claim_1" isOpen={true} onClose={jest.fn()} />,
+    );
+
+    const reason = await screen.findByTestId('dispute-unavailable-reason');
+    expect(reason).toHaveTextContent(/does not expose a dispute function/i);
+
+    const confirm = screen.getByRole('button', { name: /does not expose a dispute function/i });
+    expect(confirm).toBeDisabled();
+
+    fillReason();
+    fireEvent.submit(screen.getByRole('dialog').querySelector('form')!);
+
+    await waitFor(() => {
+      expect(mockSubmitDispute).not.toHaveBeenCalled();
+    });
+    expect(mockSimulateDispute).not.toHaveBeenCalled();
   });
 });
