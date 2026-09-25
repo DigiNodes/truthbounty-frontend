@@ -11,7 +11,7 @@ const staticSecurityHeaders = Object.entries(buildStaticSecurityHeaders()).map(
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
-  transpilePackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', 'viem'],
+  transpilePackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', 'viem', 'next-intl', 'use-intl', '@formatjs/fast-memoize', 'intl-messageformat', '@formatjs/icu-messageformat-parser', '@formatjs/icu-skeleton-parser'],
   async headers() {
     return [
       {
