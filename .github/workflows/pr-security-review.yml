@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -26,7 +24,6 @@ jobs:
           node-version: 24
 
       - name: Fetch PR changed files and reviews
-        id: pr-data
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -43,12 +40,9 @@ jobs:
             "repos/${REPO}/pulls/${PR_NUMBER}/reviews?per_page=100" \
             > /tmp/reviews.json
 
-          echo "files=$(cat /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
-          echo "reviews=/tmp/reviews.json" >> "$GITHUB_OUTPUT"
-
       - name: Run PR guardian
         run: |
           node .github/scripts/pr-guardian.mjs \
-            --files '${{ steps.pr-data.outputs.files }}' \
-            --reviewsJson '${{ steps.pr-data.outputs.reviews }}' \
+            --files "$(cat /tmp/changed-files.txt)" \
+            --reviewsJson /tmp/reviews.json \
             --reviewerTeam 'truthbounty/v2-maintainers'
