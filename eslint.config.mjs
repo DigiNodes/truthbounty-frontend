@@ -18,13 +18,6 @@ const eslintConfig = defineConfig([
   ]),
   ...storybook.configs["flat/recommended"],
   {
-    rules: {
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/static-components": "off",
-    },
-  },
-  {
     files: [
       "**/__tests__/**/*",
       "**/*.test.*",
@@ -37,10 +30,6 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/rules-of-hooks": "off",
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/immutability": "off",
-      "react-hooks/purity": "off",
     },
   },
   {
