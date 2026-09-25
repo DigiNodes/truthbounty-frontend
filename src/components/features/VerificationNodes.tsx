@@ -7,6 +7,7 @@ export interface VerificationNode {
   uptime: string;
   location: string;
 }
+const verificationNodes: Array<{ name: string; status: string; uptime: string; location: string }> = [];
 
 interface VerificationNodesProps {
   /** Node telemetry from the indexer/monitoring API. Defaults to [] — an

@@ -18,6 +18,7 @@ export interface ActivityDatum {
   disputed: number;
   false: number;
 }
+const activityData: Array<{ name: string; verified: number; disputed: number; false: number }> = [];
 
 interface ActivityAndNodesProps {
   /** Verification activity from the indexer/API. Defaults to [] — an honest

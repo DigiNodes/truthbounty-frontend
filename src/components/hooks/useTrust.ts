@@ -92,6 +92,26 @@ export function useTrustForAddress(address?: string): TrustInfo {
     reputation: null,
     accountAgeDays: null,
     suspicious: null,
+  const base: Partial<TrustInfo> = {
+    reputation: 0,
+    accountAgeDays: 0,
+    suspicious: false,
+    isVerified: false,
+  };
+
+  if (address) {
+    const derived = makeTrustFromAddress(address);
+    Object.assign(base, {
+      reputation: derived.reputation,
+      accountAgeDays: derived.accountAgeDays,
+      suspicious: derived.suspicious,
+      isVerified: derived.isVerified,
+    });
+  }
+
+  const trust = {
+    ...base,
+    isVerified: verification?.status === "SUCCESS",
   };
 
   return overrideInfo ? { ...base, ...overrideInfo } : base;
