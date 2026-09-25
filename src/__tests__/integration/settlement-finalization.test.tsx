@@ -14,6 +14,9 @@ jest.mock('wagmi', () => ({
   useAccount: jest.fn(),
   useChainId: jest.fn(),
   usePublicClient: jest.fn(),
+  // No wallet write path in this suite: submission must fail closed rather
+  // than invent a pending settlement.
+  useWriteContract: jest.fn(() => undefined),
 }));
 
 describe('Settlement and Finalization Integration', () => {

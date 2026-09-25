@@ -12,7 +12,7 @@
  * - All error states are surfaced; none are silently swallowed.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type {
   ApiProjectionState,
   StalenessThresholds,
@@ -74,10 +74,19 @@ export function useApiWithFallback<T>(
     disabled = false,
   } = options;
 
-  const staleness: StalenessThresholds = {
-    ...DEFAULT_STALENESS,
-    ...options.staleness,
-  };
+  // Depend on the individual threshold primitives, never on the identity of
+  // `options.staleness`: callers routinely pass an inline object literal, and
+  // keying on its identity would rebuild `staleness` (and therefore `doFetch`
+  // and the fetch effect) on every render, refetching in an endless loop.
+  const {
+    staleAfterMs = DEFAULT_STALENESS.staleAfterMs,
+    criticalAfterMs = DEFAULT_STALENESS.criticalAfterMs,
+  } = options.staleness ?? {};
+
+  const staleness: StalenessThresholds = useMemo(
+    () => ({ staleAfterMs, criticalAfterMs }),
+    [staleAfterMs, criticalAfterMs],
+  );
 
   const [state, setState] = useState<ApiProjectionState<T>>({
     data: null,
@@ -102,9 +111,14 @@ export function useApiWithFallback<T>(
     return () => { mountedRef.current = false; };
   }, []);
 
+  const lastFetchedMsRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+
   const doFetch = useCallback(
     async (retryCount = 0): Promise<void> => {
       if (!mountedRef.current) return;
+      const requestId = ++requestIdRef.current;
+      let attempt = retryCount;
 
       setState((prev) => ({
         ...prev,
@@ -112,70 +126,69 @@ export function useApiWithFallback<T>(
         error: null,
       }));
 
-      try {
-        const data = await fetcherRef.current();
-        if (!mountedRef.current) return;
+      while (mountedRef.current && requestId === requestIdRef.current) {
+        try {
+          const data = await fetcherRef.current();
+          if (!mountedRef.current || requestId !== requestIdRef.current) return;
 
-        const now = Date.now();
-        setState((prev) => ({
-          ...prev,
-          data,
-          status: 'fresh',
-          lastFetchedMs: now,
-          dataAgeMs: 0,
-          isRefreshing: false,
-          isStale: false,
-          isBlocked: false,
-          error: null,
-          consecutiveFailures: 0,
-        }));
-      } catch (err: unknown) {
-        if (!mountedRef.current) return;
+          const now = Date.now();
+          lastFetchedMsRef.current = now;
+          setState((prev) => ({
+            ...prev,
+            data,
+            status: 'fresh',
+            lastFetchedMs: now,
+            dataAgeMs: 0,
+            isRefreshing: false,
+            isStale: false,
+            isBlocked: false,
+            error: null,
+            consecutiveFailures: 0,
+          }));
+          return;
+        } catch (err: unknown) {
+          if (!mountedRef.current || requestId !== requestIdRef.current) return;
 
-        const error = err instanceof Error ? err : new Error(String(err));
-        const nextConsecutive = retryCount + 1;
+          const error = err instanceof Error ? err : new Error(String(err));
+          const isNotCriticalYet =
+            lastFetchedMsRef.current === null ||
+            Date.now() - lastFetchedMsRef.current < staleness.criticalAfterMs;
 
-        // Automatic retry with exponential backoff
-        const shouldRetry = retryCount < maxRetries;
-        const isNotCriticalYet =
-          state.lastFetchedMs === null ||
-          Date.now() - state.lastFetchedMs < staleness.criticalAfterMs;
-
-        if (shouldRetry && isNotCriticalYet) {
-          const delay = retryDelayMs * Math.pow(2, retryCount);
-          await sleep(delay);
-          if (mountedRef.current) {
-            await doFetch(nextConsecutive);
+          if (attempt < maxRetries && isNotCriticalYet) {
+            const delay = retryDelayMs * 2 ** attempt;
+            attempt += 1;
+            await sleep(delay);
+            continue;
           }
+
+          setState((prev) => {
+            const newConsecutive = prev.consecutiveFailures + 1;
+            const status = deriveStatus(
+              { ...prev, consecutiveFailures: newConsecutive, isRefreshing: false },
+              staleness,
+            );
+            return {
+              ...prev,
+              status,
+              isRefreshing: false,
+              error,
+              consecutiveFailures: newConsecutive,
+              isStale: status === 'stale' || status === 'critical',
+              isBlocked: status === 'critical' || status === 'unavailable',
+            };
+          });
           return;
         }
-
-        setState((prev) => {
-          const newConsecutive = prev.consecutiveFailures + 1;
-          const status = deriveStatus(
-            { ...prev, consecutiveFailures: newConsecutive, isRefreshing: false },
-            staleness,
-          );
-          return {
-            ...prev,
-            status,
-            isRefreshing: false,
-            error,
-            consecutiveFailures: newConsecutive,
-            isStale: status === 'stale' || status === 'critical',
-            isBlocked: status === 'critical' || status === 'unavailable',
-          };
-        });
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [maxRetries, retryDelayMs, staleness.criticalAfterMs, staleness.staleAfterMs],
+    [maxRetries, retryDelayMs, staleness],
   );
 
   // Fetch on mount and when queryKey changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const queryKeyString = JSON.stringify(queryKey);
   useEffect(() => {
+    requestIdRef.current += 1;
+    lastFetchedMsRef.current = null;
     if (disabled) return;
     setState({
       data: null,
@@ -189,8 +202,7 @@ export function useApiWithFallback<T>(
       consecutiveFailures: 0,
     });
     doFetch(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKeyString, disabled]);
+  }, [queryKeyString, disabled, doFetch]);
 
   // Tick dataAgeMs every 10 s so consumers get up-to-date staleness info
   useEffect(() => {
@@ -213,10 +225,10 @@ export function useApiWithFallback<T>(
       });
     }, 10_000);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staleness.staleAfterMs, staleness.criticalAfterMs]);
+  }, [staleness]);
 
   const reload = useCallback(() => {
+    lastFetchedMsRef.current = null;
     setState((prev) => ({ ...prev, consecutiveFailures: 0, error: null }));
     doFetch(0);
   }, [doFetch]);

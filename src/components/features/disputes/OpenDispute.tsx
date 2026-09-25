@@ -47,6 +47,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
     isSimulating,
     isSubmitting,
     error: submissionHookError,
+    isDisputeSupported,
   } = useDisputeSubmission();
 
   // V2-FE-100: fail-closed wallet/chain readiness for the Confirm action
@@ -112,7 +113,17 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // The canonical ABI is the authority. Guarded here as well as on the
+    // button so a direct form submit cannot bypass the gate.
+    if (!isDisputeSupported) {
+      const reason =
+        'Dispute opening is unavailable: the deployed contract does not expose a dispute function.';
+      setSubmissionError(reason);
+      onError?.(reason);
+      return;
+    }
+
     if (!context || !context.walletPosition.userAddress) {
       setSubmissionError('Wallet not connected or context not loaded');
       return;
@@ -174,8 +185,16 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
   // Combined error
   const displayError = submissionError || contextError || submissionHookError;
 
+  // The canonical ABI is the authority. When it declares no dispute-opening
+  // entrypoint there is no correct calldata to send, so the flow is blocked
+  // rather than submitted against a guessed selector.
+  const disputeUnavailableReason = isDisputeSupported
+    ? null
+    : 'Dispute opening is unavailable: the deployed contract does not expose a dispute function.';
+
   // V2-FE-100: block submit until readiness passes; expose reason accessibly
   const canSubmit =
+    isDisputeSupported &&
     readiness.isReady &&
     Boolean(context?.isEligible) &&
     Boolean(reason.trim()) &&
@@ -276,6 +295,18 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
             </div>
           </div>
 
+          {/* Canonical ABI gate — fail closed with an accessible reason */}
+          {disputeUnavailableReason && (
+            <div
+              data-testid="dispute-unavailable-reason"
+              id="dispute-unavailable-reason"
+              className="rounded-lg bg-amber-950/30 border border-amber-900/50 p-3 text-sm text-amber-300"
+              role="status"
+            >
+              {disputeUnavailableReason}
+            </div>
+          )}
+
           {/* Readiness gate (V2-FE-100) — fail closed with accessible reason */}
           {isOpen && !readiness.isReady && readiness.message && (
             <div
@@ -304,14 +335,28 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
               aria-label={
                 isLoading
                   ? "Submitting dispute..."
-                  : !readiness.isReady
-                    ? readiness.message || "Wallet not ready to submit dispute"
-                    : "Confirm dispute"
+                  : disputeUnavailableReason
+                    ? disputeUnavailableReason
+                    : !readiness.isReady
+                      ? readiness.message || "Wallet not ready to submit dispute"
+                      : "Confirm dispute"
               }
-              aria-describedby={!readiness.isReady ? "write-readiness-reason" : undefined}
+              aria-describedby={
+                disputeUnavailableReason
+                  ? "dispute-unavailable-reason"
+                  : !readiness.isReady
+                    ? "write-readiness-reason"
+                    : undefined
+              }
             >
               {isLoading && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
-              {isSimulating ? 'Simulating...' : isSubmitting ? 'Submitting...' : 'Confirm Dispute'}
+              {disputeUnavailableReason
+                ? 'Dispute Unavailable'
+                : isSimulating
+                  ? 'Simulating...'
+                  : isSubmitting
+                    ? 'Submitting...'
+                    : 'Confirm Dispute'}
             </button>
           </div>
         </form>
