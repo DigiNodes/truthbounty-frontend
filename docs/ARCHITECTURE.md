@@ -410,3 +410,35 @@ The TruthBounty frontend architecture is designed to be:
 - **User-friendly**: Focus on UX and accessibility
 
 This architecture provides a solid foundation for building a decentralized verification platform that can evolve with changing requirements while maintaining code quality and developer productivity.
+
+---
+
+## Security Architecture — Formal Model
+
+For the **full, independently reviewable** security model of the frontend, see:
+
+- **[THREAT_MODEL.md](./THREAT_MODEL.md)** — trust boundaries, threat actors, threat/mitigation matrix, fail-closed posture, telemetry redaction rules, and maintainer sign-off.
+- **[UI_STATE_MODEL.md](./UI_STATE_MODEL.md)** — canonical UI state model (loading, empty, stale, rejected, failed, pending, confirmed, finalized, reorged) with per-surface applicability and accessibility contracts.
+
+### Authority model (summary)
+
+- **Smart contracts** are authoritative for protocol mutation.
+- The **API is a projection / read layer**, never authoritative for mutation.
+- The **frontend never fabricates** transaction success, settlement, rewards, reputation, or protocol state.
+- **Fail closed** on missing config, unsupported chain, missing CSP nonce, unresolved canonical artifacts, simulation/receipt mismatch, or integrity uncertainty.
+
+### Where the security primitives live
+
+| Concern | Location |
+|---|---|
+| Integrity boundary (fail-closed UI) | `src/components/security/IntegrityBoundary.tsx` |
+| Telemetry redaction | `src/lib/security/redaction.ts` |
+| Sensitive path policy | `src/lib/security/sensitive-paths.ts` |
+| Evidence sanitization | `src/lib/security/evidence-sanitizer.ts` |
+| CSP + security headers | `src/lib/security/headers.ts`, `docs/SECURITY_HEADERS.md` |
+| SIWE auth | `src/lib/auth/siwe-client.ts`, `docs/SIWE_AUTH.md` |
+| Transaction lifecycle | `src/hooks/useTransactionMachine.ts`, `useReceiptProjection.ts`, `useFinalizationDetection.ts` |
+| Reorg reconciliation | `src/hooks/useReorgReconciliation.ts`, `useStateReconciliation.ts` |
+| Settlement detection | `src/hooks/useSettlementDetection.ts` |
+| Canonical wallet enforcement | `src/hooks/useCanonicalWallet.ts` |
+| PR security review gate | `.github/workflows/pr-security-review.yml` |
