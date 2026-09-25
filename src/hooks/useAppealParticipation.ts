@@ -35,7 +35,6 @@ import {
   AppealSimulationResult,
   AppealValidation,
 } from '@/app/types/appeal';
-import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { erc20Abi } from '@/config/protocol/verification-artifact';
 import {
   getContractAbi,
@@ -258,7 +257,10 @@ export function useAppealParticipation(
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();
   const publicClient = usePublicClient() as AppealPublicClient | undefined;
-  const { writeContractAsync } = useWriteContract();
+  // A wallet may be absent (disconnected provider, unsupported connector, or a
+  // provider that exposes no write path). Degrade to `undefined` so submission
+  // fails closed with a clear error instead of throwing during render.
+  const { writeContractAsync } = useWriteContract() ?? {};
 
   const [phase, setPhase] = useState<AppealParticipationPhase>('idle');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -584,6 +586,13 @@ export function useAppealParticipation(
         // ---- Fail-closed preconditions (no fabricated calldata/hashes) ----
         if (!isConnected || !userAddress) {
           return fail('UNCONNECTED', 'Wallet not connected.');
+        }
+        if (!writeContractAsync) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            'Wallet write path unavailable: the connected wallet cannot submit transactions.',
+            'unsupported'
+          );
         }
         if (!isValidChain(currentChainId)) {
           return fail(
