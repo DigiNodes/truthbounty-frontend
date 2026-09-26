@@ -80,10 +80,22 @@ describe('CSP', () => {
       expect(connectSrc).toContain('https://sepolia.optimism.io');
     });
 
-    it('includes upgrade-insecure-requests', () => {
-      expect(buildContentSecurityPolicy({ nonce })).toContain(
-        'upgrade-insecure-requests',
-      );
+    it('includes upgrade-insecure-requests in production', () => {
+      expect(
+        buildContentSecurityPolicy({
+          nonce,
+          isDevelopment: false,
+        }),
+      ).toContain('upgrade-insecure-requests');
+    });
+
+    it('does not include upgrade-insecure-requests in development', () => {
+      expect(
+        buildContentSecurityPolicy({
+          nonce,
+          isDevelopment: true,
+        }),
+      ).not.toContain('upgrade-insecure-requests');
     });
 
     it('sets object-src to none', () => {
