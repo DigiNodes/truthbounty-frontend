@@ -1,31 +1,146 @@
 /**
- * Canonical query key factory for TruthBounty V2
+ * Canonical TanStack Query key factories (V2-FE-020 & V2-FE-063).
  *
- * Design rules:
- *  1. Every key is an immutable `as const` tuple — never a plain string.
- *  2. Scoped invalidation is possible at every level (root → entity → sub-resource).
- *  3. Keys are projection-aware: callers can target a single projection without
- *     nuking unrelated cache entries.
- *  4. No mock values, dummy addresses, or fabricated hashes are defined here.
+ * Covers chain, wallet, claim, evidence, rounds, disputes, verifications,
+ * rewards, reputation, projection watermark, filters, finality, and user
+ * so cache entries cannot collide across wallets, chains, or projections.
+ *
+ * Rules:
+ *  1. Every key is an immutable `as const` tuple — never a bare string.
+ *  2. Wallet-scoped keys always include normalized address + chainId.
+ *  3. Fail closed on unsupported address / chain inputs (null scope).
+ *  4. Existing key shapes are preserved for backward compatibility.
+ *  5. No fabricated calldata, hashes, receipts, or mock-wallet values.
  */
 
+/** EIP-155 chain id. */
+export type ChainId = number;
+
+/** Checksum-agnostic 0x-prefixed address. */
+export type EvmAddress = `0x${string}` | string;
+
+/**
+ * Normalize an EVM address for cache-key stability.
+ * Returns null (fail closed) when the address is missing or malformed.
+ */
+export function normalizeAddress(address: string | null | undefined): string | null {
+  if (typeof address !== 'string') return null;
+  const trimmed = address.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return null;
+  return trimmed.toLowerCase();
+}
+
+/**
+ * Validate wallet scope inputs. Returns null when either part is unsupported.
+ */
+export function walletScope(
+  address: string | null | undefined,
+  chainId: number | null | undefined,
+): { address: string; chainId: number } | null {
+  const normalized = normalizeAddress(address);
+  if (!normalized) return null;
+  if (typeof chainId !== 'number' || !Number.isInteger(chainId) || chainId <= 0) {
+    return null;
+  }
+  return { address: normalized, chainId };
+}
+
+export type ClaimListFilters = {
+  status?: string;
+  category?: string;
+  cursor?: string;
+  limit?: number;
+  sort?: string;
+  [key: string]: unknown;
+};
+
 // ---------------------------------------------------------------------------
-// Claims
+// Chain
 // ---------------------------------------------------------------------------
-export const claimsKeys = {
-  /** Invalidate the entire claims namespace. */
-  all: ['claims'] as const,
-  /** All paginated / filtered claim lists. */
-  lists: () => ['claims', 'list'] as const,
-  /** A specific filtered list (status, cursor, …). */
-  list: (filters: Record<string, unknown>) => ['claims', 'list', filters] as const,
-  /** Single claim detail. */
-  detail: (claimId: string) => ['claims', 'detail', claimId] as const,
-  /** Claim filtered by lifecycle status. */
-  byStatus: (status: string) => ['claims', 'status', status] as const,
-  /** Claim finality projection (observed / safe / finalized / reorged). */
-  finality: (claimId: string) => ['claims', 'finality', claimId] as const,
+export const chainKeys = {
+  all: ['chain'] as const,
+  /** Canonical chain config / feature flags for a chainId. */
+  config: (chainId: ChainId) => ['chain', 'config', chainId] as const,
+  /** Live chain health / tip metadata. */
+  status: (chainId: ChainId) => ['chain', 'status', chainId] as const,
+  /** Block tip by finality tag (never invents block numbers). */
+  block: (chainId: ChainId, tag: 'latest' | 'safe' | 'finalized') =>
+    ['chain', 'block', chainId, tag] as const,
 } as const;
+
+// ---------------------------------------------------------------------------
+// Wallet (always address + chain scoped)
+// ---------------------------------------------------------------------------
+export const walletKeys = {
+  all: ['wallet'] as const,
+  /** Root for a single wallet+chain pair — use for scoped invalidation. */
+  scope: (address: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    return scope
+      ? (['wallet', 'scope', scope.address, scope.chainId] as const)
+      : (['wallet', 'scope', 'invalid'] as const);
+  },
+  balance: (address: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    return scope
+      ? (['wallet', 'balance', scope.address, scope.chainId] as const)
+      : (['wallet', 'balance', 'invalid'] as const);
+  },
+  tokenBalance: (address: string, tokenAddress: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    const token = normalizeAddress(tokenAddress);
+    return scope && token
+      ? (['wallet', 'token', scope.address, token, scope.chainId] as const)
+      : (['wallet', 'token', 'invalid'] as const);
+  },
+  nonce: (address: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    return scope
+      ? (['wallet', 'nonce', scope.address, scope.chainId] as const)
+      : (['wallet', 'nonce', 'invalid'] as const);
+  },
+  allowance: (address: string, spender: string, tokenAddress: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    const sp = normalizeAddress(spender);
+    const token = normalizeAddress(tokenAddress);
+    return scope && sp && token
+      ? (['wallet', 'allowance', scope.address, sp, token, scope.chainId] as const)
+      : (['wallet', 'allowance', 'invalid'] as const);
+  },
+} as const;
+
+// ---------------------------------------------------------------------------
+// Claim (preserves legacy shapes + adds list / wallet / finality / lifecycle)
+// ---------------------------------------------------------------------------
+export const claimKeys = {
+  /** Legacy root — invalidate entire claims namespace. */
+  all: ['claims'] as const,
+  /** Paginated / filtered list root. */
+  lists: () => ['claims', 'list'] as const,
+  /** Filtered list — filters object is part of the key to avoid collisions. */
+  list: (filters: ClaimListFilters = {}) => ['claims', 'list', filters] as const,
+  /**
+   * Legacy detail shape `['claims', claimId]` — kept so existing cache
+   * consumers (useClaimDetail, realtime handlers) keep working.
+   */
+  detail: (claimId: string) => ['claims', claimId] as const,
+  byStatus: (status: string) => ['claims', 'status', status] as const,
+  lifecycle: (claimId: string) => ['claims', claimId, 'lifecycle'] as const,
+  timeline: (claimId: string) => ['claims', claimId, 'timeline'] as const,
+  /** Wallet-scoped claim index for the connected account. */
+  byWallet: (address: string, chainId: ChainId) => {
+    const scope = walletScope(address, chainId);
+    return scope
+      ? (['claims', 'wallet', scope.address, scope.chainId] as const)
+      : (['claims', 'wallet', 'invalid'] as const);
+  },
+  finality: (claimId: string, chainId?: ChainId) =>
+    chainId !== undefined
+      ? (['claims', 'finality', claimId, chainId] as const)
+      : (['claims', 'finality', claimId] as const),
+} as const;
+
+export const claimsKeys = claimKeys;
 
 // ---------------------------------------------------------------------------
 // Evidence
@@ -60,7 +175,7 @@ export const disputesKeys = {
   /** Disputes associated with a specific claim. */
   byClaim: (claimId: string) => ['disputes', 'claim', claimId] as const,
   /** Single dispute detail. */
-  detail: (disputeId: string) => ['disputes', 'detail', disputeId] as const,
+  detail: (disputeId: string) => ['disputes', disputeId] as const,
   /** Dispute finality projection. */
   finality: (disputeId: string) => ['disputes', 'finality', disputeId] as const,
 } as const;
@@ -101,27 +216,44 @@ export const reputationKeys = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Wallet / on-chain state
+// Projection watermark (indexer / projection sync cursor)
 // ---------------------------------------------------------------------------
-export const walletKeys = {
-  /** Invalidate all wallet state. */
-  all: ['wallet'] as const,
-  /** ETH balance for an address on a given chain. */
-  balance: (address: string, chainId: number) =>
-    ['wallet', 'balance', address, chainId] as const,
-  /** ERC-20 token balance (e.g. TBT reward token). */
-  tokenBalance: (address: string, tokenAddress: string, chainId: number) =>
-    ['wallet', 'token', address, tokenAddress, chainId] as const,
-  /** Nonce / pending-tx guard. */
-  nonce: (address: string, chainId: number) =>
-    ['wallet', 'nonce', address, chainId] as const,
+export const projectionWatermarkKeys = {
+  all: ['projectionWatermark'] as const,
+  byChain: (chainId: ChainId) => ['projectionWatermark', 'chain', chainId] as const,
+  byNamespace: (namespace: string, chainId: ChainId) =>
+    ['projectionWatermark', namespace, chainId] as const,
+  entity: (namespace: string, entityId: string, chainId: ChainId) =>
+    ['projectionWatermark', namespace, entityId, chainId] as const,
 } as const;
 
 // ---------------------------------------------------------------------------
-// Leaderboard (top-level, distinct from reputation leaderboard)
+// Filters (UI / route filter state that drives queries)
 // ---------------------------------------------------------------------------
-export const leaderboardKeys = {
-  all: ['leaderboard'] as const,
+export const filterKeys = {
+  all: ['filters'] as const,
+  claims: (filters: ClaimListFilters) => ['filters', 'claims', filters] as const,
+  activity: (address: string, filters: Record<string, unknown> = {}) => {
+    const addr = normalizeAddress(address);
+    return addr
+      ? (['filters', 'activity', addr, filters] as const)
+      : (['filters', 'activity', 'invalid', filters] as const);
+  },
+  leaderboard: (filters: Record<string, unknown> = {}) =>
+    ['filters', 'leaderboard', filters] as const,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Finality (receipt-driven observed / safe / finalized — never timers)
+// ---------------------------------------------------------------------------
+export const finalityKeys = {
+  all: ['finality'] as const,
+  byTx: (txHash: string, chainId: ChainId) =>
+    ['finality', 'tx', txHash.toLowerCase(), chainId] as const,
+  byEntity: (entityType: string, entityId: string, chainId: ChainId) =>
+    ['finality', 'entity', entityType, entityId, chainId] as const,
+  level: (entityType: string, entityId: string, chainId: ChainId) =>
+    ['finality', 'level', entityType, entityId, chainId] as const,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -136,18 +268,30 @@ export const userKeys = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Unified export — keep the old `queryKeys` shape for backward compat while
-// also exposing each sub-factory directly.
+// Leaderboard (top-level, distinct from reputation leaderboard)
 // ---------------------------------------------------------------------------
+export const leaderboardKeys = {
+  all: ['leaderboard'] as const,
+} as const;
+
+/**
+ * Unified export — existing `queryKeys.*` consumers keep working.
+ * Exposes all domain factories both nested and as named exports.
+ */
 export const queryKeys = {
-  claims: claimsKeys,
+  chain: chainKeys,
+  wallet: walletKeys,
+  claims: claimKeys,
+  claim: claimKeys,
   evidence: evidenceKeys,
   rounds: roundsKeys,
   disputes: disputesKeys,
   verifications: verificationsKeys,
   rewards: rewardsKeys,
   reputation: reputationKeys,
-  wallet: walletKeys,
+  projectionWatermark: projectionWatermarkKeys,
+  filters: filterKeys,
+  finality: finalityKeys,
   leaderboard: leaderboardKeys.all,
   user: userKeys,
 } as const;
