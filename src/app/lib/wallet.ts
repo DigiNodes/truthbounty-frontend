@@ -1,13 +1,17 @@
 /**
  * Wallet abstraction layer — V2 EVM stub.
  *
- * V2-FE-009: Removed mock hash generation (Math.random) and Stellar
- * dependencies. Real implementations are blocked on V2-FE-003 (contract
- * ABI freeze) and V2-FE-005 (indexer API interface).
+ * V2-FE-009: Removed synthetic hash generation and Stellar dependencies.
+ * Real implementations are blocked on V2-FE-003 (contract ABI freeze)
+ * and V2-FE-005 (indexer API interface).
  *
  * Callers of claimRewards should migrate to useEvmTransaction + the
  * TruthBounty rewards contract once ABIs are available.
  */
+
+export interface ClaimRewardResult {
+  txHash: `0x${string}`;
+}
 
 /**
  * NOT IMPLEMENTED — pending V2-FE-003 (contract ABI freeze).
@@ -19,7 +23,7 @@
  */
 export async function claimRewards(
   _claimIds: string[],
-): Promise<{ txHash: `0x${string}` }> {
+): Promise<ClaimRewardResult> {
   throw new Error(
     '[claimRewards] Not implemented: waiting for V2-FE-003 contract ABI. ' +
     'Use useEvmTransaction.writeContract once the ABI is available.',
@@ -36,7 +40,7 @@ export async function claimRewards(
  */
 export async function getTokenBalance(
   _address?: string,
-): Promise<bigint> {
+): Promise<number | bigint> {
   throw new Error(
     '[getTokenBalance] Not implemented: waiting for V2-FE-003 contract ABI.',
   );

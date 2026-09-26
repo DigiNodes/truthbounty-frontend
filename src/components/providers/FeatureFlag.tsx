@@ -50,10 +50,7 @@ export function FeatureFlagGate({
 }: FeatureFlagGateProps) {
   const { isEnabled } = useFeatureFlags();
   
-  // Check primary flag
-  const primaryEnabled = isEnabled(flag);
-  
-  // Check additional flags
+  // Check flags
   const allFlags = [flag, ...flags];
   
   let shouldRender: boolean;

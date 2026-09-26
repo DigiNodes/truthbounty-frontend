@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
 import { queryKeys } from '@/app/queries/queryKeys';
 import type {
-  Claim,
   ClaimStatus,
 } from '@/app/types/claim';
 

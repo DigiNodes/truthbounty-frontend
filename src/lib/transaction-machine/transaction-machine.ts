@@ -20,6 +20,9 @@ import {
   TxStateConfirming,
   TxStateSafe,
   TxStateIndexing,
+  TxStateProvisional,
+  TxStateFinalized,
+  TxStateInconclusive,
   createIdleState,
   isValidChain,
 } from './transaction-machine.types';
@@ -38,6 +41,28 @@ function illegal(from: string, event: string): never {
 // ---------------------------------------------------------------------------
 // Per-state handlers
 // ---------------------------------------------------------------------------
+
+function toReorged(
+  state: TransactionState,
+  event: Extract<TransactionEvent, { type: 'REORG' }>,
+): TransactionState {
+  if (!state.txHash) {
+    throw new TransactionMachineError(
+      'INVALID_TRANSITION',
+      'REORG requires an observed txHash from a prior submission',
+    );
+  }
+  return {
+    status: 'reorged',
+    txHash: state.txHash,
+    chainId: state.chainId as number,
+    blockNumber: 'blockNumber' in state && state.blockNumber != null ? state.blockNumber : null,
+    confirmations: null,
+    error: 'REORGED',
+    replacedBy: null,
+    orphanedBlockHash: event.orphanedBlockHash ?? null,
+  };
+}
 
 function fromIdle(
   state: TxStateIdle,
@@ -228,6 +253,8 @@ function fromConfirming(
         error: null,
         replacedBy: event.replacedBy,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
@@ -263,6 +290,8 @@ function fromSafe(
         error: null,
         replacedBy: null,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
@@ -285,10 +314,59 @@ function fromIndexing(
         error: null,
         replacedBy: null,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
       return illegal('indexing', event.type);
+  }
+}
+
+// Provisional Settlement State
+function fromProvisional(
+  state: TxStateProvisional,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'FINALIZE':
+      return {
+        status: 'finalized',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: null,
+        replacedBy: null,
+      };
+    case 'CHALLENGE':
+      // Transition to inconclusive if challenged
+      return {
+        status: 'inconclusive',
+        txHash: state.txHash,
+        chainId: state.chainId,
+        blockNumber: state.blockNumber,
+        confirmations: state.confirmations,
+        error: 'CHALLENGD',
+        replacedBy: null,
+      };
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('provisional', event.type);
+  }
+}
+
+// Inconclusive Settlement State
+function fromInconclusive(
+  state: TxStateInconclusive,
+  event: TransactionEvent,
+): TransactionState {
+  switch (event.type) {
+    case 'RESET':
+      return createIdleState();
+    default:
+      return illegal('inconclusive', event.type);
   }
 }
 
@@ -354,11 +432,16 @@ export function transitionTxState(
       return fromSafe(current, event);
     case 'indexing':
       return fromIndexing(current, event);
+    case 'provisional':
+      return fromProvisional(current, event);
+    case 'inconclusive':
+      return fromInconclusive(current, event);
     case 'finalized':
       return fromFinalized(current, event);
     case 'dropped':
     case 'replaced':
     case 'reverted':
+    case 'reorged':
       return fromTerminalFailure(current, event);
     default: {
       // Exhaustiveness check — TypeScript will error here if a state is missing

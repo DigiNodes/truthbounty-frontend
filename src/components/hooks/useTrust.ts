@@ -73,32 +73,54 @@ export function useTrustForAddress(address?: string): TrustInfo {
   const effectiveAddress = address || account?.address || "";
   const { data: verification } = useUserVerification(effectiveAddress);
 
-  const [overrideInfo, setOverrideInfo] = useState<Partial<TrustInfo> | null>(null);
+  const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
 
   useEffect(() => {
-    if (!address) {
-      setOverrideInfo(parseTrustInfoFromStorage());
-    } else {
-      setOverrideInfo(null);
-    }
-  }, [address]);
+    const handleStorage = () => {
+      setStorageUpdateTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
-  // Stable randomised demo values – these should be replaced by API
-  // calls once backend endpoints for reputation/account-age exist.
-  const [mock] = useState(() => ({
-    reputation: Math.floor(Math.random() * 100),
-    accountAgeDays: Math.floor(Math.random() * 30),
-    suspicious: Math.random() < 0.2,
-  }));
-
-  const base = address ? makeTrustFromAddress(address) : mock;
-
-  const trust = {
-    ...base,
-    isVerified: verification?.status === "SUCCESS",
+  const base: Partial<TrustInfo> = {
+    reputation: 0,
+    accountAgeDays: 0,
+    suspicious: false,
+    isVerified: false,
   };
 
-  return overrideInfo ? { ...trust, ...overrideInfo } : trust;
+  if (address) {
+    const derived = makeTrustFromAddress(address);
+    Object.assign(base, {
+      reputation: derived.reputation,
+      accountAgeDays: derived.accountAgeDays,
+      suspicious: derived.suspicious,
+      isVerified: derived.isVerified,
+    });
+  }
+
+  const trust: TrustInfo = {
+    isVerified: verification?.status === "SUCCESS",
+    reputation: base.reputation ?? 0,
+    accountAgeDays: base.accountAgeDays ?? 0,
+    suspicious: base.suspicious ?? false,
+  };
+
+  const overrideInfo =
+    !address && typeof window !== "undefined"
+      ? parseTrustInfoFromStorage()
+      : null;
+  void storageUpdateTrigger;
+
+  if (!overrideInfo) return trust;
+
+  return {
+    isVerified: overrideInfo.isVerified ?? trust.isVerified,
+    reputation: overrideInfo.reputation ?? trust.reputation,
+    accountAgeDays: overrideInfo.accountAgeDays ?? trust.accountAgeDays,
+    suspicious: overrideInfo.suspicious ?? trust.suspicious,
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { recoverMessageAddress } from 'viem';
 import { useAccount as useWagmiAccount } from 'wagmi';
 import { useChainId as useWagmiChain } from 'wagmi';
@@ -120,11 +120,38 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
   const address = options.accountOverride?.address ?? (isConnected ? wagmiAddress : null) ?? null;
   const chainId = options.accountOverride?.chainId ?? wagmiChainId ?? null;
 
+  const walletRef = useRef<{ address: string | null; chainId: number | null }>({ address, chainId });
+  useEffect(() => {
+    walletRef.current = { address, chainId };
+  }, [address, chainId]);
+
+  useEffect(() => {
+    if (status !== 'ready-to-sign' || !challenge) return;
+    const accountChanged =
+      !address || challenge.address.toLowerCase() !== address.toLowerCase();
+    const chainChanged = challenge.chainId !== chainId;
+    if (!accountChanged && !chainChanged) return;
+
+    setChallenge(null);
+    setError({
+      kind: accountChanged ? 'WRONG_ACCOUNT' : 'WRONG_CHAIN',
+      message: 'Wallet changed. Request a new challenge and retry.',
+    });
+    setStatus('error');
+  }, [address, chainId, challenge, status]);
+
   const signWithWagmi = useWagmiSignMessage();
 
   const doSign = options.signMessage ?? signWithWagmi;
 
-  const isAuthenticated = isSessionActive(session, options.now?.() ?? Date.now());
+  const isAuthenticated = Boolean(
+    isSessionActive(session, options.now?.() ?? Date.now()) &&
+    address !== null &&
+    chainId !== null &&
+    typeof session?.address === 'string' &&
+    session.address.toLowerCase() === address.toLowerCase() &&
+    session?.chainId === chainId
+  );
   const isBusy =
     status === 'requesting-challenge' ||
     status === 'signing' ||
@@ -213,6 +240,20 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
       // Ignore recovery errors; the backend performs authoritative verification.
     }
 
+    const currentWallet = walletRef.current;
+    const accountChanged =
+      !currentWallet.address ||
+      currentWallet.address.toLowerCase() !== challenge.address.toLowerCase();
+    if (accountChanged || currentWallet.chainId !== challenge.chainId) {
+      setChallenge(null);
+      setError({
+        kind: accountChanged ? 'WRONG_ACCOUNT' : 'WRONG_CHAIN',
+        message: 'Wallet changed during signing. Retry.',
+      });
+      setStatus('error');
+      return;
+    }
+    
     setStatus('submitting');
     try {
       const res = await apiClient.submitVerification({
@@ -292,11 +333,24 @@ function normalizeSignature(sig: Uint8Array | `0x${string}`): `0x${string}` {
 }
 
 function useWagmiSignMessage(): (message: string) => Promise<Uint8Array | `0x${string}`> {
-  const signMessage = useSignMessage();
-  const sign = signMessage.signMessage;
+  const wagmiSign = useSignMessage() as unknown as {
+    signMessageAsync?: (args: { message: string }) => Promise<`0x${string}`>;
+    signMessage?: (args: { message: string }) => Promise<`0x${string}`> | void;
+  };
+  const signAsync = wagmiSign?.signMessageAsync;
+  const sign = wagmiSign?.signMessage;
+
   return useCallback(
-    (message: string) =>
-      sign({ message }) as unknown as Promise<Uint8Array | `0x${string}`>,
-    [sign],
+    async (message: string) => {
+      if (typeof signAsync === 'function') {
+        return signAsync({ message });
+      }
+      if (typeof sign === 'function') {
+        const res = await sign({ message });
+        if (typeof res === 'string') return res as `0x${string}`;
+      }
+      throw new Error('No signMessage method available on wallet.');
+    },
+    [signAsync, sign],
   );
 }

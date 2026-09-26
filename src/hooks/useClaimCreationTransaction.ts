@@ -10,6 +10,7 @@ import {
   getAddress,
   parseAbi,
 } from 'viem';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -17,16 +18,16 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical artifact version supported by this hook. Must match the deployed
- * claim contract artifact version.
+ * Canonical artifact version supported by this hook.
  */
-export const SUPORTED_ARTIFACT_VERSION = '0.1.0';
+export const SUPPORTED_ARTIFACT_VERSION = '0.1.0';
+export const SUPORTED_ARTIFACT_VERSION = SUPPORTED_ARTIFACT_VERSION;
 
 /**
- * Default chain id for Optimism mainnet. Consumers should pass the correct
- * expected chain when not defaulting to mainnet.
+ * Default chain id for the reviewed release (Optimism Sepolia in the pinned
+ * manifest). Consumers should pass the correct expected chain when not defaulting.
  */
-export const DEFAULT_EXPECTED_CHAIN_ID = 10;
+export const DEFAULT_EXPECTED_CHAIN_ID = 11155420;
 
 /**
  * Max byte length for content digest (32 bytes).
@@ -64,7 +65,7 @@ const CLAIM_CREATION_ABI = parseAbi([
 export const ClaimCreationErrorCode = {
   INVALID_CHAIN: 'INVALID_CHAIN',
   INVALID_ADDRESS: 'INVALID_ADDRESS',
-  INVALID_CONTENT_MIGEST: 'INVALID_CONTENT_MIGEST',
+  INVALID_CONTENT_DIGEST: 'INVALID_CONTENT_DIGEST',
   INVALID_AMOUNT: 'INVALID_AMOUNT',
   INVALID_CONFIG: 'INVALID_CONFIG',
   INVALID_ARTIFACT_VERSION: 'INVALID_ARTIFACT_VERSION',
@@ -79,7 +80,17 @@ export const ClaimCreationErrorCode = {
   UNEXPECTED_ERROR: 'UNEXPECTED_ERROR',
 } as const;
 
-export type ClaimCreationErrorCode = (typeof ClaimCreationErrorCode)[keyof typeof ClaimCreationErrorCode];
+export type ClaimCreationErrorCode =
+  (typeof ClaimCreationErrorCode)[keyof typeof ClaimCreationErrorCode];
+
+const {
+  INVALID_CHAIN,
+  INVALID_ADDRESS,
+  INVALID_CONTENT_DIGEST,
+  INVALID_AMOUNT,
+  INVALID_CONFIG,
+  INVALID_ARTIFACT_VERSION,
+} = ClaimCreationErrorCode;
 
 export class ClaimCreationError extends Error {
   readonly code: ClaimCreationErrorCode;
@@ -160,101 +171,111 @@ export type ClaimCreationStatus =
 // ---------------------------------------------------------------------------
 
 function isHex(value: string): value is Hex {
-  return /^0x[0-9a-fA-F]+$/.test(value);
+  return /^0x[a-fA-F0-9]+$/.test(value);
 }
 
 function isBytes32Hex(value: string): value is Hex {
-  // 0x/+ 69 heogchar = 66 chars
+  // 0x + 64 hex chars = 66 chars
   return isHex(value) && value.length === 66;
 }
 
-function validateParams(params: ClaimCreationParams, expectedChainId: number) {
-  // check chain id parameter is valid if provided
-  if (params.expectedChainId !== undefined && !Number.isInteger(params.expectedChainId)) {
+function validateFrozenConfig(frozenConfig: Hex) {
+  if (!isHex(frozenConfig) || frozenConfig.replace(/^0x/, '').length % 2 !== 0) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_CHAIN,
-      'expectedChainId must be a positive integer network id.',
+      INVALID_CONFIG,
+      'frozenConfig must be valid hx bytes (even length).'
     );
   }
 
-  if (params.artifactVersion !== SUPORTED_ARTIFACT_VERSION) {
+  // Enforce a reasonable upper bound to avoid unbounded on-chain data.
+  const configBytes = (frozenConfig.length - 2) / 2;
+  if (configBytes > MAX_FROZEN_CONFIG_BYTE_LENGTH) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_ARTIFACT_VERSION,
-      `Unsupported artifact version. Expected "${SUPORTED_ARTIFACT_VERSION}", received "${params.artifactVersion}".`,
+      INVALID_CONFIG,
+      `frozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYTE_LENGTH} bytes.`
+    );
+  }
+}
+
+function validateApproval(approval: ClaimCreationParams['approval']) {
+  if (!approval) return;
+  const { token, spender, requiredAmount } = approval;
+  if (!isAddress(token)) {
+    throw new ClaimCreationError(
+      INVALID_ADDRESS,
+      `Invalid approval token address: ${token}`
+    );
+  }
+  if (!isAddress(spender)) {
+    throw new ClaimCreationError(
+      INVALID_ADDRESS,
+      `Invalid approval spender address: ${spender}`
+    );
+  }
+  if (requiredAmount <= 0n) {
+    throw new ClaimCreationError(INVALID_AMOUNT, 'approval.requiredAmount must be positive.');
+  }
+}
+
+function validateParams(
+  params: ClaimCreationParams,
+  expectedChainId: number,
+) {
+  // check chain id parameter is valid if provided
+  if (params.expectedChainId !== undefined && !Number.isInteger(params.expectedChainId)) {
+    throw new ClaimCreationError(INVALID_CHAIN,
+      'expectedChainId must be a positive integer network id.');
+  }
+
+  if (params.artifactVersion !== SUPPORTED_ARTIFACT_VERSION) {
+    throw new ClaimCreationError(
+      INVALID_ARTIFACT_VERSION,
+      `Unsupported artifact version. Expected "${SUPPORTED_ARTIFACT_VERSION}", received "${params.artifactVersion}".`
     );
   }
 
   if (!isBytes32Hex(params.contentDigest)) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_CONTENT_MIGEST,
-      'contentDigest must be a 32-byte hex string (0x + 64 hex chars).',
+      INVALID_CONTENT_DIGEST,
+      'contentDigest must be a 32-byte hex string (0x + 64 hex chars).'
     );
   }
 
   if (!isAddress(params.asset)) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_ADDRESS,
-      `Invalid asset address: ${params.asset}`,
+      INVALID_ADDRESS,`Invalid asset address: ${params.asset}`
     );
   }
 
   if (params.amount <= 0n) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_AMOUNT,
-      'amount must be a positive integer (bigint).',
+      INVALID_AMOUNT,
+      'amount must be a positive integer (bigint).'
     );
   }
 
-  if (!isHex(params.frozenConfig) || params.frozenConfig.replace(/^0x/, '').length % 2 !== 0) {
-    throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_CONFIG,
-      'frozenConfig must be valid hex bytes (even length).',
-    );
-  }
-
-  // Enforce a reasonable upper bound to avoid unbounded on-chain data.
-  const configBytes = (params.frozenConfig.length - 2) / 2;
-  if (configBytes > MAX_FROZEN_CONFIG_BYTE_LENGTH) {
-    throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_CONFIG,
-      `frozenConfig exceeds max size of ${MAX_FROZEN_CONFIG_BYTE_LENGTH} bytes.`,
-    );
-  }
+  validateFrozenConfig(params.frozenConfig);
 
   if (!isAddress(params.claimContractAddress)) {
     throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_ADDRESS,
-      `Invalid claim contract address: ${params.claimContractAddress}`,
+      INVALID_ADDRESS,
+      `Invalid claim contract address: ${params.claimContractAddress}`
     );
   }
 
-  if (params.approval) {
-    const { token, spender, requiredAmount } = params.approval;
-    if (!isAddress(token)) {
-      throw new ClaimCreationError(
-        ClaimCreationErrorCode.INVALID_ADDRESS,
-        `Invalid approval token address: ${token}`,
-      );
-    }
-    if (!isAddress(spender)) {
-      throw new ClaimCreationError(
-        ClaimCreationErrorCode.INVALID_ADDRESS,
-        `Invalid approval spender address: ${spender}`,
-      );
-    }
-    if (requiredAmount <= 0n) {
-      throw new ClaimCreationError(
-        ClaimCreationErrorCode.INVALID_AMOUNT,
-        'approval.requiredAmount must be positive.',
-      );
-    }
+  const writeTarget = evaluateWriteTarget({
+    activeChainId: expectedChainId,
+    contractAddress: params.claimContractAddress,
+  });
+  if (!writeTarget.ok) {
+    const code = writeTarget.code === 'STALE_ARTIFACT' ? INVALID_ARTIFACT_VERSION : INVALID_ADDRESS;
+    throw new ClaimCreationError(code, writeTarget.errors.join('; '));
   }
+
+  validateApproval(params.approval);
 
   if (!Number.isInteger(expectedChainId) || expectedChainId <= 0) {
-    throw new ClaimCreationError(
-      ClaimCreationErrorCode.INVALID_CHAIN,
-      'expectedChainId must be a positive integer network id.',
-    );
+    throw new ClaimCreationError(INVALID_CHAIN, 'expectedChainId must be a positive integer network id.');
   }
 }
 
@@ -456,6 +477,26 @@ export function useClaimCreationTransaction() {
             { cause: indexError },
           );
         }
+
+        const securityTx: TransactionConfirmed = {
+          state: 'confirmed',
+          hash: writeHash,
+          fromAddress: account,
+          toAddress: claimContract,
+          chainId: expectedChainId,
+          timestamp: Date.now(),
+          blockNumber: receipt.blockNumber ?? 0n,
+          blockHash: receipt.blockHash ?? '0x' + '0'.repeat(64),
+          transactionIndex: receipt.transactionIndex ?? 0,
+          confirmations: Number(receipt.confirmations ?? 1n),
+          receipt: {
+            status: receipt.status === 'success' ? 'success' : 'reverted',
+            gasUsed: receipt.gasUsed ?? 0n,
+            cumulativeGasUsed: receipt.cumulativeGasUsed ?? 0n,
+            logs: [],
+          },
+        };
+        assertNoFabricatedData(securityTx);
 
         setStatus('success');
         return { status: 'success', txHash: writeHash, indexedClaim };

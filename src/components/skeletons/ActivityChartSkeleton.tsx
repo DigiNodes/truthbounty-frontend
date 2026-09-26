@@ -8,14 +8,17 @@ export function ActivityChartSkeleton() {
 
       {/* Chart area skeleton */}
       <div className="flex-1 w-full flex items-end gap-2 pb-4">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="flex-1 flex flex-col gap-1 items-center">
-            <div className="w-full flex flex-col gap-0.5 justify-end flex-1">
-              <Skeleton className="w-full flex-1 rounded-t" style={{ height: `${Math.random() * 60 + 40}%` }} />
+        {Array.from({ length: 12 }).map((_, i) => {
+          const heights = [65, 45, 80, 55, 70, 40, 90, 60, 75, 50, 85, 65];
+          return (
+            <div key={i} className="flex-1 flex flex-col gap-1 items-center">
+              <div className="w-full flex flex-col gap-0.5 justify-end flex-1">
+                <Skeleton className="w-full flex-1 rounded-t" style={{ height: `${heights[i % heights.length]}%` }} />
+              </div>
+              <Skeleton className="h-3 w-4 mt-2" />
             </div>
-            <Skeleton className="h-3 w-4 mt-2" />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Legend */}

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React from 'react'
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -316,9 +315,7 @@ describe('WebSocket Real-time Integration Tests', () => {
 
       function MultipleUpdatesTest() {
         const [claim, setClaim] = React.useState(mockClaim)
-        const [verifications, setVerifications] = React.useState<
-          Array<{ stakeAmount: number; address?: string }>
-        >([])
+        const [verifications, setVerifications] = React.useState<any[]>([])
         const [updateCount, setUpdateCount] = React.useState(0)
 
         React.useEffect(() => {
@@ -460,9 +457,7 @@ describe('WebSocket Real-time Integration Tests', () => {
       }
 
       function DisputeTest() {
-        const [disputes, setDisputes] = React.useState<
-          Array<{ id?: string; disputeId?: string; reason?: string; claimId?: string }>
-        >([])
+        const [disputes, setDisputes] = React.useState<any[]>([])
         const [disputeCount, setDisputeCount] = React.useState(0)
 
         React.useEffect(() => {

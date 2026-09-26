@@ -15,7 +15,6 @@ import type {
   DisputeResolvedEvent,
   LeaderboardUpdatedEvent,
 } from '@/app/types/websocket';
-import type { Claim } from '@/app/types/claim';
 import { sortAndNormalizeLeaderboard } from '@/lib/leaderboard';
 
 /**
@@ -57,7 +56,7 @@ export function useRealtimeData() {
       // Also update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: Claim) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, ...payload.updates }
               : claim
@@ -90,7 +89,7 @@ export function useRealtimeData() {
       // Update in the list
       queryClient.setQueryData(queryKeys.claims.all, (old: unknown) => {
         if (Array.isArray(old)) {
-          return old.map((claim: Claim) =>
+          return (old as Array<{ id: string } & Record<string, unknown>>).map((claim) =>
             claim.id === payload.claimId
               ? { ...claim, status: payload.newStatus }
               : claim
@@ -100,7 +99,7 @@ export function useRealtimeData() {
       });
 
       // Invalidate related queries to refetch
-      queryClient.invalidateQueries({ queryKey: ['claims', payload.claimId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.claims.detail(payload.claimId) });
     },
     [queryClient]
   );
@@ -115,7 +114,7 @@ export function useRealtimeData() {
 
       // Invalidate user verification queries
       queryClient.invalidateQueries({
-        queryKey: ['user', payload.verification.verifierAddress],
+        queryKey: queryKeys.user.profile(payload.verification.verifierAddress),
       });
     },
     [queryClient]
@@ -141,7 +140,7 @@ export function useRealtimeData() {
       });
 
       // Invalidate dispute queries
-      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.disputes.all });
     },
     [queryClient]
   );

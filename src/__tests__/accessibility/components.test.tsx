@@ -1,15 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React from 'react'
-import { render } from '../utils/test-utils'
+import { render, screen } from '../utils/test-utils'
 import { assertAccessible } from '../utils/axe'
 
+let mockTrust = {
+  reputation: 50,
+  isVerified: true,
+  accountAgeDays: 30,
+  suspicious: false,
+}
+
+let mockNetwork = {
+  isOnline: false,
+  saveData: false,
+  effectiveType: null as string | null,
+  isLowBandwidth: false,
+}
+
+jest.mock('@/hooks/useNetworkStatus', () => ({
+  useNetworkStatus: () => mockNetwork,
+  readLowBandwidth: () => mockNetwork.isLowBandwidth,
+}))
+
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: jest.fn(() => ({
-    reputation: 50,
-    isVerified: true,
-    accountAgeDays: 30,
-    suspicious: false,
-  })),
+  useTrust: () => mockTrust,
 }))
 
 jest.mock('@/components/providers/FeatureFlagProvider', () => ({
@@ -79,6 +92,15 @@ jest.mock('@tanstack/react-query', () => ({
 }))
 
 describe('Accessibility: UI Components', () => {
+  beforeEach(() => {
+    mockTrust = {
+      reputation: 50,
+      isVerified: true,
+      accountAgeDays: 30,
+      suspicious: false,
+    }
+  })
+
   it('TrustIndicator should have no axe violations', async () => {
     const TrustIndicator = (await import('@/components/ui/TrustIndicator')).default
     const { container } = render(<TrustIndicator />)
@@ -86,12 +108,12 @@ describe('Accessibility: UI Components', () => {
   })
 
   it('TrustWarningBanner should have no axe violations', async () => {
-    jest.mocked(require('@/components/hooks/useTrust').useTrust).mockReturnValue({
+    mockTrust = {
       reputation: 10,
       isVerified: false,
       accountAgeDays: 1,
       suspicious: false,
-    })
+    }
     const TrustWarningBanner = (await import('@/components/ui/TrustWarningBanner')).default
     const { container } = render(<TrustWarningBanner />)
     await assertAccessible(container)
@@ -106,6 +128,19 @@ describe('Accessibility: UI Components', () => {
   it('WebSocketStatus should have no axe violations', async () => {
     const { WebSocketStatus } = await import('@/components/ui/WebSocketStatus')
     const { container } = render(<WebSocketStatus />)
+    await assertAccessible(container)
+  })
+
+  it('OfflineBanner should have no axe violations when offline', async () => {
+    mockNetwork = {
+      isOnline: false,
+      saveData: false,
+      effectiveType: null,
+      isLowBandwidth: false,
+    }
+    const OfflineBanner = (await import('@/components/ui/OfflineBanner')).default
+    const { container } = render(<OfflineBanner />)
+    expect(screen.getByTestId('offline-banner')).toHaveAttribute('aria-live', 'polite')
     await assertAccessible(container)
   })
 })

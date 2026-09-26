@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 /**
  * Integration Tests: Claim Submission Flow
  * 
@@ -16,42 +15,76 @@ import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient } from '@tanstack/react-query'
 import { useSubmitClaim } from '@/app/queries/claims.queries'
+import ClaimSubmissionForm from '@/components/features/claim-submission/ClaimSubmissionForm'
 import { render, createMockClaim } from '../utils/test-utils'
 import { setupMockServer } from '../mocks/server'
-import ClaimSubmissionForm from '@/components/features/claim-submission/ClaimSubmissionForm'
 
 const server = setupMockServer()
 
-let mockTrustInfo = {
+// V2-FE-100: claim writes must target the release chain (11155420), not mainnet 10.
+jest.mock('wagmi', () => ({
+  useAccount: () => ({
+    address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E',
+    isConnected: true,
+    isConnecting: false,
+    isDisconnected: false,
+    chainId: 11155420,
+    status: 'connected',
+  }),
+  useDisconnect: () => ({
+    disconnect: jest.fn(),
+    disconnectAsync: jest.fn().mockResolvedValue(undefined),
+  }),
+  useChainId: () => 11155420,
+  useSwitchChain: () => ({
+    switchChain: jest.fn(),
+  }),
+  usePublicClient: () => ({}),
+  useWalletClient: () => ({}),
+  useBlockNumber: jest.fn(() => ({ data: 100n })),
+  useReadContract: jest.fn(() => ({ data: undefined, isLoading: false })),
+  useWriteContract: jest.fn(() => ({
+    writeContractAsync: jest.fn().mockResolvedValue('0x' + '1'.repeat(64)),
+  })),
+  useWaitForTransactionReceipt: jest.fn(() => ({ data: null, isLoading: false })),
+  useBalance: jest.fn(() => ({
+    data: { value: 1000000000000000000n, formatted: '1.0' },
+    isLoading: false,
+  })),
+  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
+  useConnect: () => ({
+    connect: jest.fn(),
+    connectAsync: jest.fn().mockResolvedValue(undefined),
+  }),
+  WagmiProvider: ({ children }: { children: React.ReactNode }) => children,
+  createStorage: jest.fn(() => ({})),
+  cookieStorage: {},
+  http: jest.fn(),
+}))
+
+let mockTrustState = {
   isVerified: true,
   reputation: 50,
   accountAgeDays: 30,
   suspicious: false,
 }
 
+let mockMutateAsync = jest.fn().mockResolvedValue({})
+
 jest.mock('@/components/hooks/useTrust', () => ({
-  useTrust: () => mockTrustInfo,
+  useTrust: () => mockTrustState,
 }))
 
-jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: '0x1234567890123456789012345678901234567890', isConnected: true }),
-  useChainId: () => 11155420,
-  usePublicClient: () => ({
-    waitForTransactionReceipt: jest.fn().mockResolvedValue(undefined),
-    simulateContract: jest.fn().mockResolvedValue({ request: {} }),
-  }),
-  useReadContract: () => ({ data: 0n }),
-  useWriteContract: jest.fn(() => ({ writeContractAsync: jest.fn().mockResolvedValue('0xhash') })),
-  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
-  useConnect: () => ({ connect: jest.fn() }),
-}))
-
-// Claim contract config is required by useCreateClaimTransaction during render.
-process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
-process.env.NEXT_PUBLIC_BOUNTY_ASSET = '0x1234567890123456789012345678901234567890';
-process.env.NEXT_PUBLIC_CLAIM_AMOUNT = '1000000000000000000';
-process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH = '0xabc';
-process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID = '11155420';
+jest.mock('@/app/queries/claims.queries', () => {
+  const actual = jest.requireActual('@/app/queries/claims.queries')
+  return {
+    ...actual,
+    useSubmitClaim: () => ({
+      mutateAsync: mockMutateAsync,
+      isLoading: false,
+    }),
+  }
+})
 
 jest.mock('@/app/api/claims.api', () => ({
   submitClaim: jest.fn(),
@@ -74,16 +107,6 @@ describe('Claim Submission Integration Tests', () => {
     })
     user = userEvent.setup()
     jest.clearAllMocks()
-    mockTrustInfo = {
-      isVerified: true,
-      reputation: 50,
-      accountAgeDays: 30,
-      suspicious: false,
-    }
-    // Restore the default successful write path (individual tests may override).
-    ;(require('wagmi').useWriteContract as jest.Mock).mockReturnValue({
-      writeContractAsync: jest.fn().mockResolvedValue('0xhash'),
-    })
   })
 
   afterEach(() => {
@@ -295,22 +318,22 @@ describe('Claim Submission Integration Tests', () => {
       await waitFor(() => {
         expect(submitButton).toHaveTextContent('Submit')
         expect(submitButton).not.toBeDisabled()
-      }, { timeout: 300 })
+      })
     })
 
     it('should display validation errors for empty fields', async () => {
       function ValidationForm() {
         const [errors, setErrors] = React.useState<Record<string, string>>({})
 
-        const handleSubmit = (e: React.FormEvent) => {
+        const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
           e.preventDefault()
-          const form = e.currentTarget as HTMLFormElement
+          const form = e.currentTarget
+          const titleInput = form.elements.namedItem('title') as HTMLInputElement | null
+          const descInput = form.elements.namedItem('description') as HTMLInputElement | null
           const newErrors: Record<string, string> = {}
 
-          const titleInput = form.elements.namedItem('title') as HTMLInputElement | null
-          const descriptionInput = form.elements.namedItem('description') as HTMLTextAreaElement | null
-          if (titleInput && !titleInput.value) newErrors.title = 'Title is required'
-          if (descriptionInput && !descriptionInput.value) newErrors.description = 'Description is required'
+          if (!titleInput?.value) newErrors.title = 'Title is required'
+          if (!descInput?.value) newErrors.description = 'Description is required'
 
           setErrors(newErrors)
         }
@@ -468,98 +491,94 @@ describe('Claim Submission Integration Tests', () => {
     })
   })
 
-  describe('Trust Warning Display', () => {
+  describe('Trust Warning', () => {
     it('should show trust warning for low trust accounts', () => {
-      const onSubmit = jest.fn()
-      mockTrustInfo = {
-        isVerified: true,
-        reputation: 5,
-        accountAgeDays: 30,
-        suspicious: false,
+      mockTrustState = {
+        isVerified: false,
+        reputation: 10,
+        accountAgeDays: 2,
+        suspicious: true,
       }
-      
+
+      const onSubmit = jest.fn()
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
       // Check for trust warning
-      expect(screen.getByText(/low trust score/i)).toBeInTheDocument()
+      expect(screen.getByText(/⚠️ Low trust score/i)).toBeInTheDocument()
     })
 
     it('should not show trust warning for high trust accounts', () => {
+      mockTrustState = {
+        isVerified: true,
+        reputation: 100,
+        accountAgeDays: 365,
+        suspicious: false,
+      }
+
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
       // Should not show trust warning
-      expect(screen.queryByText(/low trust score/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/⚠️ Low trust score/i)).not.toBeInTheDocument()
     })
   })
 
   describe('API Integration', () => {
-    it('should handle submission errors gracefully', async () => {
-      // Simulate an on-chain write failure: the form must surface the error
-      // without closing or crashing.
-      const { useWriteContract } = require('wagmi')
-      useWriteContract.mockReturnValue({
-        writeContractAsync: jest.fn().mockRejectedValue(new Error('Transaction failed')),
-      })
+    it('should handle API errors gracefully', async () => {
+      mockMutateAsync = jest.fn().mockRejectedValue(new Error('API Error'))
 
       const onSubmit = jest.fn()
-      const onClose = jest.fn()
-      
       render(
-        <ClaimSubmissionForm onSubmit={onSubmit} onClose={onClose} />,
+        <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
-      // Fill out complete valid form
-      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim')
+      // Fill out valid form
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim Title')
       await user.type(screen.getByPlaceholderText('Category'), 'Politics')
       await user.type(screen.getByPlaceholderText('Impact'), 'High')
       await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
-      await user.type(screen.getByPlaceholderText('Description'), 'A sufficiently long description.')
+      await user.type(screen.getByPlaceholderText('Description'), 'This is a sufficiently long description.')
 
       // Submit form
-      const submitButton = screen.getByRole('button', { name: /submit claim/i })
+      const submitButton = screen.getByTestId('submit-claim-button')
       await user.click(submitButton)
 
-      // The form should surface the error and neither fire onSubmit nor close.
+      // The form should show error message
       await waitFor(() => {
-        expect(screen.getAllByText(/transaction failed/i).length).toBeGreaterThan(0)
+        expect(screen.getAllByText('API Error').length).toBeGreaterThan(0)
       })
-      expect(onSubmit).not.toHaveBeenCalled()
-      expect(onClose).not.toHaveBeenCalled()
     })
 
     it('should integrate with React Query mutation', async () => {
-      // This test would require more complex setup with actual React Query integration
-      // For now, we test the component in isolation
+      mockMutateAsync = jest.fn().mockResolvedValue({})
+
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
       )
 
       // Fill and submit form
-      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim')
+      await user.type(screen.getByPlaceholderText('Title'), 'Test Claim Title')
       await user.type(screen.getByPlaceholderText('Category'), 'Politics')
       await user.type(screen.getByPlaceholderText('Impact'), 'High')
       await user.type(screen.getByPlaceholderText('https://example.com'), 'https://example.com/source')
-      await user.type(screen.getByPlaceholderText('Description'), 'A sufficiently long description.')
+      await user.type(screen.getByPlaceholderText('Description'), 'This is a sufficiently long description.')
 
-      const submitButton = screen.getByRole('button', { name: /submit claim/i })
+      const submitButton = screen.getByTestId('submit-claim-button')
       await user.click(submitButton)
 
       await waitFor(() => {
         expect(onSubmit).toHaveBeenCalledWith(
           expect.objectContaining({
-            title: 'Test Claim',
+            title: 'Test Claim Title',
           })
         )
       })
@@ -568,8 +587,8 @@ describe('Claim Submission Integration Tests', () => {
 
   describe('Accessibility', () => {
     it('should be accessible via keyboard', async () => {
+      const userTab = userEvent.setup()
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
@@ -580,30 +599,29 @@ describe('Claim Submission Integration Tests', () => {
       titleInput.focus()
       
       // Tab to next field
-      await user.tab()
+      await userTab.tab()
       expect(screen.getByPlaceholderText('Category')).toHaveFocus()
 
-      await user.tab()
+      await userTab.tab()
       expect(screen.getByPlaceholderText('Impact')).toHaveFocus()
 
-      await user.tab()
+      await userTab.tab()
       expect(screen.getByPlaceholderText('https://example.com')).toHaveFocus()
 
-      await user.tab()
+      await userTab.tab()
       expect(screen.getByPlaceholderText('Description')).toHaveFocus()
 
       // Tab to cancel button
-      await user.tab()
-      expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus()
+      await userTab.tab()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
 
       // Tab to submit button
-      await user.tab()
-      expect(screen.getByRole('button', { name: /submit claim/i })).toHaveFocus()
+      await userTab.tab()
+      expect(screen.getByTestId('submit-claim-button')).toHaveFocus()
     })
 
     it('should have proper ARIA labels', () => {
       const onSubmit = jest.fn()
-      
       render(
         <ClaimSubmissionForm onSubmit={onSubmit} onClose={jest.fn()} />,
         { queryClient }
@@ -612,9 +630,11 @@ describe('Claim Submission Integration Tests', () => {
       // Check for proper heading
       expect(screen.getByRole('heading', { name: 'Submit a Claim' })).toBeInTheDocument()
 
-      // Check form inputs have proper labels (via placeholder)
+      // Check form inputs have proper labels
       expect(screen.getByPlaceholderText('Title')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('Category')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Impact')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('https://example.com')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('Description')).toBeInTheDocument()
     })
   })

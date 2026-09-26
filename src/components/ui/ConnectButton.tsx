@@ -1,13 +1,20 @@
-import React from 'react'
-import { ConnectButton as RainbowKitConnectButton } from '@rainbow-me/rainbowkit'
-import styles from './style.module.css'
+'use client';
+
+import React from 'react';
+import { ConnectButton as RainbowKitConnectButton } from '@rainbow-me/rainbowkit';
+import styles from './style.module.css';
 
 export interface ConnectButtonProps {
-  label: string
-  isHigher?: boolean
+  label?: string;
+  isHigher?: boolean;
+  onClick?: () => void;
 }
 
-export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
+export function ConnectButton({
+  label = 'Connect Wallet',
+  isHigher,
+  onClick,
+}: ConnectButtonProps) {
   return (
     <RainbowKitConnectButton.Custom>
       {({
@@ -22,7 +29,8 @@ export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
           ready &&
           account &&
           chain &&
-          (!authenticationStatus || authenticationStatus === 'authenticated');
+          (!authenticationStatus ||
+            authenticationStatus === 'authenticated');
 
         return (
           <div
@@ -30,31 +38,28 @@ export function ConnectButton({ label, isHigher }: ConnectButtonProps) {
               'aria-hidden': true,
               style: {
                 opacity: 0,
-                pointerEvents: 'none',
+                pointerEvents: 'none' as const,
               },
             })}
           >
-            {(() => {
-              if (!connected) {
-                return (
-                  <button
-                    className={styles.button}
-                    style={{ height: isHigher ? 50 : 38 }}
-                    onClick={openConnectModal}
-                    aria-label={label}
-                  >
-                    {label}
-                  </button>
-                );
-              }
-
-              return (
-                <RainbowKitConnectButton />
-              );
-            })()}
+            {!connected ? (
+              <button
+                type="button"
+                className={styles.button}
+                style={{ height: isHigher ? 50 : 38 }}
+                onClick={onClick ?? openConnectModal}
+                aria-label={label}
+              >
+                {label}
+              </button>
+            ) : (
+              <RainbowKitConnectButton />
+            )}
           </div>
         );
       }}
     </RainbowKitConnectButton.Custom>
-  )
+  );
 }
+
+export default ConnectButton;

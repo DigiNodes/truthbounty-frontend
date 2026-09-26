@@ -12,6 +12,8 @@ import {
   onSystemThemeChange 
 } from '@/lib/theme';
 
+import { useIsMounted } from '@/hooks/useIsMounted';
+
 interface ThemeContextValue {
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
@@ -28,21 +30,25 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useIsMounted();
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredTheme() || defaultTheme;
+    }
+    return defaultTheme;
+  });
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const initial = getStoredTheme() || defaultTheme;
+      return getResolvedTheme(initial);
+    }
+    return 'dark';
+  });
 
-  // Initialize theme on mount (client-side only)
+  // Apply theme when mounted or when theme changes
   useEffect(() => {
-    setIsMounted(true);
-    const storedTheme = getStoredTheme();
-    const initialTheme = storedTheme || defaultTheme;
-    
-    setThemeState(initialTheme);
-    setResolvedTheme(getResolvedTheme(initialTheme));
-    
-    applyTheme(initialTheme);
-  }, [defaultTheme]);
+    applyTheme(theme);
+  }, [theme]);
 
   // Listen for system theme changes when using 'system' theme
   useEffect(() => {
