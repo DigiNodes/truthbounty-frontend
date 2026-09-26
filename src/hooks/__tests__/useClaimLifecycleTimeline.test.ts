@@ -55,9 +55,8 @@ describe('useClaimLifecycleTimeline', () => {
       },
     });
 
-    wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
 
     jest.clearAllMocks();
     jest.useFakeTimers();

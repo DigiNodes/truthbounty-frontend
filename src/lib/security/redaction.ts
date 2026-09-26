@@ -77,11 +77,11 @@ function cloneAndRedact(value: unknown, depth: number): unknown {
     return value;
   }
 
-  const type = typeof value;
-
-  if (type === 'string') {
+  if (typeof value === 'string') {
     return redactStringValue(value);
   }
+
+  const type = typeof value;
 
   if (type === 'number' || type === 'boolean' || type === 'bigint') {
     return value;

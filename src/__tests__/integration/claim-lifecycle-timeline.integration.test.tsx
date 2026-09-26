@@ -92,10 +92,15 @@ describe('Claim Lifecycle Timeline Integration', () => {
     queryClient.clear();
   });
 
-  const renderTimeline = (claimId: string = 'claim-integration-123', props = {}) => {
+  const renderTimeline = (
+    claimIdOrProps: string | Record<string, unknown> = 'claim-integration-123',
+    props: Record<string, unknown> = {}
+  ) => {
+    const claimId = typeof claimIdOrProps === 'string' ? claimIdOrProps : 'claim-integration-123';
+    const finalProps = typeof claimIdOrProps === 'object' ? { ...claimIdOrProps, ...props } : props;
     return render(
       <QueryClientProvider client={queryClient}>
-        <ClaimLifecycleTimeline claimId={claimId} {...props} />
+        <ClaimLifecycleTimeline claimId={claimId} {...finalProps} />
       </QueryClientProvider>
     );
   };
