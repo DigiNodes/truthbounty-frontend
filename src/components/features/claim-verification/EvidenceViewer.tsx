@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
+import { useClaimDetailProjection } from '@/hooks/useClaimDetailProjection';
 import {
   sanitizeEvidenceList,
   SafeEvidenceItem,
@@ -26,21 +27,13 @@ export interface EvidenceViewerProps {
  *  - text renders as React text children only — no innerHTML, ever
  */
 export function EvidenceViewer({
-  claimId: _claimId,
+  claimId,
   evidence: rawEvidence,
 }: EvidenceViewerProps) {
-  void _claimId;
   const [expanded, setExpanded] = useState(true);
+  const projection = useClaimDetailProjection(rawEvidence ? undefined : claimId);
 
-  // Canonical default set used when the API payload is not wired through yet.
-  // These go through the same sanitizer as untrusted content.
-  const defaultEvidence = [
-    { type: 'link', value: 'https://example.com' },
-    { type: 'text', value: 'Witness testimony text' },
-    { type: 'image', value: '/evidence/img1.png' },
-  ];
-
-  const evidence = sanitizeEvidenceList(rawEvidence ?? defaultEvidence);
+  const evidence = sanitizeEvidenceList(rawEvidence ?? projection.data?.claim.evidence ?? []);
 
   return (
     <div className="card p-4 sm:p-6">
@@ -62,7 +55,23 @@ export function EvidenceViewer({
           className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
           style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}
         >
-          {evidence.length === 0 && (
+          {projection.viewState === 'loading' && !rawEvidence && (
+            <p className="text-sm text-gray-500" role="status" aria-busy="true">Loading canonical evidence...</p>
+          )}
+          {projection.viewState === 'error' && !rawEvidence && (
+            <div className="space-y-2" role="alert">
+              <p className="text-sm text-red-500">Evidence projection unavailable.</p>
+              <button type="button" onClick={projection.retry} className="text-sm text-blue-600 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
+                Try again
+              </button>
+            </div>
+          )}
+          {projection.viewState === 'ready-stale' && !rawEvidence && (
+            <p className="text-sm text-amber-700" role="status">
+              Evidence projection may be outdated. Review before relying on it.
+            </p>
+          )}
+          {evidence.length === 0 && projection.viewState !== 'loading' && projection.viewState !== 'error' && (
             <p className="text-sm text-gray-500">No evidence available.</p>
           )}
 
