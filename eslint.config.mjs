@@ -18,13 +18,6 @@ const eslintConfig = defineConfig([
   ]),
   ...storybook.configs["flat/recommended"],
   {
-    rules: {
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/static-components": "off",
-    },
-  },
-  {
     files: [
       "**/__tests__/**/*",
       "**/*.test.*",
@@ -37,16 +30,71 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/rules-of-hooks": "off",
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/immutability": "off",
-      "react-hooks/purity": "off",
     },
   },
   {
     files: ["**/*.stories.*"],
     rules: {
       "storybook/no-renderer-packages": "off",
+    },
+  },
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx,mjs,cjs}"],
+    ignores: [
+      "src/**/__tests__/**",
+      "src/**/__mocks__/**",
+      "src/**/fixtures/**",
+      "src/**/mocks/**",
+      "src/**/stories/**",
+      "src/**/.storybook/**",
+      "src/**/*.test.*",
+      "src/**/*.spec.*",
+      "src/**/*.stories.*",
+      "src/stories/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "jest", message: "Jest is restricted to test-only files." },
+            { name: "jest-mock", message: "Jest mocks are restricted to test-only files." },
+            { name: "msw", message: "MSW handlers are restricted to test-only files." },
+            { name: "vitest", message: "Vitest is restricted to test-only files." },
+            { name: "@playwright/test", message: "Playwright is restricted to test-only files." },
+          ],
+          patterns: [
+            {
+              group: [
+                "@/**/__tests__/**",
+                "@/**/__mocks__/**",
+                "@/**/fixtures/**",
+                "@/**/mocks/**",
+                "@/**/stories/**",
+                "@/**/.storybook/**",
+                "@/stories/**",
+                "**/__tests__/**",
+                "**/__mocks__/**",
+                "**/fixtures/**",
+                "**/mocks/**",
+                "**/stories/**",
+                "**/.storybook/**",
+                "**/*.test",
+                "**/*.spec",
+                "@storybook/**",
+                "@testing-library/**",
+                "@vitest/**",
+                "@playwright/test/*",
+                "jest/*",
+                "jest-mock/*",
+                "msw/*",
+                "vitest/*",
+              ],
+              message: "Test fixtures, mocks, and tooling must not be imported by production code.",
+            },
+          ],
+        },
+      ],
     },
   },
 ]);

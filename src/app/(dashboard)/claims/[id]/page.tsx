@@ -2,16 +2,20 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { EvidenceViewer } from '@/components/features/claim-verification/EvidenceViewer';
 import { StakeForm } from '@/components/features/claim-verification/StakeForm';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
+import { FeatureErrorBoundary } from '@/components/common/FeatureErrorBoundary';
 
-export default function ClaimDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function ClaimDetailPage() {
+  // Route params are read through useParams() rather than the page props:
+  // under async request APIs the props value is a Promise on the client, and
+  // `params.id` evaluated to undefined there, so the page rendered its
+  // "Claim not Found" state without ever consulting the API projection.
+  const { id: claimId } = useParams<{ id: string }>();
+
   const [stakeAmount, setStakeAmount] = useState(0);
   const [claimNotFound, setClaimNotFound] = useState(false);
 
@@ -117,16 +121,18 @@ export default function ClaimDetailPage({
                   </div>
 
                   <span className="hidden rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:inline-flex">
-                    ID: {params.id}
+                    ID: {claimId}
                   </span>
                 </div>
               </div>
 
               <div className="p-5 sm:p-6">
-                <ClaimDetails
-                  claimId={params.id}
-                  onNotFound={handleNotFound}
-                />
+                <FeatureErrorBoundary scope="claim-details">
+                  <ClaimDetails
+                    claimId={claimId}
+                    onNotFound={handleNotFound}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
@@ -143,7 +149,9 @@ export default function ClaimDetailPage({
               </div>
 
               <div className="p-5 sm:p-6">
-                <EvidenceViewer claimId={params.id} />
+                <FeatureErrorBoundary scope="evidence">
+                  <EvidenceViewer claimId={claimId} />
+                </FeatureErrorBoundary>
               </div>
             </div>
           </section>
@@ -219,10 +227,12 @@ export default function ClaimDetailPage({
               </div>
 
               <div className="p-5">
-                <StakeForm
-                  claimId={params.id}
-                  onStakeChange={handleStakeChange}
-                />
+                <FeatureErrorBoundary scope="stake">
+                  <StakeForm
+                    claimId={claimId}
+                    onStakeChange={handleStakeChange}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
@@ -239,10 +249,12 @@ export default function ClaimDetailPage({
               </div>
 
               <div className="p-5">
-                <VerificationActions
-                  claimId={params.id}
-                  stakeAmount={stakeAmount}
-                />
+                <FeatureErrorBoundary scope="verification-actions">
+                  <VerificationActions
+                    claimId={claimId}
+                    stakeAmount={stakeAmount}
+                  />
+                </FeatureErrorBoundary>
               </div>
             </div>
 
