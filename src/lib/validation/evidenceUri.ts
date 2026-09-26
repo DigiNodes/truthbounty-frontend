@@ -17,8 +17,6 @@ const SENSITIVE_PARAM_NAMES = new Set([
   'api_key',
   'apikey',
   'access_token',
-  'authorization',
-  'credential',
   'sig',
   'signature',
   'x-amz-signature',
@@ -28,13 +26,8 @@ const SENSITIVE_PARAM_NAMES = new Set([
   'x-goog-credential',
 ]);
 
-/**
- * IPFS CID validation:
- * - CIDv0: base58btc starting with Qm (exactly 46 characters: Qm + 44 base58 chars)
- * - CIDv1: multibase base32 starting with 'b' (e.g. bafy..., baga...) using RFC 4648 base32 [a-z2-7]
- * Anchored end-to-end to reject trailing invalid characters.
- */
-const IPFS_CID_REGEX = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/i;
+// IPFS CID patterns: CIDv0 (base58 starting with Qm...) or CIDv1 (multibase starting with baf...)
+const IPFS_CID_REGEX = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[0-9a-z]{56,})/i;
 
 export interface EvidenceUriValidationResult {
   isValid: boolean;
@@ -94,7 +87,7 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
     };
   }
 
-  // Inspect query parameters for secrets, credentials, or presigned signatures
+  // Inspect query parameters for secrets or presigned URL signatures
   for (const [key] of parsed.searchParams.entries()) {
     if (SENSITIVE_PARAM_NAMES.has(key.toLowerCase())) {
       return {
@@ -107,8 +100,8 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
 
   // If ipfs: validate CID host or path
   if (scheme === 'ipfs:') {
-    const rawCid = parsed.hostname || parsed.pathname.replace(/^\/\//, '').split('/')[0];
-    if (!rawCid || !IPFS_CID_REGEX.test(rawCid)) {
+    const cidCandidate = parsed.hostname || parsed.pathname.replace(/^\/\//, '').split('/')[0];
+    if (!cidCandidate || !IPFS_CID_REGEX.test(cidCandidate)) {
       return {
         isValid: false,
         scheme,
@@ -125,8 +118,8 @@ export function validateEvidenceUri(uri: string | undefined | null): EvidenceUri
 }
 
 /**
- * Resolves a safe gateway URL for UI navigation or rendering using an origin-isolated gateway.
- * Returns null if the URI is invalid, contains credentials, or is unsupported.
+ * Resolves a safe gateway URL for UI navigation or rendering.
+ * Returns null if the URI is invalid or unsupported.
  */
 export function getSafeEvidenceHref(uri: string): string | null {
   const result = validateEvidenceUri(uri);
@@ -144,7 +137,7 @@ export function getSafeEvidenceHref(uri: string): string | null {
       const remainder = parsed.pathname.startsWith('/') && parsed.hostname
         ? parsed.pathname
         : parsed.pathname.replace(new RegExp(`^\\/?\\/?${cid}`), '');
-      return `https://dweb.link/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
+      return `https://ipfs.io/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
     }
   } catch {
     return null;
