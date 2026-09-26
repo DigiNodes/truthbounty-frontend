@@ -20,38 +20,27 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
           const safeHref = getSafeEvidenceHref(evidence.url);
 
           return (
-            <div
-              key={evidence.id}
-              className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors"
-            >
-              <div className="flex items-center space-x-4">
-                <FileText className="text-gray-500 shrink-0" size={20} />
-                <div>
-                  <p className="text-sm font-medium text-gray-200">{evidence.title}</p>
-                  <p className="text-xs text-gray-500">{evidence.description}</p>
-                  {!validation.isValid && (
-                    <p className="text-xs text-amber-500 mt-1 flex items-center gap-1" role="alert">
-                      <AlertTriangle size={12} />
-                      {validation.error}
-                    </p>
-                  )}
+            <div key={evidence.id} className="flex items-center justify-between gap-3 p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors">
+              <div className="flex min-w-0 items-center space-x-4">
+                <FileText className="shrink-0 text-gray-500" size={20} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-200">{title}</p>
+                  <p className="truncate text-xs text-gray-500">{description}</p>
                 </div>
               </div>
-
-              {validation.isValid && safeHref ? (
-                <a
-                  href={safeHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-gray-400 hover:text-white flex items-center transition-colors shrink-0 ml-4 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
-                  aria-label={`View evidence: ${evidence.title} (opens in new tab)`}
+              {urlCheck.ok ? (
+                <SafeExternalLink
+                  href={evidence.url}
+                  className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
+                  aria-label={`View evidence: ${title || description || "link"} (opens in new tab)`}
                 >
                   View <ExternalLink size={14} className="ml-1" />
                 </a>
               ) : (
                 <span
-                  className="text-xs font-mono px-2 py-1 bg-red-950/40 text-red-400 border border-red-900/50 rounded shrink-0 ml-4"
-                  aria-label="Unsupported or invalid link"
+                  className="shrink-0 text-sm text-gray-600 flex items-center"
+                  role="img"
+                  aria-label="Evidence link blocked for security reasons"
                 >
                   Invalid URI
                 </span>
