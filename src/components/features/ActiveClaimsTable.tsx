@@ -57,6 +57,15 @@ function formatUSD(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Active claims feed table.
+ *
+ * Responsive behaviour: the filter and search controls stack full-width
+ * below `sm`, and the six-column table lives in a keyboard-focusable
+ * horizontal scroll region (`role="region"` + `tabIndex={0}`) with a
+ * minimum width so columns stay readable on narrow viewports — genuine
+ * two-dimensional scrolling is reserved for this data table.
+ */
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -176,16 +185,16 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           <label className="sr-only" htmlFor="claims-search">Search claims</label>
-          <div className="relative">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <input
               id="claims-search"
               ref={searchInputRef}
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs"
+              className="w-full bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs sm:w-auto"
               placeholder="Search claims..."
               aria-label="Search claims"
             />
@@ -247,8 +256,18 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left" aria-label="Active claims">
+      {/*
+        Scroll region: on narrow viewports the table exceeds the container,
+        so it scrolls horizontally. Focusable + labelled so keyboard and
+        screen-reader users can reach the scrolled content.
+      */}
+      <div
+        className="overflow-x-auto"
+        role="region"
+        aria-label="Active claims table (scrollable)"
+        tabIndex={0}
+      >
+        <table className="w-full min-w-[640px] text-sm text-left" aria-label="Active claims">
           <thead>
             <tr className="text-[#a1a1aa] border-b border-[#232329]">
               <th scope="col" className="py-2">Claim</th>
