@@ -1,24 +1,30 @@
-
 "use client";
 import React, { memo } from "react";
-
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { StatsCardsSkeleton } from "@/components/skeletons";
 
-const platformStats: Array<{ label: string; value: string }> = [];
+interface StatItem {
+  label: string;
+  value: string;
+}
 
 interface StatsCardsProps {
+  platformStats?: StatItem[];
   isLoading?: boolean;
 }
 
-const StatsCards = memo(function StatsCards({ isLoading = false }: StatsCardsProps) {
+const STAT_LABELS = ["Claims", "Verifications", "Votes Cast", "Unique Verifiers", "TVL", "Chains"];
+
+const StatsCards = memo(function StatsCards({ platformStats, isLoading = false }: StatsCardsProps) {
   const trust = useTrust();
   const userTrustValue = trust.reputation.toString();
 
+  const resolvedStats: StatItem[] = platformStats ?? STAT_LABELS.map((label) => ({ label, value: "—" }));
+
   const stats = [
     { label: "My Trust", value: userTrustValue, tooltip: true },
-    ...platformStats,
+    ...resolvedStats,
   ];
 
   if (isLoading) {
