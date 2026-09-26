@@ -1,4 +1,12 @@
 /**
+ * Hook for reading appeal participation context.
+ *
+ * The pinned `TruthBountyWeighted` ABI exposes no appeal-context getters, so
+ * every value here comes from the canonical API projection via
+ * `loadAppealProjection`. Nothing is derived from local clock, block
+ * arithmetic or placeholder balances: an unavailable, incomplete or
+ * inconsistent projection leaves `context` null and surfaces `error`, so
+ * participation fails closed instead of acting on invented state.
  * V2-FE-059 — Appeal participation context from canonical protocol reads.
  *
  * Prefers Wagmi/Viem `getAppealRound` / participant / balance reads when the
@@ -8,6 +16,8 @@
 
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAccount, useChainId } from 'wagmi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useAccount,
@@ -16,11 +26,16 @@ import {
   usePublicClient,
 } from 'wagmi';
 import {
-  AppealSnapshot,
   AppealDeadline,
-  AppealStakeBounds,
   AppealWalletPosition,
   AppealParticipationContext,
+} from '@/app/types/appeal';
+import { getReleaseChainId } from '@/lib/contracts/registry';
+import {
+  AppealProjectionError,
+  loadAppealProjection,
+  type AppealProjectionFetcher,
+} from '@/lib/appeals/projection';
   AppealRoundProgressionView,
 } from '@/app/types/appeal';
 import {
@@ -36,22 +51,31 @@ import {
   type OnChainAppealRound,
 } from '@/lib/appeal/round-progression';
 
-interface UseAppealContextConfig {
+export interface UseAppealContextConfig {
   appealId: string;
   claimId: string;
   contractAddress?: string;
   expectedChainId?: number;
+  pollInterval?: number; // ms
+  /** Injected projection transport; defaults to `GET /api/appeals/:appealId`. */
+  fetcher?: AppealProjectionFetcher;
   expectedRound?: number;
   pollInterval?: number;
 }
 
-interface AppealContextResult {
+export interface AppealContextResult {
   context: AppealParticipationContext | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 }
 
+const DEFAULT_POLL_INTERVAL = 10000; // 10 seconds
+
+/**
+ * Fetch appeal participation context from the canonical API projection.
+ * Fails closed whenever the projection cannot be trusted.
+ */
 const OPTIMISM_MAINNET_CHAIN_ID = 10;
 const DEFAULT_POLL_INTERVAL = 10000;
 
@@ -96,6 +120,7 @@ export function useAppealContext(
     expectedChainId = OPTIMISM_MAINNET_CHAIN_ID,
     expectedRound = 1,
     pollInterval = DEFAULT_POLL_INTERVAL,
+    fetcher,
   } = config;
 
   const { address: userAddress, isConnected } = useAccount();
@@ -122,6 +147,18 @@ export function useAppealContext(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The transport is read through a ref: callers commonly pass an inline
+  // function, and keying the polling effect on its identity would restart the
+  // interval (and refetch) on every render. Synced in an effect because React
+  // disallows writing refs during render.
+  const fetcherRef = useRef(fetcher);
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
+
+  /**
+   * Validate basic connectivity and configuration
+   */
   const validateConfiguration = useCallback((): string | null => {
     if (!isConnected || !userAddress) {
       return 'Wallet not connected';
@@ -142,6 +179,52 @@ export function useAppealContext(
       return 'Public client unavailable — cannot read appeal round';
     }
     return null;
+  }, [isConnected, userAddress, currentChainId, expectedChainId, contractAddress, appealId, claimId]);
+
+  /**
+   * Compute eligibility based on all context data
+   */
+  const computeEligibility = useCallback(
+    (
+      deadline: AppealDeadline,
+      position: AppealWalletPosition
+    ): { isEligible: boolean; ineligibilityReason?: string } => {
+      // Check if appeal is still active
+      if (!deadline.isActive) {
+        return {
+          isEligible: false,
+          ineligibilityReason: 'Appeal period has ended',
+        };
+      }
+
+      // Check if user already participated
+      if (position.hasParticipated) {
+        return {
+          isEligible: false,
+          ineligibilityReason: 'You have already participated in this appeal',
+        };
+      }
+
+      // Check if user has sufficient balance
+      if (!position.hasMinimumBalance) {
+        return {
+          isEligible: false,
+          ineligibilityReason: 'Insufficient balance to meet minimum stake requirement',
+        };
+      }
+
+      return { isEligible: true };
+    },
+    []
+  );
+
+  /**
+   * Main fetch logic - loads the canonical projection and assembles context.
+   *
+   * Eligibility is derived only from validated projection data. A transport,
+   * shape or coherence failure clears the context and surfaces the reason, so
+   * no caller can act on partially invented state.
+   */
   }, [
     isConnected,
     userAddress,
@@ -167,6 +250,36 @@ export function useAppealContext(
         return;
       }
 
+      if (!userAddress) {
+        setError('Wallet not connected');
+        setContext(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const projection = await loadAppealProjection(appealId, {
+        userAddress,
+        expectedChainId,
+        fetcher: fetcherRef.current,
+      });
+
+      if (projection.snapshot.claimId !== claimId) {
+        throw new AppealProjectionError(
+          'MALFORMED',
+          `Projection claim ${projection.snapshot.claimId} does not match the requested claim ${claimId}.`
+        );
+      }
+
+      const { isEligible, ineligibilityReason } = computeEligibility(
+        projection.deadline,
+        projection.walletPosition
+      );
+
+      setContext({
+        snapshot: projection.snapshot,
+        deadline: projection.deadline,
+        stakeBounds: projection.stakeBounds,
+        walletPosition: projection.walletPosition,
       if (!publicClient || !contractAddress || !userAddress) {
         setError('Missing client, contract, or wallet');
         setContext(null);
@@ -339,6 +452,9 @@ export function useAppealContext(
       });
     } catch (err) {
       const errorMsg =
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch appeal context';
         err instanceof Error ? err.message : 'Failed to fetch appeal context';
       setError(errorMsg);
       setContext(null);
@@ -346,6 +462,12 @@ export function useAppealContext(
       setIsLoading(false);
     }
   }, [
+    appealId,
+    claimId,
+    userAddress,
+    expectedChainId,
+    validateConfiguration,
+    computeEligibility,
     validateConfiguration,
     publicClient,
     contractAddress,

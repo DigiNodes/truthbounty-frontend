@@ -55,6 +55,7 @@ import { useStateReconciliation, ProtocolError } from '@/hooks/useStateReconcili
 import { useDisputeContext } from '@/hooks/useDisputeContext';
 import { useDisputeSubmission } from '@/hooks/useDisputeSubmission';
 import { useAppealContext } from '@/hooks/useAppealContext';
+import { buildAppealProjection } from '@/__tests__/fixtures/appealProjection';
 import { useAppealParticipation } from '@/hooks/useAppealParticipation';
 import { useRewards } from '@/hooks/useRewards';
 import { useSubmitClaim, useClaims } from '@/app/queries/claims.queries';
@@ -147,9 +148,14 @@ jest.mock('@/config/protocol/verification-artifact', () => ({
 const USER = '0x1234567890123456789012345678901234567890' as const;
 const CONTRACT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const;
 const CLAIM_ID = 'claim-lifecycle-1';
+/** Canonical 32-byte claim id used where the ABI expects a `bytes32`. */
+const SETTLEMENT_CLAIM_ID = `0x${'2b'.repeat(32)}`;
 const OP_MAINNET = 11155420;
 const TX_HASH =
   '0xaaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888' as const;
+/** Distinct from TX_HASH so a derived-vs-returned hash mix-up is detectable. */
+const REAL_WALLET_TX_HASH =
+  '0x1111111111111111111111111111111111111111111111111111111111111111' as const;
 
 const APPEAL_PARTICIPATION_ABI = [
   {
@@ -244,9 +250,11 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
       disconnect: jest.fn(),
       disconnectAsync: jest.fn(),
     });
+    // The wallet write returns a real-shaped hash; the settlement flow must
+    // surface exactly this hash and never derive one locally.
     (wagmi.useWriteContract as jest.Mock).mockReturnValue({
       writeContract: jest.fn(),
-      writeContractAsync: jest.fn(),
+      writeContractAsync: jest.fn().mockResolvedValue(REAL_WALLET_TX_HASH),
       isPending: false,
       data: undefined,
       error: null,
@@ -463,9 +471,11 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
   // -------------------------------------------------------------------------
   describe('Stage: provisional settlement', () => {
     it('detects a callable provisional settlement and reconciles via receipt', async () => {
+      // Settlement calldata takes a bytes32, so the settlement stage uses a
+      // canonical 32-byte claim id rather than the opaque projection id.
       const { result: detection } = renderHook(() =>
         useSettlementDetection({
-          claimId: CLAIM_ID,
+          claimId: SETTLEMENT_CLAIM_ID,
           contractAddress: CONTRACT,
           pollInterval: 999999,
         }),
@@ -489,6 +499,9 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
       expect(settlement).toBeDefined();
       expect(settlement.status).toBe('pending');
       expect(settlement.type).toBe('SETTLE_PROVISIONAL');
+      // The hash must be the one the wallet returned — not a locally derived one.
+      expect(settlement.transactionHash).toBe(REAL_WALLET_TX_HASH);
+      expect(submission.current.lastSubmission).toEqual(settlement);
 
       const publicClient = {
         getTransactionReceipt: jest.fn().mockResolvedValue({
@@ -587,6 +600,15 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
           contractAddress: CONTRACT,
           expectedChainId: OP_MAINNET,
           pollInterval: 0,
+          fetcher: async () =>
+            buildAppealProjection({
+              appealId: 'appeal-1',
+              chainId: OP_MAINNET,
+              snapshot: { appealId: 'appeal-1', claimId: CLAIM_ID },
+              deadline: { appealId: 'appeal-1' },
+              stakeBounds: { appealId: 'appeal-1' },
+              position: { appealId: 'appeal-1', userAddress: USER },
+            }),
         }),
       );
 
