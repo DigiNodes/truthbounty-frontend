@@ -1,66 +1,47 @@
 /**
  * Regression: 'unsafe-inline' must never appear in script-src in any
  * environment. This protects against accidental reintroduction of inline
- * execution (e.g. a dev shortcut that gets committed to main).
+ * execution.
  */
-import { buildCsp, generateNonce } from '@/lib/csp';
+import {
+  buildContentSecurityPolicy,
+  createRequestNonce,
+} from '@/lib/security/headers';
 
 describe('CSP regression — no unsafe-inline in script-src', () => {
-  const envScenarios: Array<{ label: string; env: Record<string, string> }> = [
+  const envScenarios = [
     {
-      label: 'no env vars set (defaults)',
-      env: {},
+      label: 'production',
+      isDevelopment: false,
     },
     {
-      label: 'production-like env vars',
-      env: {
-        NEXT_PUBLIC_API_URL: 'https://api.truthbounty.xyz',
-        NEXT_PUBLIC_WS_URL: 'wss://ws.truthbounty.xyz',
-        NEXT_PUBLIC_OPTIMISM_RPC_URL: 'https://opt-mainnet.g.alchemy.com/v2/key',
-        NEXT_PUBLIC_OPTIMISM_SEPOLIA_RPC_URL: 'https://opt-sepolia.g.alchemy.com/v2/key',
-      },
-    },
-    {
-      label: 'localhost dev env vars',
-      env: {
-        NEXT_PUBLIC_API_URL: 'http://localhost:3001',
-        NEXT_PUBLIC_WS_URL: 'ws://localhost:8080/ws',
-      },
+      label: 'development',
+      isDevelopment: true,
     },
   ];
 
-  for (const { label, env } of envScenarios) {
+  for (const { label, isDevelopment } of envScenarios) {
     it(`script-src never contains 'unsafe-inline' — ${label}`, () => {
-      const saved: Record<string, string | undefined> = {};
-      for (const [key, val] of Object.entries(env)) {
-        saved[key] = process.env[key];
-        process.env[key] = val;
-      }
+      const csp = buildContentSecurityPolicy({
+        nonce: createRequestNonce(),
+        isDevelopment,
+      });
 
-      try {
-        const csp = buildCsp(generateNonce());
-        const scriptSrc = csp
-          .split(';')
-          .map((d) => d.trim())
-          .find((d) => d.startsWith('script-src'));
+      const scriptSrc = csp
+        .split(';')
+        .map((directive) => directive.trim())
+        .find((directive) => directive.startsWith('script-src'));
 
-        expect(scriptSrc).toBeDefined();
-        expect(scriptSrc).not.toContain("'unsafe-inline'");
-      } finally {
-        for (const [key, val] of Object.entries(saved)) {
-          if (val === undefined) {
-            delete process.env[key];
-          } else {
-            process.env[key] = val;
-          }
-        }
-      }
+      expect(scriptSrc).toBeDefined();
+      expect(scriptSrc).not.toContain("'unsafe-inline'");
     });
   }
 
   it('nonce rotates between requests so one compromised nonce cannot be reused', () => {
-    const nonces = new Set(Array.from({ length: 50 }, () => generateNonce()));
-    // 50 independent nonces should all be unique
+    const nonces = new Set(
+      Array.from({ length: 50 }, () => createRequestNonce()),
+    );
+
     expect(nonces.size).toBe(50);
   });
 });
