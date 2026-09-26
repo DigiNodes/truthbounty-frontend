@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef } from "react";
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
@@ -184,47 +185,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     !trust.isVerified || lowReputation || newWallet || trust.suspicious;
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement;
-    firstInputRef.current?.focus();
-    return () => {
-      previousActiveElement.current?.focus();
-    };
-  }, []);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusableElements || focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
-    }
-  }, []);
+  useDialogFocus(true, modalRef, firstInputRef, () => {
+    if (!isPending) onClose();
+  });
 
   const validateField = (name: string, value: string): string | undefined => {
     switch (name) {
@@ -396,12 +360,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       aria-modal="true"
       aria-labelledby="claim-submission-title"
       data-testid="claim-submission-modal"
-      onKeyDown={handleFocusTrap}
+      tabIndex={-1}
     >
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
       >
         <h2 id="claim-submission-title" className="text-xl font-bold text-white">{t('submitClaim')}</h2>
 
