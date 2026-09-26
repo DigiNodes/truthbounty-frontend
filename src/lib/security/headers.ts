@@ -114,10 +114,13 @@ export function buildContentSecurityPolicy({
     'worker-src': ["'self'", 'blob:'],
     'manifest-src': ["'self'"],
     'media-src': ["'self'", 'blob:'],
-    'upgrade-insecure-requests': [],
     'report-to': ['csp-endpoint'],
     'report-uri': ['/api/csp-report'],
   };
+
+  if (!isDevelopment) {
+    directives['upgrade-insecure-requests'] = [];
+  }
 
   return Object.entries(directives)
     .map(([name, values]) => (values.length ? `${name} ${values.join(' ')}` : name))
