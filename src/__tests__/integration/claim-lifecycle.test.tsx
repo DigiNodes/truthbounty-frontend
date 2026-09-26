@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import React from 'react'
 import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -98,7 +97,7 @@ describe('Claim Lifecycle Integration Tests', () => {
         }
 
         const handleVerifyClaim = async (claimId: string) => {
-          await submitVerification({ claimId, decision: 'verify', stakeAmount: 50 })
+          await submitVerification({ claimId, decision: 'verify' })
         }
 
         return (
@@ -151,12 +150,11 @@ describe('Claim Lifecycle Integration Tests', () => {
       await user.click(viewButton)
 
       await waitFor(() => {
-        const detail = screen.getByTestId('claim-detail')
-        expect(detail).toBeInTheDocument()
-        expect(within(detail).getByText('Test Claim')).toBeInTheDocument()
-        expect(within(detail).getByText('Status: OPEN')).toBeInTheDocument()
-        expect(within(detail).getByText('Bounty: 100')).toBeInTheDocument()
-        expect(within(detail).getByText('Staked: 0')).toBeInTheDocument()
+        expect(screen.getByTestId('claim-detail')).toBeInTheDocument()
+        expect(within(screen.getByTestId('claim-detail')).getByText('Test Claim')).toBeInTheDocument()
+        expect(screen.getByText('Status: OPEN')).toBeInTheDocument()
+        expect(screen.getByText('Bounty: 100')).toBeInTheDocument()
+        expect(screen.getByText('Staked: 0')).toBeInTheDocument()
       })
 
       // 3. Submit new claim
@@ -164,14 +162,11 @@ describe('Claim Lifecycle Integration Tests', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(submitClaim).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'New Test Claim',
-            description: 'New claim description',
-            evidence: []
-          }),
-          expect.anything()
-        )
+        expect(submitClaim).toHaveBeenCalledWith({
+          title: 'New Test Claim',
+          description: 'New claim description',
+          evidence: []
+        })
       })
 
       // 4. Verify existing claim
@@ -182,7 +177,6 @@ describe('Claim Lifecycle Integration Tests', () => {
         expect(submitVerification).toHaveBeenCalledWith({
           claimId: 'claim-1',
           decision: 'verify',
-          stakeAmount: 50
         })
       })
     })
@@ -321,9 +315,7 @@ describe('Claim Lifecycle Integration Tests', () => {
         const [claim, setClaim] = React.useState(
           createMockClaim({ id: 'claim-1', totalStaked: 50 })
         )
-        const [verifications, setVerifications] = React.useState<
-          Array<{ stakeAmount: number; address?: string }>
-        >([])
+        const [verifications, setVerifications] = React.useState<any[]>([])
 
         React.useEffect(() => {
           const handleVerificationEvent = (event: any) => {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAccount, useChainId, useSendTransaction, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { useEvmTransaction } from '../useEvmTransaction';
@@ -45,8 +44,6 @@ const CONTRACT_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678' as `0x${st
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // The transaction machine persists to localStorage and hydrates on mount;
-  // clear it so each test starts from the idle state.
   localStorage.clear();
 
   mockedUseAccount.mockReturnValue({
@@ -123,6 +120,50 @@ describe('useEvmTransaction', () => {
 
     expect(result.current.state.status).toBe('idle');
     expect(result.current.isCorrectNetwork).toBe(false);
+    expect(result.current.isWriteReady).toBe(false);
+    expect(result.current.readiness.ready).toBe(false);
+  });
+
+  it('fails closed when disconnected before PREPARE', async () => {
+    mockedUseAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+    } as any);
+
+    const { result } = renderHook(() =>
+      useEvmTransaction({
+        expectedChainId: MOCK_CHAIN_ID,
+      }),
+    );
+
+    await expect(
+      result.current.writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: TEST_ABI,
+        functionName: 'finalizeClaim',
+        args: ['0x' + '11'.repeat(32), 'resolved'],
+      }),
+    ).rejects.toMatchObject({
+      reason: 'INVALID_TRANSITION',
+    });
+
+    expect(result.current.state.status).toBe('idle');
+    expect(result.current.readiness.failures.map((f) => f.code)).toContain(
+      'WALLET_DISCONNECTED',
+    );
+    expect(mockedUseWriteContract().writeContractAsync).not.toHaveBeenCalled();
+  });
+
+  it('exposes write readiness for UI gating', () => {
+    const { result } = renderHook(() =>
+      useEvmTransaction({
+        expectedChainId: MOCK_CHAIN_ID,
+      }),
+    );
+
+    expect(result.current.isWriteReady).toBe(true);
+    expect(result.current.readiness.ready).toBe(true);
+    expect(result.current.readiness.failures).toHaveLength(0);
   });
 
   it('accepts raw sendTransaction calls with explicit value and calldata preconditions', async () => {

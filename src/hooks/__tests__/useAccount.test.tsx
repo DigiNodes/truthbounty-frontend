@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 /**
  * Unit tests for useAccount — EVM-backed account accessor.
  *
@@ -14,6 +13,8 @@
  *  - REMOVED: focus/storage events from Freighter reconnect loop
  */
 
+jest.unmock('wagmi');
+
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,18 +27,15 @@ import { useAccount } from '../useAccount';
 // ── Wagmi test harness ────────────────────────────────────────────────────────
 const MOCK_ADDRESS_A = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
 
-// The wagmi config holds mutable connection state, so a fresh instance is
-// created per test to avoid ConnectorAlreadyConnectedError and account leaks.
-function createTestConfig() {
-  return createConfig({
-    chains: [optimismSepolia],
-    transports: { [optimismSepolia.id]: http() },
-    connectors: [mock({ accounts: [MOCK_ADDRESS_A] })],
-  });
-}
+const testConfig = createConfig({
+  chains: [optimismSepolia],
+  transports: { [optimismSepolia.id]: http() },
+  connectors: [mock({ accounts: [MOCK_ADDRESS_A] })],
+});
 
-let testConfig = createTestConfig();
-let queryClient: QueryClient;
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+});
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -47,12 +45,20 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
-  testConfig = createTestConfig();
-  queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  queryClient.clear();
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
+});
+
+afterEach(async () => {
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+  } catch {}
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

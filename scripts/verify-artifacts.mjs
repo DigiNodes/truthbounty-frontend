@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const PLACEHOLDER = /yourcontract|placeholder|dummy/i;
+const PLACEHOLDER_COMMIT = /^0+$/;
 const releaseDir = process.env.TRUTHBOUNTY_ARTIFACT_DIR ?? join(process.cwd(), 'release');
 const expectedVersion = process.env.NEXT_PUBLIC_PROTOCOL_RELEASE;
 
@@ -12,7 +13,10 @@ function readJson(path) {
 }
 
 function sha256(contents) {
-  return createHash('sha256').update(contents).digest('hex');
+  const normalized = typeof contents === 'string'
+    ? contents.replace(/\r\n/g, '\n')
+    : contents.toString('utf8').replace(/\r\n/g, '\n');
+  return createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 function assertAddress(value, label) {
@@ -36,7 +40,21 @@ try {
     }
     const actual = sha256(readFileSync(filePath));
     if (actual !== expected) {
-      throw new Error(`Checksum mismatch for ${relativePath}`);
+      throw new Error(`Checksum mismatch for ${relativePath}: artifact drift detected`);
+    }
+  }
+
+  const requiredTracked = [
+    'manifest.json',
+    'addresses/11155420.json',
+    'abi/TruthBountyWeighted.json',
+    'events/event-schema.json',
+    'parameters/11155420.json',
+    'roles/11155420.json',
+  ];
+  for (const relativePath of requiredTracked) {
+    if (!checksums.files[relativePath]) {
+      throw new Error(`checksums.json missing entry for ${relativePath} (artifact drift)`);
     }
   }
 
@@ -45,6 +63,18 @@ try {
     throw new Error(
       `Stale release: manifest=${manifest.protocolVersion}, expected=${expectedVersion}`,
     );
+  }
+
+  if (
+    !manifest.gitCommit ||
+    !/^[0-9a-f]{7,40}$/i.test(manifest.gitCommit) ||
+    PLACEHOLDER_COMMIT.test(manifest.gitCommit)
+  ) {
+    throw new Error(`Manifest gitCommit is missing or a zero placeholder: ${manifest.gitCommit}`);
+  }
+
+  if (!manifest.compilerVersion || !manifest.abiVersion || !manifest.eventSchemaVersion) {
+    throw new Error('Manifest is missing compiler/ABI/event provenance fields');
   }
 
   const addresses = readJson(join(releaseDir, `addresses/${manifest.chainId}.json`));

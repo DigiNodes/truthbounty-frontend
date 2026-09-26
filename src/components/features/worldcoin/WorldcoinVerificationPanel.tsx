@@ -1,13 +1,9 @@
-'use client';
-
-import { useEffect } from 'react';
 import { WorldcoinVerifyButton } from './WorldcoinVerifyButton';
 import { VerificationStatusIndicator } from './VerificationStatusIndicator';
 import { VerificationSuccessCard } from './VerificationSuccessCard';
 import { VerificationErrorCard } from './VerificationErrorCard';
 import { WorldcoinInfoTooltip } from './WorldcoinInfoTooltip';
 import { useWorldcoinVerification } from '@/hooks/useWorldcoinVerification';
-import type { WorldcoinVerificationStatus } from '@/app/types/worldcoin';
 
 interface WorldcoinVerificationPanelProps {
   walletAddress?: string;
@@ -25,7 +21,6 @@ export function WorldcoinVerificationPanel({
     verification,
     handleIDKitProof,
     isMockMode,
-    isConfigured,
     refresh,
   } = useWorldcoinVerification({
     walletAddress,
@@ -59,7 +54,7 @@ export function WorldcoinVerificationPanel({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {status === 'SUCCESS' ? (
           <VerificationStatusIndicator
             status={status}
@@ -85,8 +80,8 @@ export function WorldcoinVerificationPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Identity Verification
           </h3>
@@ -96,7 +91,9 @@ export function WorldcoinVerificationPanel({
               : 'Verify your identity with Worldcoin to unlock full platform access'}
           </p>
         </div>
-        <WorldcoinInfoTooltip />
+        <div className="shrink-0">
+          <WorldcoinInfoTooltip />
+        </div>
       </div>
 
       {showSuccess && verifiedAt && (

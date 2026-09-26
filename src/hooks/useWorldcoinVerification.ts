@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { WorldcoinVerification, WorldcoinVerificationStatus, IDKitResponse } from '@/app/types/worldcoin';
 import { getVerificationStatus, submitWorldcoinVerification, mockWorldcoinVerification, shouldUseMock } from '@/app/lib/worldcoin';
-import { getWorldcoinConfig, isWorldcoinConfigured } from '@/config/worldcoin-client';
+import { isWorldcoinConfigured } from '@/config/worldcoin-client';
 import { queryKeys } from '@/app/queries/queryKeys';
 
 /** Polling interval in ms — re-checks verification status to keep badge in sync */
@@ -86,16 +86,12 @@ export function useWorldcoinVerification({
     try {
       let result: WorldcoinVerification;
 
-      if (isMockMode) {
-        // Use mock verification for development/testing
+      if (isMockMode && process.env.NODE_ENV !== 'production') {
         result = await mockWorldcoinVerification(walletAddress);
       } else {
-        // Use real IDKit verification
-        // This will be triggered by the component using the hook
-        // The actual proof comes from IDKit in the component
         throw new Error('Real verification requires IDKit initialization from component');
       }
-      
+
       setVerification(result);
       setStatus(result.status);
       
@@ -108,7 +104,7 @@ export function useWorldcoinVerification({
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress, isMockMode]);
+  }, [walletAddress, isMockMode, queryClient]);
 
   /**
    * Handle real IDKit verification proof
@@ -138,7 +134,7 @@ export function useWorldcoinVerification({
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress]);
+  }, [walletAddress, queryClient]);
 
   // Auto-check verification status on mount
   useEffect(() => {

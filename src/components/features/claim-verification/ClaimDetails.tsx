@@ -6,23 +6,33 @@ import { Claim } from '@/app/types/claim';
 import { useTrustForAddress } from '@/components/hooks/useTrust';
 import TrustScoreTooltip from '@/components/ui/TrustScoreTooltip';
 import { ClaimDetailsSkeleton } from '@/components/skeletons';
+import {
+  sanitizeEvidenceList,
+  sanitizeText,
+} from '@/lib/security/evidence-sanitizer';
+import { SafeExternalLink } from '@/components/security/SafeExternalLink';
 
-interface ClaimDetailsProps {
-  claimId: string;
+export interface ClaimDetailsProps {
+  claimId?: string;
+  claim?: Claim;
   isLoading?: boolean;
   onNotFound?: () => void;
 }
 
-export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNotFound }: ClaimDetailsProps) {
-  const [claim, setClaim] = useState<Claim | null>(null);
-  const [internalLoading, setInternalLoading] = useState(true);
+export function ClaimDetails({ claimId, claim: initialClaim, isLoading: externalLoading = false, onNotFound }: ClaimDetailsProps) {
+  const [fetchedClaim, setFetchedClaim] = useState<Claim | null>(null);
+  const [internalLoading, setInternalLoading] = useState(!initialClaim && !!claimId);
   const [notFound, setNotFound] = useState(false);
 
+  const claim = initialClaim || fetchedClaim;
+  const isLoading = externalLoading || (!initialClaim && internalLoading);
+
   useEffect(() => {
+    if (initialClaim || !claimId) return;
     setInternalLoading(true);
     setNotFound(false);
     getClaimById(claimId).then((data) => {
-      setClaim(data);
+      setFetchedClaim(data);
       setInternalLoading(false);
     }).catch((err) => {
       if (err.message === 'CLAIM_NOT_FOUND') {
@@ -31,82 +41,98 @@ export function ClaimDetails({ claimId, isLoading: externalLoading = false, onNo
       }
       setInternalLoading(false);
     });
-  }, [claimId, onNotFound]);
+  }, [claimId, initialClaim, onNotFound]);
 
-  const isLoading = externalLoading || internalLoading;
+  const proposerAddress = claim?.proposer || claim?.claimantAddress;
+  const proposerTrust = useTrustForAddress(proposerAddress);
 
   if (isLoading && !notFound) {
     return <ClaimDetailsSkeleton />;
   }
 
-  if (notFound) {
+  if (notFound || !claim) {
     return (
-      <div className="card p-6 sm:p-8 text-center">
-        <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Claim not found</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          The claim you&apos;re looking for doesn&apos;t exist or may have been removed.
-        </p>
+      <div className="bg-[#18181b] border border-red-500/20 rounded-xl p-6 text-center">
+        <h3 className="text-lg font-bold text-red-500 mb-2">Claim Not Found</h3>
+        <p className="text-gray-400 text-sm">The requested claim does not exist or has been removed.</p>
       </div>
     );
   }
 
-  if (!claim) {
-    return <ClaimDetailsSkeleton />;
-  }
-
-  return <ClaimDetailsContent claim={claim} />;
-}
-
-function ClaimDetailsContent({ claim }: { claim: Claim }) {
-  const claimantTrust = useTrustForAddress(claim.claimantAddress);
-  const lowRep = claimantTrust.reputation < 20;
-  const newAcct = claimantTrust.accountAgeDays < 7;
-  const lowTrustClaimant = !claimantTrust.isVerified || lowRep || newAcct || claimantTrust.suspicious;
+  // V2-FE-075 — claim content arrives from the API and is untrusted.
+  const safeTitle = sanitizeText(claim.title, 300);
+  const safeDescription = sanitizeText(claim.description, 5000);
+  const safeCategory = claim.category ? sanitizeText(claim.category, 100) : null;
+  const evidence = sanitizeEvidenceList(claim.evidence);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {lowTrustClaimant && (
-        <div className="bg-yellow-500 text-black p-2.5 sm:p-3 rounded text-sm sm:text-base">
-          ⚠️ This claim was submitted by a low‑trust account (score{' '}
-          {claimantTrust.reputation}).{' '}
+    <div className="bg-[#18181b] border border-[#232329] rounded-xl p-4 sm:p-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#232329] pb-4">
+        <h2 className="min-w-0 flex-1 text-lg font-bold break-words text-white sm:text-xl">{safeTitle}</h2>
+        <span className="shrink-0 px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-full text-xs font-semibold uppercase tracking-wider">
+          {claim.status}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</h3>
+        <p className="text-gray-200 text-sm leading-relaxed break-words">{safeDescription}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-[#232329] text-xs text-gray-400">
+        <div>
+          {claim.category ? (
+            <>
+              <span>Category: </span>
+              <span className="text-gray-200 font-medium">{safeCategory ?? 'Uncategorized'}</span>
+            </>
+          ) : (
+            <span>Category: Uncategorized</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>Proposer Trust:</span>
+          <span className="text-yellow-500 font-bold">{proposerTrust.reputation}</span>
           <TrustScoreTooltip />
         </div>
-      )}
-      <div className="card p-4 sm:p-6">
-        <h2 className="text-lg sm:text-xl font-semibold">{claim.title}</h2>
-        <p className="text-muted text-sm sm:text-base">{claim.description}</p>
-
-        <div className="mt-2 sm:mt-3 text-sm">
-          <span>Status: </span>
-          <span className="font-medium">{claim.status}</span>
-        </div>
-
-        {claim.evidence.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <h3 className="text-sm font-semibold">Evidence</h3>
-            {claim.evidence.map((e, idx) => {
-              if (e.type === 'link') {
-                return (
-                  <a
-                    key={idx}
-                    href={e.value}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-blue-600 underline break-all text-sm"
-                  >
-                    {e.value}
-                  </a>
-                );
-              }
-              return (
-                <p key={idx} className="text-sm text-muted">
-                  {e.value}
-                </p>
-              );
-            })}
-          </div>
-        )}
       </div>
+
+      {evidence.length > 0 && (
+        <div className="pt-4 border-t border-[#232329] space-y-2">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Evidence</h3>
+          <ul className="space-y-1">
+            {evidence.map((ev, idx) => (
+              <li key={idx} className="text-xs text-gray-300">
+                {ev.kind === 'link' && (
+                  <SafeExternalLink
+                    href={ev.href}
+                    className="text-blue-400 underline break-all"
+                    aria-label={`Evidence link (opens in new tab)`}
+                  >
+                    {ev.text}
+                  </SafeExternalLink>
+                )}
+                {ev.kind === 'image' && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={ev.src}
+                    alt="Evidence image"
+                    className="rounded max-h-40 w-auto"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                {ev.kind === 'text' && <span>{ev.text}</span>}
+                {ev.kind === 'blocked' && (
+                  <span className="text-gray-500 italic" role="note">
+                    {ev.reason}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

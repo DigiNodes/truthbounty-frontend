@@ -12,6 +12,7 @@ export function useUserProfile(userId: string) {
   return useQuery({
     queryKey: queryKeys.user.profile(userId),
     queryFn: () => fetchUserProfile(userId),
+    enabled: !!userId,
   });
 }
 
@@ -19,6 +20,7 @@ export function useUserReputation(userId: string) {
   return useQuery({
     queryKey: queryKeys.user.reputation(userId),
     queryFn: () => fetchUserReputation(userId),
+    enabled: !!userId,
   });
 }
 

@@ -12,12 +12,14 @@
  *  ✓ wrong-network path surfaces isWrongNetwork=true via useWalletNetwork
  */
 
+jest.unmock('wagmi');
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, useConnect, useDisconnect } from 'wagmi';
 import { http } from 'viem';
-import { optimism, optimismSepolia } from 'viem/chains';
+import { mainnet, optimism, optimismSepolia } from 'viem/chains';
 import { createConfig, mock } from 'wagmi';
 import { useWallet } from '@/hooks/useWallet';
 import { useAccount } from '@/hooks/useAccount';
@@ -28,36 +30,61 @@ const ADDR_A = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const;
 const ADDR_B = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const;
 
 // ── Wagmi test config ─────────────────────────────────────────────────────────
-// Fresh config per test — the config holds mutable connection state that would
-// otherwise leak between tests (ConnectorAlreadyConnectedError, stale accounts).
-function createTestConfig() {
-  return createConfig({
-    chains: [optimismSepolia, optimism],
-    transports: {
-      [optimismSepolia.id]: http(),
-      [optimism.id]: http(),
-    },
-    connectors: [mock({ accounts: [ADDR_A, ADDR_B] })],
-  });
-}
+const testConfig = createConfig({
+  chains: [optimismSepolia, optimism],
+  transports: {
+    [optimismSepolia.id]: http(),
+    [optimism.id]: http(),
+  },
+  connectors: [mock({ accounts: [ADDR_A, ADDR_B] })],
+});
 
-let testConfig = createTestConfig();
-let queryClient: QueryClient;
+// A provider whose default chain is NOT supported by the protocol.
+const unsupportedConfig = createConfig({
+  chains: [mainnet, optimismSepolia],
+  transports: {
+    [mainnet.id]: http(),
+    [optimismSepolia.id]: http(),
+  },
+  connectors: [mock({ accounts: [ADDR_A] })],
+});
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+});
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={testConfig}>
+    <WagmiProvider config={testConfig} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   );
 }
 
-beforeEach(() => {
+function UnsupportedWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={unsupportedConfig} reconnectOnMount={false}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
+beforeEach(async () => {
   localStorage.clear();
-  testConfig = createTestConfig();
-  queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  queryClient.clear();
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+    await disconnect(unsupportedConfig);
+  } catch {}
+});
+
+afterEach(async () => {
+  try {
+    const { disconnect } = require('@wagmi/core');
+    await disconnect(testConfig);
+    await disconnect(unsupportedConfig);
+  } catch {}
 });
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -132,8 +159,8 @@ describe('Wallet lifecycle — account change', () => {
 
     const originalAddress = result.current.address;
 
-    act(() => {
-      connector.onAccountsChanged([ADDR_B]);
+    await act(async () => {
+      connector.onAccountsChanged?.([ADDR_B]);
     });
 
     await waitFor(() => {
@@ -228,5 +255,46 @@ describe('Wallet lifecycle — no synthetic state', () => {
   it('useAccount never produces a fabricated address', () => {
     const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
     expect(result.current).toBeNull();
+  });
+});
+
+describe('Wallet lifecycle — deterministic reconnection (V2-FE-045)', () => {
+  it('drops a stale connector preference and stays disconnected', async () => {
+    localStorage.setItem('truthbounty:wallet:connector', 'connector-that-no-longer-exists');
+
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(localStorage.getItem('truthbounty:wallet:connector')).toBeNull(),
+    );
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.address).toBeUndefined();
+  });
+
+  it('does not reconnect from a preference while the provider is connected', async () => {
+    const connector = getMockConnector();
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    act(() => result.current.connect(connector));
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+
+    // A corrupt/foreign preference must not override the active provider.
+    localStorage.setItem('truthbounty:wallet:connector', 'some-other-connector');
+    act(() => result.current.reconnect());
+
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.activeConnector?.id).toBe(connector.id);
+  });
+
+  it('fails closed when the provider confirms a connection on an unsupported chain', async () => {
+    const connector = unsupportedConfig.connectors[0];
+    const { result } = renderHook(() => useWallet(), { wrapper: UnsupportedWrapper });
+
+    act(() => result.current.connect(connector));
+
+    await waitFor(() => expect(result.current.state).toBe('unsupported-chain'));
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.unsupportedChain).toBe(true);
+    expect(result.current.address).toBeUndefined();
   });
 });

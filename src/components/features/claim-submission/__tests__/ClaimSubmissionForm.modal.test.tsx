@@ -6,8 +6,11 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
+
+let mockApiPending = false;
 
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => ({
@@ -27,35 +30,47 @@ jest.mock('@/hooks/useAccount', () => ({
 }));
 
 jest.mock('@/app/queries/claims.queries', () => ({
-  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: mockApiPending }),
 }));
 
 jest.mock('wagmi', () => ({
   useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
   useConnect: () => ({ connect: jest.fn() }),
-  useAccount: () => ({ address: '0x123', isConnected: true }),
-  useChainId: () => 11155420,
-  usePublicClient: () => ({
-    waitForTransactionReceipt: jest.fn(),
-    simulateContract: jest.fn(),
+  useAccount: () => ({
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    chainId: 11155420,
   }),
-  useReadContract: () => ({ data: 0n }),
+  useChainId: () => 11155420,
+  usePublicClient: () => ({}),
+  useReadContract: () => ({ data: undefined }),
   useWriteContract: () => ({ writeContractAsync: jest.fn() }),
 }));
 
-// Claim contract config is required by useCreateClaimTransaction during render.
-process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
-process.env.NEXT_PUBLIC_BOUNTY_ASSET = '0x1234567890123456789012345678901234567890';
-process.env.NEXT_PUBLIC_CLAIM_AMOUNT = '1000000000000000000';
-process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH = '0xabc';
-process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID = '11155420';
-
 describe('ClaimSubmissionForm modal layout', () => {
+  beforeEach(() => {
+    mockApiPending = false;
+  });
+
   it('uses modal shell and panel classes for mobile-safe spacing', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const modal = screen.getByTestId('claim-submission-modal');
     expect(modal.className).toContain('modal-shell');
     const form = modal.querySelector('form');
     expect(form?.className).toContain('modal-panel');
+  });
+
+  it('keeps the dialog open on Escape while submission is pending', async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    mockApiPending = true;
+    const { rerender } = render(<ClaimSubmissionForm onClose={onClose} />);
+
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    mockApiPending = false;
+    rerender(<ClaimSubmissionForm onClose={onClose} />);
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

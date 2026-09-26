@@ -12,6 +12,7 @@ import {
   FinalizationRequirements,
   StateValidation,
 } from '@/app/types/settlement';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 
 interface UseFinalizationDetectionConfig {
   claimId: string;
@@ -39,7 +40,7 @@ const DEFAULT_POLL_INTERVAL = 5000; // 5 seconds
 export function useFinalizationDetection(
   config: UseFinalizationDetectionConfig
 ): FinalizationDetectionResult {
-  const { claimId, contractAddress, expectedChainId = OPTIMISM_MAINNET_CHAIN_ID, pollInterval = DEFAULT_POLL_INTERVAL } = config;
+  const { claimId, contractAddress, expectedChainId = getReleaseChainId(), pollInterval = DEFAULT_POLL_INTERVAL } = config;
   
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();
@@ -62,7 +63,9 @@ export function useFinalizationDetection(
       };
     }
 
-    if (currentChainId !== expectedChainId) {
+    // Check if user is on correct and supported chain
+    const isSupportedChain = currentChainId === OPTIMISM_MAINNET_CHAIN_ID || currentChainId === OPTIMISM_SEPOLIA_CHAIN_ID;
+    if (!isSupportedChain || currentChainId !== expectedChainId) {
       return {
         isValid: false,
         currentState: 'PENDING_SETTLEMENT',
@@ -205,18 +208,18 @@ export function useFinalizationDetection(
 
   /**
    * Poll for finalization readiness
-   * Always runs an initial detection so validation errors (e.g. wallet not
-   * connected) surface even when there is nothing to poll.
    */
   useEffect(() => {
+    if (!isConnected) {
+      setValidation(validateState());
+      return;
+    }
+
     detectAction();
-
-    if (!isConnected) return;
-
     const interval = setInterval(detectAction, pollInterval);
 
     return () => clearInterval(interval);
-  }, [isConnected, detectAction, pollInterval]);
+  }, [isConnected, detectAction, pollInterval, validateState]);
 
   return {
     finalizationAction,

@@ -1,11 +1,11 @@
 /**
- * V2-FE-009 — Shared Transaction State Machine
+ * V2-FE-051 — Shared Transaction State Machine
  * Core type definitions for the canonical Optimism/EVM transaction lifecycle.
  *
- * States (11):
+ * States (12):
  *   idle → preparing → signature-requested → submitted → confirming
  *        → safe → finalized
- *        → replaced | dropped | reverted | indexing
+ *        → replaced | dropped | reverted | indexing | reorged
  *
  * Security invariants:
  *  - txHash is NEVER fabricated; it is null until Wagmi returns a real value
@@ -41,6 +41,7 @@ export type TransactionMachineErrorReason =
   | 'REVERT'
   | 'DROPPED'
   | 'REPLACED'
+  | 'REORGED'
   | 'STALE_RECEIPT' // receipt chainId does not match expected
   | 'INVALID_TRANSITION'
   | 'INVALID_PERSISTED_STATE';
@@ -199,7 +200,25 @@ export interface TxStateReverted {
   readonly replacedBy: null;
 }
 
-/** Discriminated union of all 11 transaction states. */
+/**
+ * Previously observed receipt was orphaned by a chain reorganization.
+ * Terminal; UI must remove success affordances and allow recovery/retry.
+ * Driven only by canonical RPC observation — never by timers.
+ */
+export interface TxStateReorged {
+  readonly status: 'reorged';
+  readonly txHash: `0x${string}`;
+  readonly chainId: number;
+  /** Orphaned block number when known from the prior receipt observation. */
+  readonly blockNumber: bigint | null;
+  readonly confirmations: null;
+  readonly error: 'REORGED';
+  readonly replacedBy: null;
+  /** Block hash that was orphaned, when reported by the RPC/adapter. */
+  readonly orphanedBlockHash: `0x${string}` | null;
+}
+
+/** Discriminated union of all 12 transaction states. */
 export type TransactionState =
   | TxStateIdle
   | TxStatePreparing
@@ -211,7 +230,8 @@ export type TransactionState =
   | TxStateFinalized
   | TxStateDropped
   | TxStateReplaced
-  | TxStateReverted;
+  | TxStateReverted
+  | TxStateReorged;
 
 export type TransactionStatus = TransactionState['status'];
 
@@ -284,7 +304,18 @@ export interface TxEventRevert {
   readonly type: 'REVERT';
 }
 
-/** Reset a terminal failure state (dropped, reverted) back to idle for retry. */
+
+/**
+ * Canonical receipt for a previously observed inclusion was orphaned (reorg).
+ * Must be driven by RPC/receipt observation — never by wall-clock timers.
+ */
+export interface TxEventReorg {
+  readonly type: 'REORG';
+  /** Orphaned block hash when known from the provider. */
+  readonly orphanedBlockHash?: `0x${string}`;
+}
+
+/** Reset a terminal failure state (dropped, reverted, reorged) back to idle for retry. */
 export interface TxEventRetry {
   readonly type: 'RETRY';
 }
@@ -307,6 +338,7 @@ export type TransactionEvent =
   | TxEventDrop
   | TxEventReplace
   | TxEventRevert
+  | TxEventReorg
   | TxEventRetry
   | TxEventReset;
 
@@ -346,6 +378,7 @@ const TERMINAL_FAILURE = new Set<TransactionStatus>([
   'dropped',
   'replaced',
   'reverted',
+  'reorged',
 ]);
 
 export function isTerminalSuccess(s: TransactionStatus): boolean {
@@ -375,6 +408,9 @@ export function isContradictoryTransition(
   if (from === 'dropped' && to === 'finalized') return true;
   if (from === 'idle' && to === 'finalized') return true;
   if (from === 'idle' && to === 'safe') return true;
+  if (from === 'reorged' && to === 'safe') return true;
+  if (from === 'reorged' && to === 'finalized') return true;
+  if (from === 'finalized' && to === 'reorged') return true;
   return false;
 }
 
@@ -395,6 +431,39 @@ export function isValidChain(
 // Factory helpers
 // ---------------------------------------------------------------------------
 
+/** Parameters for the canonical claim creation call. */
+export interface ClaimCreationParams {
+  /** 32-byte content digest of the evidence (e.g. keccak256 of content). */
+  readonly contentDigest: `0x${string}`;
+  /** ERC-20 token address used for the bounty. */
+  readonly bountyAsset: `0x${string}`;
+  /** Exact integer amount of the bounty asset to claim. */
+  readonly bountyAmount: bigint;
+  /** ABI-encoded frozen configuration expected by the bounty contract. */
+  readonly frozenConfig: `0x${string}`;
+}
+
+/** Protocol-level errors surfaced by claim creation. */
+export type ClaimCreationErrorReason =
+  | 'INVALID_CONTENT_DIGEST'
+  | 'INVALID_BOUNTY_ASSET'
+  | 'INVALID_AMOUNT'
+  | 'INSUFFICIENT_ALLOWANCE'
+  | 'SIMULATION_REVERTED'
+  | 'CLAIM_ALREADY_EXISTS'
+  | 'CLAIM_NOT_ELIGIBLE'
+  | 'CLAIM_WINDOW_CLOSED';
+
+/** Fully-validated request used to drive allowance/simulation/submission. */
+export interface ClaimCreationRequest {
+  readonly params: ClaimCreationParams;
+  readonly chainId: number;
+  readonly account: `0x${string}`;
+  readonly contractAddress: `0x${string}`;
+}
+
+// ---------------------------------------------------------------------------
+// Factory helpers
 // ---------------------------------------------------------------------------
 
 /** Return the canonical idle state. */

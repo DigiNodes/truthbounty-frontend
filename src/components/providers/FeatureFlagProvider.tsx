@@ -1,12 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import {
   FeatureFlag,
   getInitialFlags,
   isDevelopment,
   FeatureFlagMeta,
   FLAG_METADATA,
+  evaluateFlag,
+  type FlagEvaluationContext,
 } from '@/config/feature-flags';
 
 // Storage key for persisting flag overrides
@@ -15,7 +17,8 @@ const STORAGE_KEY = 'truthbounty_feature_flags';
 // Context types
 interface FeatureFlagContextValue {
   flags: Record<FeatureFlag, boolean>;
-  isEnabled: (flag: FeatureFlag) => boolean;
+  isEnabled: (flag: FeatureFlag, context?: FlagEvaluationContext) => boolean;
+  evaluate: (flag: FeatureFlag, context?: FlagEvaluationContext) => ReturnType<typeof evaluateFlag>;
   setFlag: (flag: FeatureFlag, enabled: boolean) => void;
   setFlags: (flags: Partial<Record<FeatureFlag, boolean>>) => void;
   resetFlag: (flag: FeatureFlag) => void;
@@ -83,7 +86,15 @@ export function FeatureFlagProvider({
   });
 
   // Track if there are any overrides
-  const [hasOverrides, setHasOverrides] = useState(false);
+  const hasOverrides = useMemo(() => {
+    const defaultFlags = getInitialFlags();
+    for (const key of Object.keys(flags) as FeatureFlag[]) {
+      if (flags[key] !== defaultFlags[key]) {
+        return true;
+      }
+    }
+    return false;
+  }, [flags]);
 
   // Persist to localStorage when flags change (dev only)
   useEffect(() => {
@@ -99,8 +110,6 @@ export function FeatureFlagProvider({
           }
         }
         
-        setHasOverrides(Object.keys(overrides).length > 0);
-        
         if (Object.keys(overrides).length > 0) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
         } else {
@@ -112,9 +121,13 @@ export function FeatureFlagProvider({
     }
   }, [flags, enablePersistence]);
 
-  // Check if a flag is enabled
-  const isEnabled = useCallback((flag: FeatureFlag): boolean => {
-    return flags[flag] ?? false;
+  // Fail-closed evaluation (unknown/expired/guards → safeFallback)
+  const evaluate = useCallback((flag: FeatureFlag, context?: FlagEvaluationContext) => {
+    return evaluateFlag(flag, flags[flag], context);
+  }, [flags]);
+
+  const isEnabled = useCallback((flag: FeatureFlag, context?: FlagEvaluationContext): boolean => {
+    return evaluateFlag(flag, flags[flag], context).enabled;
   }, [flags]);
 
   // Set a single flag
@@ -167,6 +180,7 @@ export function FeatureFlagProvider({
   const value: FeatureFlagContextValue = {
     flags,
     isEnabled,
+    evaluate,
     setFlag,
     setFlags,
     resetFlag,
@@ -221,9 +235,12 @@ export function useFeatureFlags(): FeatureFlagContextValue {
  * }
  * ```
  */
-export function useFeatureFlag(flag: FeatureFlag): boolean {
+export function useFeatureFlag(
+  flag: FeatureFlag,
+  context?: FlagEvaluationContext
+): boolean {
   const { isEnabled } = useFeatureFlags();
-  return isEnabled(flag);
+  return isEnabled(flag, context);
 }
 
 // Export the context for advanced use cases

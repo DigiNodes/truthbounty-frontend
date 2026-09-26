@@ -4,6 +4,9 @@
 /node_modules
 /.pnp
 .pnp.*
+# workspace-local package-manager caches (sandboxed installs)
+/.corepack
+/.pnpm-store
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -12,6 +15,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/

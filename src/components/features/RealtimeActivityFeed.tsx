@@ -2,9 +2,16 @@
 
 'use client';
 
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
-import type { WebSocketEvent } from '@/app/types/websocket';
+import { useReducedMotion } from '@/components/hooks/useReducedMotion';
+import type {
+  ClaimCreatedEvent,
+  ClaimStatusChangedEvent,
+  VerificationAddedEvent,
+  DisputeCreatedEvent,
+  DisputeResolvedEvent,
+} from '@/app/types/websocket';
 
 interface ActivityItem {
   id: string;
@@ -15,6 +22,7 @@ interface ActivityItem {
 
 export function RealtimeActivityFeed() {
   const { subscribe, isConnected } = useWebSocketContext();
+  const reducedMotion = useReducedMotion();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +35,7 @@ export function RealtimeActivityFeed() {
 
     // Subscribe to various events and create activity items
     const unsubscribers = [
-      subscribe('CLAIM_CREATED', (payload) => {
+      subscribe('CLAIM_CREATED', (payload: ClaimCreatedEvent) => {
         const activity: ActivityItem = {
           id: `claim-${payload.claim.id}-${Date.now()}`,
           type: 'claim_created',
@@ -36,7 +44,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('CLAIM_STATUS_CHANGED', (payload) => {
+      subscribe('CLAIM_STATUS_CHANGED', (payload: ClaimStatusChangedEvent) => {
         const activity: ActivityItem = {
           id: `status-${payload.claimId}-${Date.now()}`,
           type: 'status_changed',
@@ -45,7 +53,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('VERIFICATION_ADDED', (payload) => {
+      subscribe('VERIFICATION_ADDED', (payload: VerificationAddedEvent) => {
         const activity: ActivityItem = {
           id: `verify-${payload.verification.id}-${Date.now()}`,
           type: 'verification',
@@ -54,7 +62,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_CREATED', (payload) => {
+      subscribe('DISPUTE_CREATED', (payload: DisputeCreatedEvent) => {
         const activity: ActivityItem = {
           id: `dispute-${payload.dispute.id}-${Date.now()}`,
           type: 'dispute',
@@ -63,7 +71,7 @@ export function RealtimeActivityFeed() {
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_RESOLVED', (payload) => {
+      subscribe('DISPUTE_RESOLVED', (payload: DisputeResolvedEvent) => {
         const activity: ActivityItem = {
           id: `resolved-${payload.disputeId}-${Date.now()}`,
           type: 'dispute_resolved',
@@ -98,34 +106,62 @@ export function RealtimeActivityFeed() {
       case 'claim_created':
         return 'bg-blue-500';
       case 'status_changed':
-        return 'bg-purple-500';
+        return 'bg-amber-500';
       case 'verification':
         return 'bg-green-500';
       case 'dispute':
         return 'bg-red-500';
       case 'dispute_resolved':
-        return 'bg-orange-500';
+        return 'bg-purple-500';
       case 'leaderboard':
-        return 'bg-yellow-500';
+        return 'bg-indigo-500';
       default:
         return 'bg-gray-500';
     }
   };
 
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'claim_created':
+        return 'Claim';
+      case 'status_changed':
+        return 'Status';
+      case 'verification':
+        return 'Verify';
+      case 'dispute':
+        return 'Dispute';
+      case 'dispute_resolved':
+        return 'Resolved';
+      case 'leaderboard':
+        return 'Rank';
+      default:
+        return 'Event';
+    }
+  };
+
   return (
-    <div className="bg-[#18181b] rounded-lg border border-[#232329] p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold">Live Activity</h3>
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-800">
+        <h3 className="font-semibold text-sm">Live Activity</h3>
+        <span
+          className={`flex items-center gap-1.5 text-xs ${
+            isConnected
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-gray-400 dark:text-gray-500'
+          }`}
+        >
+          <span
+            className={`size-2 rounded-full ${
+              isConnected
+                ? reducedMotion
+                  ? 'bg-green-500'
+                  : 'bg-green-500 animate-pulse'
+                : 'bg-gray-400'
             }`}
+            aria-hidden="true"
           />
-          <span className="text-xs text-gray-400">
-            {isConnected ? 'Live' : 'Offline'}
-          </span>
-        </div>
+          {isConnected ? 'Live' : 'Disconnected'}
+        </span>
       </div>
 
       <div
@@ -134,23 +170,33 @@ export function RealtimeActivityFeed() {
         aria-live="polite"
         aria-label="Live activity feed"
       >
-        {activities.length === 0 ? (
-          <p className="text-gray-500 text-sm">Waiting for activity...</p>
+        {!isConnected ? (
+          <p className="text-xs text-gray-500 text-center py-4">
+            Connect to see live updates
+          </p>
+        ) : activities.length === 0 ? (
+          <p className="text-xs text-gray-500 text-center py-4">
+            Waiting for activity...
+          </p>
         ) : (
           activities.map((activity) => (
             <div
               key={activity.id}
-              className="flex items-start gap-3 text-sm animate-fadeIn"
+              className="flex items-start gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 text-xs"
             >
-              <div
-                className={`w-2 h-2 rounded-full mt-1.5 ${getTypeColor(
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] text-white font-medium ${getTypeColor(
                   activity.type
                 )}`}
-              />
-              <div className="flex-1">
-                <p className="text-gray-300">{activity.message}</p>
-                <p className="text-gray-400 text-xs">{formatTime(activity.timestamp)}</p>
-              </div>
+              >
+                {getTypeLabel(activity.type)}
+              </span>
+              <span className="flex-1 text-gray-700 dark:text-gray-300">
+                {activity.message}
+              </span>
+              <span className="text-gray-400 text-[10px] whitespace-nowrap">
+                {formatTime(activity.timestamp)}
+              </span>
             </div>
           ))
         )}

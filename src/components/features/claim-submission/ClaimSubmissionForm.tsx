@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useConnectors, useConnect } from "wagmi";
+import React, { useState, useRef } from "react";
+import { useDialogFocus } from '@/hooks/useDialogFocus';
+import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
+import { useSubmitClaim } from "@/app/queries/claims.queries";
 import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
 import { keccak256, stringToHex, parseAbi } from "viem";
+import { useTranslations } from '@/i18n';
+import { useAccount } from "@/hooks/useAccount";
+import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 
 const claimAbi = parseAbi([
   "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
@@ -22,7 +27,7 @@ function getClaimConfig() {
   const configHash = process.env.NEXT_PUBLIC_CLAIM_CONFIG_HASH;
   const chainId = process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID;
   if (!address || !asset || !amount || !configHash || !chainId) {
-    throw new Error("Claim contract configuration is incomplete.");
+    return null;
   }
   return {
     address: address as `0x${string}`,
@@ -34,6 +39,7 @@ function getClaimConfig() {
 }
 
 function useCreateClaimTransaction() {
+  const t = useTranslations('claim');
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
@@ -41,14 +47,21 @@ function useCreateClaimTransaction() {
   const address = account?.address;
   const chainId = useChainId();
   const publicClient = usePublicClient();
-  const { amount, asset, address: contractAddress, configHash, chainId: expectedChainId } = getClaimConfig();
+  const config = getClaimConfig();
+  const contractAddress = config?.address;
+  const asset = config?.asset;
+  const amount = config?.amount ?? 0n;
+  const configHash = config?.configHash;
+  const expectedChainId = config?.chainId;
 
   const { data: allowance = 0n } = useReadContract({
     address: asset,
     abi: erc20Abi,
     functionName: "allowance",
-    args: address ? [address, contractAddress] : undefined,
-    query: { enabled: !!address },
+    args: address && contractAddress ? [address, contractAddress] : undefined,
+    query: {
+      enabled: !!address && !!contractAddress && !!asset,
+    },
   });
 
   const { writeContractAsync: writeAllowanceAsync } = useWriteContract();
@@ -56,34 +69,41 @@ function useCreateClaimTransaction() {
 
   const submitClaim = async (contentDigest: `0x${string}`) => {
     if (!address) {
-      throw new Error("Wallet not connected");
+      throw new Error(t('errors.WALLET_NOT_CONNECTED'));
     }
+    if (!config || !contractAddress || !asset || !configHash) {
+      throw new Error(t('errors.configIncomplete'));
+    }
+    const targetContract = contractAddress;
+    const targetAsset = asset;
+    const targetConfigHash = configHash;
+
     if (chainId !== expectedChainId) {
-      throw new Error(`Wrong network. Expected chain ID ${expectedChainId}, got ${chainId}.`);
+      throw new Error(t('errors.networkMismatch', { connected: chainId, expected: expectedChainId }));
     }
     if (!publicClient) {
-      throw new Error("Public client is not available");
+      throw new Error(t('errors.unexpectedError'));
     }
 
-    setError(null);
     setIsPending(true);
+    setError(null);
 
     try {
-      if (allowance < amount) {
+      if (amount > 0n && allowance < amount) {
         const approvalHash = await writeAllowanceAsync({
-          address: asset,
+          address: targetAsset,
           abi: erc20Abi,
           functionName: "approve",
-          args: [contractAddress, amount],
+          args: [targetContract, amount],
         });
         await publicClient.waitForTransactionReceipt({ hash: approvalHash });
       }
 
       const { request } = await publicClient.simulateContract({
-        address: contractAddress,
+        address: targetContract,
         abi: claimAbi,
         functionName: "createClaim",
-        args: [contentDigest, asset, amount, configHash],
+        args: [contentDigest, targetAsset, amount, targetConfigHash],
         account: address,
       });
 
@@ -91,7 +111,7 @@ function useCreateClaimTransaction() {
       setTransactionHash(hash);
       await publicClient.waitForTransactionReceipt({ hash });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Claim creation failed";
+      const message = err instanceof Error ? err.message : t('errors.unexpectedError');
       setError(message);
       throw err;
     } finally {
@@ -124,7 +144,13 @@ interface ClaimFormProps {
   onClose: () => void;
 }
 
+type StringFormField = "title" | "category" | "impact" | "source";
+
 const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) => {
+  const t = useTranslations('claim');
+  const tWallet = useTranslations('wallet');
+  const tCommon = useTranslations('common');
+  
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [impact, setImpact] = useState("");
@@ -137,13 +163,21 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
   const trust = useTrust();
   const account = useAccount();
+  const { connect, connectors } = useConnect();
   const isWalletConnected = !!account?.address;
 
-  const { submitClaim, isPending } = useCreateClaimTransaction();
+  // V2-FE-100: fail-closed wallet/chain readiness for claim submission.
+  // Expected chain comes from the release manifest (not the wallet's current chain).
+  const readiness = useWriteReadiness({
+    enabled: isWalletConnected,
+    accountOverride: account?.address ?? null,
+    chainIdOverride: account?.chainId ?? null,
+  });
 
-  // EVM connector list for the "Connect Wallet" flow.
-  const connectors = useConnectors();
-  const { connect } = useConnect();
+  const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
+  const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
+  const isPending = isSubmittingApi || isSubmittingTx;
+
 
   const lowReputation = trust.reputation < 20;
   const newWallet = trust.accountAgeDays < 7;
@@ -151,82 +185,49 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     !trust.isVerified || lowReputation || newWallet || trust.suspicious;
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement;
-    firstInputRef.current?.focus();
-    return () => {
-      previousActiveElement.current?.focus();
-    };
-  }, []);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-
-    if (!focusableElements || focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else if (document.activeElement === lastElement) {
-      e.preventDefault();
-      firstElement.focus();
-    }
-  }, []);
+  useDialogFocus(true, modalRef, firstInputRef, () => {
+    if (!isPending) onClose();
+  });
 
   const validateField = (name: string, value: string): string | undefined => {
-    if (!value.trim()) return `${capitalize(name)} is required`;
-
-    if (name === "title" && value.length < 3) {
-      return "Title must be at least 3 characters long";
+    switch (name) {
+      case "title":
+        if (!value.trim()) return t('validation.titleRequired');
+        if (value.length < 5) return t('validation.titleMinLength', { min: 5 });
+        break;
+      case "category":
+        if (!value.trim()) return t('validation.categoryRequired');
+        break;
+      case "impact":
+        if (!value.trim()) return t('validation.impactRequired');
+        break;
+      case "source":
+        if (!value.trim()) return t('validation.sourceRequired');
+        try {
+          new URL(value);
+        } catch {
+          return t('validation.sourceInvalidUrl');
+        }
+        break;
+      case "description":
+        if (!value.trim()) return t('validation.descriptionRequired');
+        if (value.length < 10) return t('validation.descriptionMinLength', { min: 10 });
+        break;
     }
-
-    if (name === "description" && value.length < 10) {
-      return "Description must be at least 10 characters long";
-    }
-
-    if (name === "source" && !/^https?:\/\/.+/.test(value)) {
-      return "Enter a valid URL starting with http:// or https://";
-    }
-
     return undefined;
   };
 
-  const validateForm = () => {
-    const fields = { title, category, impact, source, description };
+  const validate = (): boolean => {
     const newErrors: FormErrors = {};
+    const fields = { title, category, impact, source, description };
 
-    Object.entries(fields).forEach(([key, value]) => {
-      const error = validateField(key, value);
-      if (error) newErrors[key as keyof FormErrors] = error;
+    Object.entries(fields).forEach(([name, value]) => {
+      const error = validateField(name, value);
+      if (error) newErrors[name as keyof FormErrors] = error;
     });
 
     setErrors(newErrors);
-    setTouched(
-      Object.keys(fields).reduce((acc, key) => {
-        acc[key] = true;
-        return acc;
-      }, {} as Record<string, boolean>)
-    );
-
     return Object.keys(newErrors).length === 0;
   };
 
@@ -234,18 +235,46 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     e.preventDefault();
     setSubmitError(null);
 
+    setTouched({
+      title: true,
+      category: true,
+      impact: true,
+      source: true,
+      description: true,
+    });
+
     if (!isWalletConnected) {
-      setSubmitError("Please connect your wallet before submitting a claim.");
+      setSubmitError(tWallet('connectPrompt'));
       return;
     }
 
-    if (!validateForm()) return;
+    // V2-FE-100: fail closed when chain/account readiness is not established
+    if (!readiness.isReady) {
+      setSubmitError(
+        readiness.message || "Wallet is not ready to submit this claim."
+      );
+      return;
+    }
+
+    if (!validate()) return;
 
     try {
-      const contentDigest = keccak256(
-        stringToHex(`${title}|${category}|${impact}|${source}|${description}`)
-      );
-      await submitClaim(contentDigest);
+      if (process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS) {
+        const contentDigest = keccak256(
+          stringToHex(`${title}|${category}|${impact}|${source}|${description}`)
+        );
+        await submitClaim(contentDigest);
+      }
+
+      if (mutateAsync) {
+        await mutateAsync({
+          title,
+          category,
+          impact,
+          source,
+          description,
+        });
+      }
 
       onSubmit?.({ title, category, impact, source, description });
 
@@ -255,7 +284,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       setSubmitError(
         err instanceof Error
           ? err.message
-          : "Failed to submit claim. Please try again."
+          : t('errors.submissionFailed')
       );
     }
   };
@@ -288,15 +317,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       // Use the first available EVM connector (injected / WalletConnect / etc.).
       const connector = connectors[0];
       if (!connector) {
-        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
+        setSubmitError(tWallet('noConnector'));
         return;
       }
       connect({ connector });
     } catch (err) {
       console.error("Failed to open wallet connector:", err);
-      setSubmitError(
-        "Could not open the wallet. Please install a browser wallet and try again."
-      );
+      setSubmitError(tWallet('connectFailed'));
     }
   };
 
@@ -304,13 +331,28 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
   const statusMessage = isPending
-    ? "Submitting your claim..."
+    ? t('submittingClaim')
     : submitError
       ? submitError
-      : "";
+      : !readiness.isReady && readiness.message
+        ? readiness.message
+        : "";
+
+  const formValues: Record<StringFormField, string> = {
+    title,
+    category,
+    impact,
+    source,
+  };
+
+  const canSubmit = isWalletConnected && readiness.isReady;
+  const submitDisabledLabel = !isWalletConnected
+    ? "Connect wallet to submit"
+    : !readiness.isReady
+      ? readiness.message || "Wallet not ready"
+      : "Submit claim";
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- modal focus trap keydown lives on the dialog container
     <div
       ref={modalRef}
       className="fixed inset-0 z-50 modal-shell bg-black/60"
@@ -318,15 +360,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       aria-modal="true"
       aria-labelledby="claim-submission-title"
       data-testid="claim-submission-modal"
-      onKeyDown={handleFocusTrap}
+      tabIndex={-1}
     >
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/shortcut keydown handling on the modal form */}
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
       >
-        <h2 id="claim-submission-title" className="text-xl font-bold text-white">Submit a Claim</h2>
+        <h2 id="claim-submission-title" className="text-xl font-bold text-white">{t('submitClaim')}</h2>
 
         <div
           aria-live="polite"
@@ -343,7 +383,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             className="flex flex-col gap-2 bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-3 rounded-lg text-sm"
           >
             <p className="font-medium">
-              You need to connect a wallet to submit a claim.
+              {tWallet('connectPrompt')}
             </p>
             <button
               type="button"
@@ -351,14 +391,24 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               onClick={handleConnectWallet}
               className="self-start bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-md font-semibold"
             >
-              Connect Wallet
+              {tWallet('connect')}
             </button>
           </div>
         )}
 
         {lowTrust && (
           <div className="bg-yellow-500 text-black px-2 py-2 rounded text-sm">
-            ⚠️ Low trust score <TrustScoreTooltip />
+            {t('trust.lowTrustWarning')} <TrustScoreTooltip />
+          </div>
+        )}
+
+        {isWalletConnected && !readiness.isReady && readiness.message && (
+          <div
+            data-testid="write-readiness-reason"
+            role="status"
+            className="bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-2 rounded-lg text-sm"
+          >
+            {readiness.message}
           </div>
         )}
 
@@ -368,35 +418,26 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           </p>
         )}
 
-        {["title", "category", "impact", "source"].map((field, index) => (
+        {(["title", "category", "impact", "source"] as StringFormField[]).map((field, index) => (
           <div key={field}>
             <input
               ref={index === 0 ? firstInputRef : undefined}
               id={`claim-${field}`}
               name={field}
               type="text"
-              className={`input ${errors[field as keyof FormErrors] ? "border-red-500" : ""}`}
+              className={`input ${errors[field] ? "border-red-500" : ""}`}
               placeholder={field === "source" ? "https://example.com" : capitalize(field)}
               aria-label={capitalize(field)}
-              value={
-                { title, category, impact, source }[
-                  field as 'title' | 'category' | 'impact' | 'source'
-                ]
-              }
+              value={formValues[field]}
               onChange={(e) =>
                 handleFieldChange(field, e.target.value)
               }
               onBlur={() =>
-                handleBlur(
-                  field,
-                  { title, category, impact, source }[
-                    field as 'title' | 'category' | 'impact' | 'source'
-                  ]
-                )
+                handleBlur(field, formValues[field])
               }
             />
-            {errors[field as keyof FormErrors] && touched[field] && (
-              <p className="text-red-500 text-sm break-words" role="alert">{errors[field as keyof FormErrors]}</p>
+            {errors[field] && touched[field] && (
+              <p className="text-red-500 text-sm break-words" role="alert">{errors[field]}</p>
             )}
           </div>
         ))}
@@ -404,6 +445,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         <textarea
           id="claim-description"
           name="description"
+          className={`input ${errors.description ? "border-red-500" : ""}`}
           placeholder="Description"
           aria-label="Description"
           value={description}
@@ -412,33 +454,49 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           }
           onBlur={() => handleBlur("description", description)}
         />
-
         {errors.description && touched.description && (
           <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
         )}
 
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-2 justify-end">
           <button
             type="button"
+            className="btn btn-secondary flex-1"
             onClick={onClose}
             disabled={isPending}
-            className="flex-1 bg-[#232329] text-white py-3 rounded-lg"
-            aria-label="Cancel claim submission"
+            aria-label={tCommon('cancel')}
           >
-            Cancel
+            {tCommon('cancel')}
           </button>
           <button
             type="submit"
             data-testid="submit-claim-button"
+            className="btn btn-primary flex-1 disabled:opacity-50"
             disabled={isPending || !isWalletConnected}
-            className="flex-1 bg-[#5b5bf6] text-white py-3 rounded-lg disabled:opacity-50"
-            aria-label={isPending ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
+            aria-label={isPending ? t('submittingClaim') : !isWalletConnected ? tWallet('connectToSubmit') : t('submitClaim')}
+            disabled={isPending || !canSubmit}
+            aria-label={
+              isPending
+                ? "Submitting claim"
+                : !canSubmit
+                  ? submitDisabledLabel
+                  : "Submit claim"
+            }
+            aria-describedby={
+              isWalletConnected && !readiness.isReady
+                ? "write-readiness-reason"
+                : undefined
+            }
           >
             {isPending
-              ? "Submitting..."
+              ? t('submittingClaim')
               : !isWalletConnected
+                ? tWallet('connectToSubmit')
+                : t('submitClaim')}
                 ? "Connect your wallet to submit"
-                : "Submit Claim"}
+                : !readiness.isReady
+                  ? readiness.message || "Wallet not ready"
+                  : "Submit Claim"}
           </button>
         </div>
       </form>

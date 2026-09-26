@@ -37,6 +37,16 @@ export interface SiweApiClient {
     chainId: number;
   }>;
   revokeSession(opts: { token?: string }): Promise<void>;
+  /**
+   * Rotate the current session server-side (V2-BE-064). Optional: hosts
+   * without a refresh endpoint must fail closed when the session expires.
+   */
+  refreshSession?(opts: { token: string }): Promise<{
+    token: string;
+    expiresAt: string;
+    address: string;
+    chainId: number;
+  }>;
 }
 
 /**
@@ -104,7 +114,7 @@ export interface FreshnessResult {
  * and, when present, the message's `expirationTime`. Never fabricates a nonce.
  */
 export function isChallengeFresh(
-  challenge: Pick<SiweChallenge, 'expirationTime'>,
+  challenge: { expirationTime?: string; issuedAt?: string },
   now: number = Date.now(),
 ): FreshnessResult {
   if (challenge.expirationTime) {
@@ -316,6 +326,12 @@ export function createSiweApiClient(baseUrl: string, fetchImpl: typeof fetch = f
     },
     async revokeSession(opts) {
       await post<void>('/auth/siwe/revoke', { token: opts.token });
+    },
+    async refreshSession(opts) {
+      const raw = await post<Record<string, unknown>>('/auth/siwe/refresh', {
+        token: opts.token,
+      });
+      return normalizeVerifyResponse(raw);
     },
   };
 }

@@ -20,7 +20,12 @@ const loaded: LoadedReleaseArtifacts = {
   checksums,
 };
 
+// Enforce valid canonical contract addresses at startup
 assertValidContractAddress(loaded.addresses.TruthBountyWeighted, 'TruthBountyWeighted');
+for (const [name, entry] of Object.entries(loaded.manifest.contracts || {})) {
+  assertValidContractAddress(entry.proxy, `${name}.proxy`);
+  assertValidContractAddress(entry.implementation, `${name}.implementation`);
+}
 
 export function getProtocolRelease(): LoadedReleaseArtifacts {
   return loaded;
@@ -53,8 +58,14 @@ export function getProtocolDiagnostics(): ProtocolDiagnostics {
     gitCommit: loaded.manifest.gitCommit,
     artifactPath: 'release',
     verifiedAt: new Date().toISOString(),
+    abiVersion: loaded.manifest.abiVersion,
+    abiHash: loaded.checksums.files['abi/TruthBountyWeighted.json'] ?? null,
+    environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     contracts: {
       TruthBountyWeighted: loaded.addresses.TruthBountyWeighted,
+      ...Object.fromEntries(
+        Object.entries(loaded.manifest.contracts || {}).map(([name, entry]) => [name, entry.proxy])
+      ),
     },
   };
 }
