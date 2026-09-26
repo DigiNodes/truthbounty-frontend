@@ -343,13 +343,15 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
 
       if (publicClient) {
         const conf = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const currentBlock = await publicClient.getBlockNumber();
+        const actualConfirmations = Number(currentBlock - conf.blockNumber) + 1;
         if (conf.status === 'reverted') {
           clearPendingTransaction(pendingId);
           setReceipt({
             txHash,
             chainId: chainId ?? null,
             status: 'failed',
-            confirmations: Number(conf.confirmations ?? 0),
+            confirmations: actualConfirmations,
             error: 'Transaction reverted on-chain',
             submittedAt: new Date().toISOString(),
           });
@@ -357,7 +359,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
           return;
         }
 
-        const confirmations = Number(conf.confirmations ?? 1);
+        const confirmations = actualConfirmations;
         setReceipt({
           txHash,
           chainId: chainId ?? null,

@@ -124,7 +124,7 @@ export function useSettlementSubmission(
         }
 
         // Encode call data
-        const calldata = encodeSettlementCall(action);
+        const calldata = encodeSettlementCall(action) as `0x${string}`;
 
         const gasEstimate = '250000'; // Mock gas estimate
         const fromAddress = userAddress as string;
@@ -149,7 +149,7 @@ export function useSettlementSubmission(
         setIsSimulating(false);
       }
     },
-    [userAddress, contractAddress, validateSettlementAction, encodeSettlementCall]
+    [userAddress, contractAddress, validateSettlementAction, encodeSettlementCall, publicClient]
   );
 
   /**
@@ -198,7 +198,7 @@ export function useSettlementSubmission(
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, validateSettlementAction, simulateSettlement]
+    [userAddress, contractAddress, validateSettlementAction, simulateSettlement, walletClient, publicClient]
   );
 
   return {
