@@ -10,6 +10,7 @@
 export const SECURITY_HEADER_NAMES = {
   contentSecurityPolicy: 'Content-Security-Policy',
   contentSecurityPolicyReportOnly: 'Content-Security-Policy-Report-Only',
+  reportingEndpoints: 'Reporting-Endpoints',
   strictTransportSecurity: 'Strict-Transport-Security',
   xContentTypeOptions: 'X-Content-Type-Options',
   xFrameOptions: 'X-Frame-Options',
@@ -114,6 +115,8 @@ export function buildContentSecurityPolicy({
     'manifest-src': ["'self'"],
     'media-src': ["'self'", 'blob:'],
     'upgrade-insecure-requests': [],
+    'report-to': ['csp-endpoint'],
+    'report-uri': ['/api/csp-report'],
   };
 
   return Object.entries(directives)
@@ -146,6 +149,8 @@ export function buildSecurityHeaders({
 
   return {
     [cspHeader]: csp,
+    [SECURITY_HEADER_NAMES.reportingEndpoints]:
+      'csp-endpoint="/api/csp-report"',
     [SECURITY_HEADER_NAMES.strictTransportSecurity]:
       'max-age=63072000; includeSubDomains; preload',
     [SECURITY_HEADER_NAMES.xContentTypeOptions]: 'nosniff',
@@ -183,6 +188,9 @@ export function buildStaticSecurityHeaders(): Record<string, string> {
   };
 }
 
+/**
+ * Generate a fresh Edge/Node-compatible CSP nonce for each request.
+ */
 export function createRequestNonce(): string {
   // Edge + Node compatible: Web Crypto random UUID → base64-ish token
   const uuid =
