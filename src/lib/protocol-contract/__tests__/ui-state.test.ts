@@ -28,6 +28,9 @@ const diagnostics: ProtocolDiagnostics = {
   gitCommit: 'abc',
   artifactPath: 'release',
   verifiedAt: '2026-09-24T00:00:00.000Z',
+  abiVersion: '2.0.0',
+  abiHash: '0'.repeat(64),
+  environment: 'development',
   contracts: { TruthBountyWeighted: CANONICAL },
 };
 

@@ -35,16 +35,18 @@ export function useApiFreshness(config: UseApiFreshnessConfig = {}): UseApiFresh
   });
 
   const isDegraded = query.data?.degradedState.isDegraded ?? false;
-  const isFresh = query.data !== null && 
-    !query.isLoading && 
-    !query.isError && 
-    (query.data.freshness.lag <= maxAcceptableLag);
+  const isFresh =
+    query.data !== undefined &&
+    query.data !== null &&
+    !query.isLoading &&
+    !query.isError &&
+    query.data.freshness.lag <= maxAcceptableLag;
 
   return {
     data: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
-    refetch: query.refetch,
+    refetch: () => query.refetch().then(() => undefined),
     isFresh,
     isDegraded,
   };
@@ -70,7 +72,7 @@ export function useFreshnessData() {
     freshness: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
-    refetch: query.refetch,
+    refetch: () => query.refetch().then(() => undefined),
   };
 }
 
@@ -94,7 +96,7 @@ export function useDegradedState() {
     degradedState: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
-    refetch: query.refetch,
+    refetch: () => query.refetch().then(() => undefined),
     isDegraded: query.data?.isDegraded ?? false,
   };
 }
@@ -118,6 +120,6 @@ export function useDependencyHealth() {
     dependencies: query.data ?? [],
     isLoading: query.isLoading,
     error: query.error?.message ?? null,
-    refetch: query.refetch,
+    refetch: () => query.refetch().then(() => undefined),
   };
 }
