@@ -192,14 +192,23 @@ export function buildStaticSecurityHeaders(): Record<string, string> {
  * Generate a fresh Edge/Node-compatible CSP nonce for each request.
  */
 export function createRequestNonce(): string {
-  // Edge + Node compatible: Web Crypto random UUID → base64-ish token
-  const uuid =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random()}`;
-  // Prefer base64 encoding of the uuid bytes for CSP nonce grammar
-  if (typeof btoa === 'function') {
-    return btoa(uuid).replace(/=+$/, '');
+  if (
+    typeof crypto === 'undefined' ||
+    typeof crypto.getRandomValues !== 'function' ||
+    typeof btoa !== 'function'
+  ) {
+    throw new Error(
+      'Secure randomness is unavailable; refusing to generate a CSP nonce',
+    );
   }
-  return Buffer.from(uuid).toString('base64').replace(/=+$/, '');
+
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary).replace(/=+$/, '');
 }
