@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import Link from "next/link";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { useDebounce } from "@/hooks/useDebounce";
