@@ -16,14 +16,33 @@ function normalizeViolation(value: unknown): CspViolation | null {
 
   const report = isObject(value.body) ? value.body : value;
 
+  const effectiveDirective =
+    report.effectiveDirective ?? report["effective-directive"];
+  const blockedURL = report.blockedURL ?? report["blocked-uri"];
+  const documentURL = report.documentURL ?? report["document-uri"];
+  const sourceFile = report.sourceFile ?? report["source-file"];
+  const disposition = report.disposition;
+  const statusCode = report.statusCode ?? report["status-code"];
+
+  const hasMeaningfulField =
+    effectiveDirective !== undefined ||
+    blockedURL !== undefined ||
+    documentURL !== undefined ||
+    sourceFile !== undefined ||
+    disposition !== undefined ||
+    statusCode !== undefined;
+
+  if (!hasMeaningfulField) {
+    return null;
+  }
+
   return {
-    effectiveDirective:
-      report.effectiveDirective ?? report["effective-directive"],
-    blockedURL: report.blockedURL ?? report["blocked-uri"],
-    documentURL: report.documentURL ?? report["document-uri"],
-    sourceFile: report.sourceFile ?? report["source-file"],
-    disposition: report.disposition,
-    statusCode: report.statusCode ?? report["status-code"],
+    effectiveDirective,
+    blockedURL,
+    documentURL,
+    sourceFile,
+    disposition,
+    statusCode,
   };
 }
 
