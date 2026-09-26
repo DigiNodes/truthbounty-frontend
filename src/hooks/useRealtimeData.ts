@@ -117,6 +117,11 @@ export function useRealtimeData() {
         return old;
       });
 
+      // Invalidate claim detail to get fresh status
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.claims.detail(payload.claimId),
+      });
+
       // Bust the finality projection cache for this claim so any
       // displayed finality badge re-derives from fresh on-chain data.
       queryClient.invalidateQueries({
@@ -148,6 +153,13 @@ export function useRealtimeData() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.verifications.byClaim(payload.claimId),
       });
+
+      // Invalidate the verifier's user profile.
+      if (payload.verification.verifierAddress) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.user.profile(payload.verification.verifierAddress),
+        });
+      }
 
       // Invalidate the verifier's own reputation projection.
       const verifierAddress = payload.verification.verifierAddress;

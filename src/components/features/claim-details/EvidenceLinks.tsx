@@ -1,6 +1,8 @@
+
 import { Evidence } from "@/app/types/dispute";
-import { ExternalLink, FileText, LinkIcon, AlertTriangle } from "lucide-react";
-import { validateEvidenceUri, getSafeEvidenceHref } from "@/lib/validation/evidenceUri";
+import { ExternalLink, FileText, LinkIcon, ShieldAlert } from "lucide-react";
+import { sanitizeText, safeUrl } from "@/lib/security/evidence-sanitizer";
+import { SafeExternalLink } from "@/components/security/SafeExternalLink";
 
 /**
  * V2-FE-075 — Evidence links are untrusted API content. Titles, descriptions
@@ -16,8 +18,9 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
       </div>
       <div className="space-y-3">
         {evidences.map((evidence) => {
-          const validation = validateEvidenceUri(evidence.url);
-          const safeHref = getSafeEvidenceHref(evidence.url);
+          const title = sanitizeText(evidence.title, 300);
+          const description = sanitizeText(evidence.description, 600);
+          const urlCheck = safeUrl(evidence.url);
 
           return (
             <div key={evidence.id} className="flex items-center justify-between gap-3 p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors">
@@ -34,15 +37,16 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
                   className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
                   aria-label={`View evidence: ${title || description || "link"} (opens in new tab)`}
                 >
-                  View <ExternalLink size={14} className="ml-1" />
-                </a>
+                  View <ExternalLink size={14} className="ml-1" aria-hidden="true" />
+                </SafeExternalLink>
               ) : (
                 <span
                   className="shrink-0 text-sm text-gray-600 flex items-center"
                   role="img"
                   aria-label="Evidence link blocked for security reasons"
                 >
-                  Invalid URI
+                  <ShieldAlert size={14} className="mr-1" aria-hidden="true" />
+                  Blocked link
                 </span>
               )}
             </div>
