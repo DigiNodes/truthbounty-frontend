@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getClaimById } from '@/app/lib/api';
 import { Claim } from '@/app/types/claim';
+import { useEffect } from 'react';
+import { useClaimDetailProjection } from '@/hooks/useClaimDetailProjection';
 import { useTrustForAddress } from '@/components/hooks/useTrust';
 import TrustScoreTooltip from '@/components/ui/TrustScoreTooltip';
 import { ClaimDetailsSkeleton } from '@/components/skeletons';
@@ -20,28 +20,14 @@ export interface ClaimDetailsProps {
 }
 
 export function ClaimDetails({ claimId, claim: initialClaim, isLoading: externalLoading = false, onNotFound }: ClaimDetailsProps) {
-  const [fetchedClaim, setFetchedClaim] = useState<Claim | null>(null);
-  const [internalLoading, setInternalLoading] = useState(!initialClaim && !!claimId);
-  const [notFound, setNotFound] = useState(false);
-
-  const claim = initialClaim || fetchedClaim;
-  const isLoading = externalLoading || (!initialClaim && internalLoading);
+  const projection = useClaimDetailProjection(initialClaim ? undefined : claimId);
+  const claim = initialClaim || projection.data?.claim;
+  const isLoading = externalLoading || (!initialClaim && projection.viewState === 'loading');
+  const notFound = !initialClaim && projection.viewState === 'not-found';
 
   useEffect(() => {
-    if (initialClaim || !claimId) return;
-    setInternalLoading(true);
-    setNotFound(false);
-    getClaimById(claimId).then((data) => {
-      setFetchedClaim(data);
-      setInternalLoading(false);
-    }).catch((err) => {
-      if (err.message === 'CLAIM_NOT_FOUND') {
-        setNotFound(true);
-        onNotFound?.();
-      }
-      setInternalLoading(false);
-    });
-  }, [claimId, initialClaim, onNotFound]);
+    if (notFound) onNotFound?.();
+  }, [notFound, onNotFound]);
 
   const proposerAddress = claim?.proposer || claim?.claimantAddress;
   const proposerTrust = useTrustForAddress(proposerAddress);
@@ -50,11 +36,28 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
     return <ClaimDetailsSkeleton />;
   }
 
-  if (notFound || !claim) {
+  if (notFound) {
     return (
       <div className="bg-[#18181b] border border-red-500/20 rounded-xl p-6 text-center">
         <h3 className="text-lg font-bold text-red-500 mb-2">Claim Not Found</h3>
         <p className="text-gray-400 text-sm">The requested claim does not exist or has been removed.</p>
+      </div>
+    );
+  }
+
+  if (!claim) {
+    const staleProjection = projection.error?.code === 'PROJECTION_STALE';
+    return (
+      <div className={`rounded-xl border p-6 text-center ${staleProjection ? 'border-amber-500/30 bg-amber-500/10' : 'border-red-500/20 bg-[#18181b]'}`} role="alert">
+        <h3 className={`mb-2 text-lg font-bold ${staleProjection ? 'text-amber-300' : 'text-red-500'}`}>
+          {staleProjection ? 'Claim projection is stale' : 'Claim details unavailable'}
+        </h3>
+        <p className="text-sm text-gray-400">
+          {staleProjection ? 'The projection service is rebuilding. No claim state is being presented as current.' : 'The canonical claim projection could not be verified.'}
+        </p>
+        <button type="button" onClick={projection.retry} className="mt-4 rounded-md border border-gray-600 px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400">
+          Try again
+        </button>
       </div>
     );
   }
@@ -64,9 +67,24 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
   const safeDescription = sanitizeText(claim.description, 5000);
   const safeCategory = claim.category ? sanitizeText(claim.category, 100) : null;
   const evidence = sanitizeEvidenceList(claim.evidence);
+  const isStale = !initialClaim && projection.viewState === 'ready-stale';
 
   return (
-    <div className="bg-[#18181b] border border-[#232329] rounded-xl p-6 space-y-4">
+    <div className="space-y-4 rounded-xl border border-[#232329] bg-[#18181b] p-6">
+      {isStale && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200" role="alert">
+          <strong>Projection may be outdated.</strong>{' '}
+          {projection.data?.projection.reason || 'Review the source before relying on this state.'}
+          <button type="button" onClick={projection.retry} className="ml-2 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300">
+            Refresh
+          </button>
+        </div>
+      )}
+      {initialClaim && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200" role="status">
+          Projection freshness is unavailable for this supplied claim snapshot.
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-[#232329] pb-4">
         <h2 className="text-xl font-bold text-white">{safeTitle}</h2>
         <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-full text-xs font-semibold uppercase tracking-wider">
