@@ -1,4 +1,33 @@
 import React from 'react';
+import type { TransactionStatus as MachineStatus } from '@/lib/transaction-machine/transaction-machine.types';
+import {
+  getTransactionLifecycleMessage,
+  getTransactionLifecycleTone,
+} from '@/lib/transaction-machine/lifecycle-feedback';
+
+/** Legacy shorthand retained for older call sites. */
+export type LegacyTransactionStatus = 'pending' | 'success' | 'error';
+
+export type TransactionStatusProp = MachineStatus | LegacyTransactionStatus;
+
+interface TransactionStatusProps {
+  status: TransactionStatusProp;
+  errorMessage?: string;
+  onRetry?: () => void;
+}
+
+function isLegacyShorthand(
+  status: TransactionStatusProp,
+): status is LegacyTransactionStatus {
+  return status === 'pending' || status === 'success' || status === 'error';
+}
+
+const LEGACY_TONE_CLASS: Record<'neutral' | 'success' | 'warning' | 'danger', string> = {
+  neutral: 'text-gray-600 dark:text-gray-300',
+  success: 'text-green-600 dark:text-green-400',
+  warning: 'text-amber-700 dark:text-amber-400',
+  danger: 'text-red-600 dark:text-red-400',
+};
 
 interface TransactionStatusProps {
   status: 'idle' | 'pending' | 'success' | 'error';
@@ -13,6 +42,65 @@ export function TransactionStatus({
 }: TransactionStatusProps) {
   if (status === 'idle') {
     return null;
+  }
+
+  // Shared-machine states — including reorged / recovery — render lifecycle
+  // copy from the state machine rather than the legacy shorthand strings.
+  if (!isLegacyShorthand(status)) {
+    const tone = getTransactionLifecycleTone(status);
+    const message = getTransactionLifecycleMessage(status);
+
+  if (tone === 'danger') {
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="flex flex-col space-y-2 text-red-600 dark:text-red-400"
+      >
+        <div className="flex items-center space-x-2">
+          <svg
+            className="h-4 w-4"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="text-sm font-medium">{message}</p>
+        </div>
+        {errorMessage && (
+          <p className="text-xs text-red-500 dark:text-red-300">
+            {errorMessage}
+          </p>
+        )}
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="self-start text-xs underline hover:text-red-700 dark:hover:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
+            aria-label="Retry transaction"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className={`flex items-center space-x-2 ${LEGACY_TONE_CLASS[tone]}`}
+    >
+      <p className="text-sm font-medium">{message}</p>
+    </div>
+  );
   }
 
   if (status === 'pending') {

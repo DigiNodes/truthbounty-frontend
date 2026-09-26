@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * V2-FE-009 — Shared Transaction State Machine
+ * V2-FE-051 — Shared Transaction State Machine
  * useEvmTransaction — Wagmi/Viem adapter connecting real wallet interactions
  * to the shared transaction state machine.
  *
@@ -129,7 +129,10 @@ export function useEvmTransaction(
 
   // Watch receipt for the current submitted/confirming hash
   const submittedHash =
-    (state.status === 'submitted' || state.status === 'confirming') &&
+    (state.status === 'submitted' ||
+      state.status === 'confirming' ||
+      state.status === 'safe' ||
+      state.status === 'indexing') &&
     state.txHash
       ? state.txHash
       : undefined;
@@ -138,16 +141,72 @@ export function useEvmTransaction(
     hash: submittedHash,
   });
 
-  // React to receipt changes
+  // Track last observed inclusion blockHash from the provider (never fabricated).
+  const observedBlockHashRef = useRef<`0x${string}` | null>(null);
+
+  // React to receipt changes — lifecycle driven only by Wagmi/Viem receipts.
   useEffect(() => {
-    if (!receipt) return;
-    if (state.status !== 'submitted' && state.status !== 'confirming') return;
+    const receiptAware =
+      state.status === 'submitted' ||
+      state.status === 'confirming' ||
+      state.status === 'safe' ||
+      state.status === 'indexing';
+
+    if (!receiptAware) {
+      observedBlockHashRef.current = null;
+      return;
+    }
+
+    if (!receipt) {
+      // If we previously observed an inclusion and the provider no longer
+      // returns that receipt while still pre-finalized, treat as reorg.
+      if (
+        observedBlockHashRef.current &&
+        (state.status === 'confirming' ||
+          state.status === 'safe' ||
+          state.status === 'indexing')
+      ) {
+        const orphaned = observedBlockHashRef.current;
+        observedBlockHashRef.current = null;
+        send({ type: 'REORG', orphanedBlockHash: orphaned });
+      }
+      return;
+    }
+
+    const currentBlockHash =
+      typeof receipt.blockHash === 'string'
+        ? (receipt.blockHash as `0x${string}`)
+        : null;
+
+    // Reorg: same tx hash now sits under a different block hash than last observed.
+    if (
+      observedBlockHashRef.current &&
+      currentBlockHash &&
+      observedBlockHashRef.current !== currentBlockHash &&
+      (state.status === 'confirming' ||
+        state.status === 'safe' ||
+        state.status === 'indexing')
+    ) {
+      const orphaned = observedBlockHashRef.current;
+      observedBlockHashRef.current = currentBlockHash;
+      send({ type: 'REORG', orphanedBlockHash: orphaned });
+      return;
+    }
+
+    if (state.status !== 'submitted' && state.status !== 'confirming') {
+      if (currentBlockHash) observedBlockHashRef.current = currentBlockHash;
+      return;
+    }
 
     const receiptStatus = receipt.status;
 
     if (receiptStatus === 'reverted') {
       send({ type: 'REVERT' });
       return;
+    }
+
+    if (currentBlockHash) {
+      observedBlockHashRef.current = currentBlockHash;
     }
 
     // Successful inclusion

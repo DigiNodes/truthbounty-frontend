@@ -42,6 +42,28 @@ function illegal(from: string, event: string): never {
 // Per-state handlers
 // ---------------------------------------------------------------------------
 
+function toReorged(
+  state: TransactionState,
+  event: Extract<TransactionEvent, { type: 'REORG' }>,
+): TransactionState {
+  if (!state.txHash) {
+    throw new TransactionMachineError(
+      'INVALID_TRANSITION',
+      'REORG requires an observed txHash from a prior submission',
+    );
+  }
+  return {
+    status: 'reorged',
+    txHash: state.txHash,
+    chainId: state.chainId as number,
+    blockNumber: 'blockNumber' in state && state.blockNumber != null ? state.blockNumber : null,
+    confirmations: null,
+    error: 'REORGED',
+    replacedBy: null,
+    orphanedBlockHash: event.orphanedBlockHash ?? null,
+  };
+}
+
 function fromIdle(
   state: TxStateIdle,
   event: TransactionEvent,
@@ -231,6 +253,8 @@ function fromConfirming(
         error: null,
         replacedBy: event.replacedBy,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
@@ -266,6 +290,8 @@ function fromSafe(
         error: null,
         replacedBy: null,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
@@ -288,6 +314,8 @@ function fromIndexing(
         error: null,
         replacedBy: null,
       };
+    case 'REORG':
+      return toReorged(state, event);
     case 'RESET':
       return createIdleState();
     default:
@@ -413,6 +441,7 @@ export function transitionTxState(
     case 'dropped':
     case 'replaced':
     case 'reverted':
+    case 'reorged':
       return fromTerminalFailure(current, event);
     default: {
       // Exhaustiveness check — TypeScript will error here if a state is missing
