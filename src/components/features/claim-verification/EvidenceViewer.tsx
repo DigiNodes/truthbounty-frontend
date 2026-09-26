@@ -1,11 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldAlert } from 'lucide-react';
-import {
-  sanitizeEvidenceList,
-  SafeEvidenceItem,
-} from '@/lib/security/evidence-sanitizer';
+import { validateEvidenceUri, getSafeEvidenceHref } from '@/lib/validation/evidenceUri';
 
 export interface EvidenceViewerProps {
   claimId: string;
@@ -32,9 +28,8 @@ export function EvidenceViewer({
   void _claimId;
   const [expanded, setExpanded] = useState(true);
 
-  // Canonical default set used when the API payload is not wired through yet.
-  // These go through the same sanitizer as untrusted content.
-  const defaultEvidence = [
+  // Canonical evidence projection mock
+  const evidence = [
     { type: 'link', value: 'https://example.com' },
     { type: 'text', value: 'Witness testimony text' },
     { type: 'image', value: '/evidence/img1.png' },
@@ -62,20 +57,32 @@ export function EvidenceViewer({
           className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
           style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}
         >
-          {evidence.length === 0 && (
-            <p className="text-sm text-gray-500">No evidence available.</p>
-          )}
+          {evidence.map((e, idx) => {
+            if (e.type === 'link') {
+              const validation = validateEvidenceUri(e.value);
+              const safeHref = getSafeEvidenceHref(e.value);
 
-          {evidence.map((e: SafeEvidenceItem, idx) => {
-            if (e.kind === 'link') {
+              if (!validation.isValid || !safeHref) {
+                return (
+                  <div
+                    key={idx}
+                    className="text-xs font-mono p-2 bg-red-950/30 text-red-400 border border-red-900/40 rounded"
+                    role="alert"
+                  >
+                    <span>Invalid or unsupported evidence URI: </span>
+                    <span className="break-all">{e.value}</span>
+                  </div>
+                );
+              }
+
               return (
                 <a
                   key={idx}
-                  href={e.href}
+                  href={safeHref}
                   target="_blank"
-                  rel={e.rel}
-                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1"
-                  aria-label={`Evidence link: ${e.text} (opens in new tab)`}
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
+                  aria-label={`Evidence link: ${e.value} (opens in new tab)`}
                 >
                   {e.text}
                 </a>

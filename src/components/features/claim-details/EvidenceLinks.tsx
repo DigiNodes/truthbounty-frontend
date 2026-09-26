@@ -1,8 +1,6 @@
-
 import { Evidence } from "@/app/types/dispute";
-import { ExternalLink, FileText, LinkIcon, ShieldAlert } from "lucide-react";
-import { sanitizeText, safeUrl } from "@/lib/security/evidence-sanitizer";
-import { SafeExternalLink } from "@/components/security/SafeExternalLink";
+import { ExternalLink, FileText, LinkIcon, AlertTriangle } from "lucide-react";
+import { validateEvidenceUri, getSafeEvidenceHref } from "@/lib/validation/evidenceUri";
 
 /**
  * V2-FE-075 — Evidence links are untrusted API content. Titles, descriptions
@@ -18,35 +16,44 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
       </div>
       <div className="space-y-3">
         {evidences.map((evidence) => {
-          const title = sanitizeText(evidence.title, 300);
-          const description = sanitizeText(evidence.description, 600);
-          const urlCheck = safeUrl(evidence.url);
+          const validation = validateEvidenceUri(evidence.url);
+          const safeHref = getSafeEvidenceHref(evidence.url);
 
           return (
-            <div key={evidence.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors">
+            <div
+              key={evidence.id}
+              className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors"
+            >
               <div className="flex items-center space-x-4">
-                <FileText className="text-gray-500" size={20} />
+                <FileText className="text-gray-500 shrink-0" size={20} />
                 <div>
-                  <p className="text-sm font-medium text-gray-200">{title}</p>
-                  <p className="text-xs text-gray-500">{description}</p>
+                  <p className="text-sm font-medium text-gray-200">{evidence.title}</p>
+                  <p className="text-xs text-gray-500">{evidence.description}</p>
+                  {!validation.isValid && (
+                    <p className="text-xs text-amber-500 mt-1 flex items-center gap-1" role="alert">
+                      <AlertTriangle size={12} />
+                      {validation.error}
+                    </p>
+                  )}
                 </div>
               </div>
-              {urlCheck.ok ? (
-                <SafeExternalLink
-                  href={evidence.url}
-                  className="text-sm text-gray-400 hover:text-white flex items-center transition-colors"
-                  aria-label={`View evidence: ${title || description || "link"} (opens in new tab)`}
+
+              {validation.isValid && safeHref ? (
+                <a
+                  href={safeHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-400 hover:text-white flex items-center transition-colors shrink-0 ml-4 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
+                  aria-label={`View evidence: ${evidence.title} (opens in new tab)`}
                 >
-                  View <ExternalLink size={14} className="ml-1" aria-hidden="true" />
-                </SafeExternalLink>
+                  View <ExternalLink size={14} className="ml-1" />
+                </a>
               ) : (
                 <span
-                  className="text-sm text-gray-600 flex items-center"
-                  role="img"
-                  aria-label="Evidence link blocked for security reasons"
+                  className="text-xs font-mono px-2 py-1 bg-red-950/40 text-red-400 border border-red-900/50 rounded shrink-0 ml-4"
+                  aria-label="Unsupported or invalid link"
                 >
-                  <ShieldAlert size={14} className="mr-1" aria-hidden="true" />
-                  Blocked link
+                  Invalid URI
                 </span>
               )}
             </div>
