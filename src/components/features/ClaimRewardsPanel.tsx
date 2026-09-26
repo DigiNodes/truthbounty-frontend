@@ -145,18 +145,18 @@ export default function ClaimRewardsPanel({
               />
             </svg>
           </div>
-          <div>
-            <p className="text-white font-semibold text-sm">
+          <div className="min-w-0">
+            <p className="text-white font-semibold text-sm truncate">
               Claimable Rewards
             </p>
-            <p className="text-[#a1a1aa] text-xs">
+            <p className="text-[#a1a1aa] text-xs truncate">
               Earned from verified claims
             </p>
           </div>
         </div>
 
-        {/* Total + Claim button */}
-        <div className="flex items-center gap-4">
+        {/* Total + Claim button — full width on mobile, inline from sm */}
+        <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start">
           <div className="text-right">
             <p className="text-xs text-[#a1a1aa]">Total available</p>
             <p
@@ -276,7 +276,7 @@ export default function ClaimRewardsPanel({
           pendingRewards.map((reward) => (
             <li
               key={reward.claimId}
-              className="flex items-center justify-between px-6 py-3 hover:bg-[#232329]/40 transition-colors"
+              className="flex items-center justify-between px-4 py-3 hover:bg-[#232329]/40 transition-colors sm:px-6"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
