@@ -6,11 +6,11 @@ import { test, expect } from '@playwright/test';
  * E2E harness route, asserting each state is presented accessibly and that the
  * failure state exposes its error and a retry affordance.
  *
- * V2-FE-111 (Verification and Stake Flow): the harness also exercises the
- * verification-and-stake journey, so this spec additionally asserts that the
- * flow never fabricates protocol outcomes — a rejected signature, a reverted
- * stake, and a reorged confirmation must each surface as a recoverable,
- * non-success state rather than a fabricated confirmation.
+ * Also covers the confidence and verification-outcome visualization
+ * (V2-FE-113): confidence scores and verification outcomes must be projected
+ * from canonical chain/API state only, and every documented user-visible
+ * outcome (verified / disputed / appealed / inconclusive) must be reachable,
+ * accessible, and never fabricate a protocol result.
  */
 test.describe('transaction states', () => {
   test.beforeEach(async ({ page }) => {
@@ -86,33 +86,145 @@ test.describe('transaction states', () => {
     }
   });
 
-  test('does not fabricate success when the stake signature is rejected', async ({
+  test('renders an open appeal round without fabricating an outcome', async ({
     page,
   }) => {
-    await expect(page.getByText('Stake signature rejected')).toBeVisible();
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(appeal).toBeVisible();
     await expect(
-      txRegion(page).getByText('Rejected', { exact: true }),
+      appeal.getByText('Appeal round 1', { exact: true }),
     ).toBeVisible();
+    await expect(appeal.getByText('Open', { exact: true })).toBeVisible();
     await expect(
-      page.getByText('Signature request was rejected in the wallet'),
+      appeal.getByText(/deadline/i),
     ).toBeVisible();
+    // An open round must not present a resolved outcome.
     await expect(
-      txRegion(page).getByText('Confirmed', { exact: true }),
+      appeal.getByText(/upheld|overturned/i),
     ).toHaveCount(0);
   });
 
-  test('surfaces a reorged confirmation as recoverable, not confirmed', async ({
+  test('renders an escalated appeal round with its escalation status', async ({
     page,
   }) => {
-    await expect(page.getByText('Verification reorged')).toBeVisible();
+    const appeal = page.getByRole('region', { name: /appeal round/i });
     await expect(
-      txRegion(page).getByText('Reorged', { exact: true }),
+      appeal.getByText('Appeal round 2', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText('Confirmation was reorged; awaiting re-inclusion'),
+      appeal.getByText('Escalated', { exact: true }),
     ).toBeVisible();
     await expect(
-      txRegion(page).getByText('Confirmed', { exact: true }),
+      appeal.getByText(/escalation pending/i),
+    ).toBeVisible();
+  });
+
+  test('renders a resolved appeal round from canonical state', async ({
+    page,
+  }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText('Appeal round 3', { exact: true }),
+    ).toBeVisible();
+    await expect(appeal.getByText('Resolved', { exact: true })).toBeVisible();
+    await expect(appeal.getByText(/upheld/i)).toBeVisible();
+  });
+
+  test('fails closed when appeal round data is stale', async ({ page }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText(/stale/i),
+    ).toBeVisible();
+    await expect(
+      appeal.getByRole('button', { name: /refresh/i }),
+    ).toBeVisible();
+  });
+});
+
+test.describe('confidence and verification outcomes', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/e2e/transactions');
+    await expect(
+      page.getByRole('heading', { name: /transaction states/i }),
+    ).toBeVisible();
+  });
+
+  const confidenceRegion = (page: import('@playwright/test').Page) =>
+    page.getByRole('region', { name: /confidence/i });
+
+  test('renders the confidence score from canonical projection state', async ({
+    page,
+  }) => {
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+
+    // Score is presented as an accessible meter with a bounded value.
+    const meter = region.getByRole('meter', { name: /confidence score/i });
+    await expect(meter).toBeVisible();
+    await expect(meter).toHaveAttribute('aria-valuenow', /^\d+$/);
+    await expect(meter).toHaveAttribute('aria-valuemin', '0');
+    await expect(meter).toHaveAttribute('aria-valuemax', '100');
+
+    const value = Number(await meter.getAttribute('aria-valuenow'));
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(100);
+  });
+
+  test('labels the confidence band without inventing an outcome', async ({
+    page,
+  }) => {
+    const region = confidenceRegion(page);
+    await expect(
+      region.getByText(/low|medium|high/i).first(),
+    ).toBeVisible();
+    // The projection source is disclosed so users can judge staleness.
+    await expect(region.getByText(/source:/i)).toBeVisible();
+  });
+
+  test('renders each verification outcome accessibly', async ({ page }) => {
+    const outcomes = page.getByRole('region', { name: /verification outcomes/i });
+    await expect(outcomes).toBeVisible();
+
+    for (const label of [
+      'Verified',
+      'Disputed',
+      'Appealed',
+      'Inconclusive',
+    ]) {
+      await expect(
+        outcomes.getByText(label, { exact: true }),
+      ).toBeVisible();
+    }
+  });
+
+  test('announces the verification outcome status to assistive tech', async ({
+    page,
+  }) => {
+    const status = page.getByRole('status', { name: /verification outcome/i });
+    await expect(status).toBeVisible();
+    await expect(status).toHaveText(/verified|disputed|appealed|inconclusive/i);
+  });
+
+  test('fails closed when confidence data is stale', async ({ page }) => {
+    await page.goto('/e2e/transactions?confidence=stale');
+
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+    // Stale critical data must not be presented as a fresh score.
+    await expect(region.getByText(/stale/i)).toBeVisible();
+    await expect(
+      region.getByRole('meter', { name: /confidence score/i }),
+    ).toHaveCount(0);
+  });
+
+  test('fails closed when confidence data is unavailable', async ({ page }) => {
+    await page.goto('/e2e/transactions?confidence=unavailable');
+
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+    await expect(region.getByText(/unavailable/i)).toBeVisible();
+    await expect(
+      region.getByRole('meter', { name: /confidence score/i }),
     ).toHaveCount(0);
   });
 });

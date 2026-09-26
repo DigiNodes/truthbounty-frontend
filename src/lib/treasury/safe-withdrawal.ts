@@ -3,7 +3,7 @@
  * Fail closed on integrity uncertainty; never fabricate calldata success.
  */
 
-import { encodeFunctionData, isAddress, getAddress } from 'viem';
+import { encodeFunctionData, isAddress, getAddress, type Abi } from 'viem';
 import { getAddressValidationError } from '@/lib/contracts/address-guard';
 import { OPTIMISM_CHAIN_IDS } from '@/lib/transaction-machine/transaction-machine.types';
 import type {
@@ -164,7 +164,7 @@ export function encodeWithdrawTreasuryCall(input: {
     throw new Error('withdrawTreasury missing from canonical ABI — fail closed');
   }
   return encodeFunctionData({
-    abi: input.abi as never,
+    abi: input.abi as Abi,
     functionName: WITHDRAW_FN,
     args: [getAddress(input.recipient), BigInt(input.amountWei)],
   });

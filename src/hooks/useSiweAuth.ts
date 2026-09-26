@@ -121,7 +121,9 @@ export function useSiweAuth(options: UseSiweAuthOptions = {}): UseSiweAuthReturn
   const chainId = options.accountOverride?.chainId ?? wagmiChainId ?? null;
 
   const walletRef = useRef<{ address: string | null; chainId: number | null }>({ address, chainId });
-  walletRef.current = { address, chainId };
+  useEffect(() => {
+    walletRef.current = { address, chainId };
+  }, [address, chainId]);
 
   useEffect(() => {
     if (status !== 'ready-to-sign' || !challenge) return;
