@@ -6,10 +6,13 @@ import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
 import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
-import { keccak256, stringToHex, parseAbi } from "viem";
+import { parseAbi } from "viem";
 import { useTranslations } from '@/i18n';
 import { useAccount } from "@/hooks/useAccount";
 import { useWriteReadiness } from "@/hooks/useWriteReadiness";
+import { EvidenceUploader } from "@/features/evidence-upload/EvidenceUploader";
+import { buildContentDigest, buildEvidenceSubmission } from "@/features/evidence-upload/evidence-commitment";
+import type { EvidenceCommitment } from "@/features/evidence-upload/types";
 
 const claimAbi = parseAbi([
   "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
@@ -159,6 +162,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [evidenceCommitment, setEvidenceCommitment] = useState<EvidenceCommitment | null>(null);
 
   const trust = useTrust();
   const account = useAccount();
@@ -296,9 +300,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
     try {
       if (process.env.NEXT_PUBLIC_BOUNTY_CLAIM_ADDRESS) {
-        const contentDigest = keccak256(
-          stringToHex(`${title}|${category}|${impact}|${source}|${description}`)
-        );
+        const contentDigest = buildContentDigest({
+          title, category, impact, source, description,
+          evidenceDigest: evidenceCommitment?.digest ?? null,
+        });
         await submitClaim(contentDigest);
       }
 
@@ -309,6 +314,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           impact,
           source,
           description,
+          evidence: buildEvidenceSubmission(evidenceCommitment),
         });
       }
 
@@ -491,51 +497,67 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           }
           onBlur={() => handleBlur("description", description)}
         />
-        {errors.description && touched.description && (
-          <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
-        )}
+          {errors.description && touched.description && (
+            <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
+          )}
 
-        <div className="flex gap-2 justify-end">
-          <button
-            type="button"
-            className="btn btn-secondary flex-1"
-            onClick={onClose}
-            disabled={isPending}
-            aria-label={tCommon('cancel')}
-          >
-            {tCommon('cancel')}
-          </button>
-          <button
-            type="submit"
-            data-testid="submit-claim-button"
-            className="btn btn-primary flex-1 disabled:opacity-50"
-            disabled={isPending || !isWalletConnected}
-            aria-label={isPending ? t('submittingClaim') : !isWalletConnected ? tWallet('connectToSubmit') : t('submitClaim')}
-            disabled={isPending || !canSubmit}
-            aria-label={
-              isPending
-                ? "Submitting claim"
+          {isWalletConnected && (
+            <div
+              data-testid="evidence-upload-section"
+              className="border-t border-[#232329] pt-3"
+            >
+              <p className="text-xs text-gray-400 mb-2">
+                Optional: upload supporting evidence. The file is hashed locally
+                (SHA-256) and its verified digest is bound to your claim.
+              </p>
+              <EvidenceUploader onCommitmentChange={setEvidenceCommitment} />
+              {evidenceCommitment && (
+                <p
+                  data-testid="evidence-verified-badge"
+                  className="mt-1 text-xs text-green-300"
+                  role="status"
+                >
+                  Evidence verified — sha256:{evidenceCommitment.digest.slice(0, 12)}…
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              className="btn btn-secondary flex-1"
+              onClick={onClose}
+              disabled={isPending}
+              aria-label={tCommon('cancel')}
+            >
+              {tCommon('cancel')}
+            </button>
+            <button
+              type="submit"
+              data-testid="submit-claim-button"
+              className="btn btn-primary flex-1 disabled:opacity-50"
+              disabled={isPending || !canSubmit}
+              aria-label={
+                isPending
+                  ? "Submitting claim"
+                  : !canSubmit
+                    ? submitDisabledLabel
+                    : "Submit claim"
+              }
+              aria-describedby={
+                isWalletConnected && !readiness.isReady
+                  ? "write-readiness-reason"
+                  : undefined
+              }
+            >
+              {isPending
+                ? t('submittingClaim')
                 : !canSubmit
                   ? submitDisabledLabel
-                  : "Submit claim"
-            }
-            aria-describedby={
-              isWalletConnected && !readiness.isReady
-                ? "write-readiness-reason"
-                : undefined
-            }
-          >
-            {isPending
-              ? t('submittingClaim')
-              : !isWalletConnected
-                ? tWallet('connectToSubmit')
-                : t('submitClaim')}
-                ? "Connect your wallet to submit"
-                : !readiness.isReady
-                  ? readiness.message || "Wallet not ready"
-                  : "Submit Claim"}
-          </button>
-        </div>
+                  : t('submitClaim')}
+            </button>
+          </div>
       </form>
     </div>
   );
