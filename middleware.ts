@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { i18nConfig } from "./src/i18n/config";
 import {
   NONCE_HEADER,
+  SECURITY_HEADER_NAMES,
   buildSecurityHeaders,
   createRequestNonce,
 } from "./src/lib/security/headers";
@@ -15,20 +16,24 @@ export default function middleware(request: NextRequest) {
   const nonce = createRequestNonce();
   const isDevelopment = process.env.NODE_ENV === "development";
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(NONCE_HEADER, nonce);
-
-  const requestWithNonce = new NextRequest(request, {
-    headers: requestHeaders,
-  });
-
-  const response = handleI18n(requestWithNonce);
-
   const securityHeaders = buildSecurityHeaders({
     nonce,
     isDevelopment,
     reportOnly: false,
   });
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(NONCE_HEADER, nonce);
+  requestHeaders.set(
+    SECURITY_HEADER_NAMES.contentSecurityPolicy,
+    securityHeaders[SECURITY_HEADER_NAMES.contentSecurityPolicy],
+  );
+
+  const requestWithSecurityHeaders = new NextRequest(request, {
+    headers: requestHeaders,
+  });
+
+  const response = handleI18n(requestWithSecurityHeaders);
 
   for (const [name, value] of Object.entries(securityHeaders)) {
     response.headers.set(name, value);
