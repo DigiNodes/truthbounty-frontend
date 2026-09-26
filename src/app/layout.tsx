@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeInitScript } from "@/lib/theme-init";
 import { NONCE_HEADER } from "@/lib/security/headers";
+import { AnalyticsConsentManager } from "@/components/analytics/AnalyticsConsentManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,9 +46,11 @@ export default async function RootLayout({
     </a>
 
     <Providers>
-      <main id="main" tabIndex={-1} role="main">
-        {children}
-      </main>
+      <AnalyticsConsentManager>
+        <main id="main" tabIndex={-1} role="main">
+          {children}
+        </main>
+      </AnalyticsConsentManager>
     </Providers>
   </body>
 </html>
