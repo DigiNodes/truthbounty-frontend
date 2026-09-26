@@ -109,7 +109,9 @@ describe('Verification Flow Integration Tests', () => {
 
     it('should show loading state during verification', async () => {
       const { submitVerification } = require('@/app/lib/api')
-      submitVerification.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)))
+      // Never settle: the assertion observes the in-flight state deterministically
+      // instead of racing a timer.
+      submitVerification.mockImplementation(() => new Promise(() => {}))
 
       render(
         <VerificationActions claimId="claim-1" stakeAmount={50} />,
@@ -120,8 +122,11 @@ describe('Verification Flow Integration Tests', () => {
       const verifyButton = screen.getByRole('button', { name: 'Verify' })
       await user.click(verifyButton)
 
-      // Check for loading state
-      expect(screen.getByText(/pending/i)).toBeInTheDocument()
+      // Check for loading state. The protocol boundary also surfaces a
+      // "lifecycle pending" line, so target the transaction status region.
+      const pendingStatus = await screen.findByText(/transaction pending/i);
+      expect(pendingStatus).toHaveAttribute('role', 'status');
+      expect(pendingStatus).toHaveAttribute('aria-live', 'polite');
     })
   })
 

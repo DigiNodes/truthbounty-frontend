@@ -2,8 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { getContractAddress, getProtocolVersion } from '@/lib/contracts/registry';
-import { validateEvidenceUri } from '@/lib/validation/evidenceUri';
+import {
+  getContractAddress,
+  getProtocolVersion,
+  getReleaseChainId,
+} from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 // Types
 export interface EvidencePayload {
@@ -28,11 +32,11 @@ interface UseEvidenceRegistrationConfig {
   artifactVersion?: string;
 }
 
-const OPTIMISM_MAINNET_CHAIN_ID = 10;
+const SUBMIT_EVIDENCE_SELECTOR = '0x1a2b3c4d'; // Mock selector for submitEvidence
 
 export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = {}) {
   const contractAddress = config.contractAddress ?? getContractAddress('TruthBountyWeighted');
-  const expectedChainId = config.expectedChainId ?? OPTIMISM_MAINNET_CHAIN_ID;
+  const expectedChainId = config.expectedChainId ?? getReleaseChainId();
   const artifactVersion = config.artifactVersion ?? getProtocolVersion();
 
   const { address: userAddress, isConnected } = useAccount();
@@ -52,6 +56,15 @@ export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = 
       errors.push(`Wrong network. Expected chain ${expectedChainId}, got ${currentChainId}`);
     }
 
+    const writeTarget = evaluateWriteTarget({
+      activeChainId: currentChainId,
+      contractAddress,
+      expectedProtocolVersion: artifactVersion,
+    });
+    if (!writeTarget.ok) {
+      errors.push(...writeTarget.errors);
+    }
+
     if (!payload.claimId || !payload.claimId.match(/^[0-9a-fA-F]{64}$/)) {
       errors.push('Invalid claim mismatch: claimId must be a 32-byte hex string (without 0x)');
     }
@@ -65,7 +78,7 @@ export function useEvidenceRegistration(config: UseEvidenceRegistrationConfig = 
       isValid: errors.length === 0,
       errors
     };
-  }, [isConnected, userAddress, currentChainId, expectedChainId]);
+  }, [isConnected, userAddress, currentChainId, expectedChainId, contractAddress, artifactVersion]);
 
   const submitEvidence = useCallback(async (payload: EvidencePayload): Promise<EvidenceTransaction> => {
     setIsSubmitting(true);

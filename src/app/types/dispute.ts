@@ -161,9 +161,11 @@ export interface DisputeSimulationResult {
   // Gas estimation
   gasEstimate?: string;
   
-  // Projected state after dispute opens
+  // Projected state after dispute opens.
+  // `disputeId` is absent until the contract assigns it on-chain; the id is
+  // never predicted locally.
   projectedState?: {
-    disputeId: string; // Predicted dispute ID
+    disputeId?: string;
     bondLocked: string;
     newStatus: 'DISPUTED';
   };
