@@ -40,6 +40,28 @@ function illegal(from: string, event: string): never {
 // Per-state handlers
 // ---------------------------------------------------------------------------
 
+function toReorged(
+  state: TransactionState,
+  event: Extract<TransactionEvent, { type: 'REORG' }>,
+): TransactionState {
+  if (!state.txHash) {
+    throw new TransactionMachineError(
+      'INVALID_TRANSITION',
+      'REORG requires an observed txHash from a prior submission',
+    );
+  }
+  return {
+    status: 'reorged',
+    txHash: state.txHash,
+    chainId: state.chainId as number,
+    blockNumber: 'blockNumber' in state && state.blockNumber != null ? state.blockNumber : null,
+    confirmations: null,
+    error: 'REORGED',
+    replacedBy: null,
+    orphanedBlockHash: event.orphanedBlockHash ?? null,
+  };
+}
+
 function fromIdle(
   state: TxStateIdle,
   event: TransactionEvent,
@@ -226,7 +248,7 @@ function fromConfirming(
         chainId: state.chainId,
         blockNumber: state.blockNumber,
         confirmations: null,
-        error: "REORG",
+        error: "REORGED",
         replacedBy: null,
       };
       return next;
@@ -260,7 +282,7 @@ function fromSafe(
         chainId: state.chainId,
         blockNumber: state.blockNumber,
         confirmations: null,
-        error: "REORG",
+        error: "REORGED",
         replacedBy: null,
       };
       return next;
