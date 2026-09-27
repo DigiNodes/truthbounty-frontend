@@ -11,7 +11,7 @@
  *  - Wrong-network is detected and transitions to an explicit error state
  *  - Write readiness gate (V2-FE-100) runs before PREPARE; fail closed
  *  - Intent is invalidated when account or chain changes mid-flow
- *  - No Stellar/Freighter runtime dependencies
+ *  - No non-EVM runtime dependencies
  *  - contract ABIs throw NotImplemented until V2-FE-003/005 are merged
  */
 

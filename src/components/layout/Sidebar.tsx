@@ -37,10 +37,23 @@ const Sidebar = () => {
     isConnected,
     roles,
     capabilities,
-    isMobileMenuOpen,
-    setIsMobileMenuOpen,
+    isMobileMenuOpen: contextIsMobileMenuOpen,
+    setIsMobileMenuOpen: contextSetIsMobileMenuOpen,
   } = useAppShellContext();
   const pathname = currentRoute || '/';
+
+  const [localIsMobileOpen, setLocalIsMobileOpen] = useState(false);
+  const isMobileMenuOpen = contextIsMobileMenuOpen || localIsMobileOpen;
+  const setIsMobileMenuOpen = useCallback(
+    (open: boolean | ((prev: boolean) => boolean)) => {
+      setLocalIsMobileOpen((prev) => {
+        const next = typeof open === 'function' ? open(prev) : open;
+        contextSetIsMobileMenuOpen(next);
+        return next;
+      });
+    },
+    [contextSetIsMobileMenuOpen],
+  );
 
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransactionEntry[]>(
     () => getPendingTransactions(),
@@ -53,6 +66,19 @@ const Sidebar = () => {
   useEffect(() => {
     return subscribeToPendingTransactions(setPendingTransactions);
   }, []);
+
+  // Document-level Escape listener to close mobile drawer from anywhere
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleDocumentKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+        hamburgerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    return () => document.removeEventListener('keydown', handleDocumentKeyDown);
+  }, [isMobileMenuOpen, setIsMobileMenuOpen]);
 
   // Filter navigation items by role and capability
   const visibleNavItems = useMemo(() => {
@@ -240,9 +266,6 @@ const Sidebar = () => {
           isEnabled(PRIMARY_ACTION_ITEM.featureFlag)) && (
           <div className="p-4 pb-2">
             <button
-              ref={(el) => {
-                if (!firstFocusableRef.current) firstFocusableRef.current = el;
-              }}
               type="button"
               onClick={() => handleNavClick(PRIMARY_ACTION_ITEM.href)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -56,7 +56,9 @@ const Topbar = () => {
         </FeatureFlagGate>
 
         {/* Theme toggle */}
-        <ThemeToggle />
+        <span className="hidden sm:inline-flex">
+          <ThemeToggle />
+        </span>
 
         {/* Brief trust indicator */}
         <FeatureFlagGate flag="TRUST_SCORE_DISPLAY">

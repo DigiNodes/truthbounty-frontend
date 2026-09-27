@@ -24,6 +24,8 @@ const SENSITIVE_PARAM_NAMES = new Set([
   'x-amz-security-token',
   'x-goog-signature',
   'x-goog-credential',
+  'authorization',
+  'credential',
 ]);
 
 // IPFS CID patterns: CIDv0 (base58 starting with Qm...) or CIDv1 (multibase starting with baf...)
@@ -137,7 +139,7 @@ export function getSafeEvidenceHref(uri: string): string | null {
       const remainder = parsed.pathname.startsWith('/') && parsed.hostname
         ? parsed.pathname
         : parsed.pathname.replace(new RegExp(`^\\/?\\/?${cid}`), '');
-      return `https://ipfs.io/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
+      return `https://dweb.link/ipfs/${cid}${remainder}${parsed.search}${parsed.hash}`;
     }
   } catch {
     return null;

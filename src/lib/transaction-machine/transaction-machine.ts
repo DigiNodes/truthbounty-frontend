@@ -20,7 +20,6 @@ import {
   TxStateConfirming,
   TxStateSafe,
   TxStateIndexing,
-  TxStateReorged,
   createIdleState,
   isValidChain,
 } from "./transaction-machine.types";
@@ -241,18 +240,8 @@ function fromConfirming(
         error: "REVERT",
         replacedBy: null,
       };
-    case "REORG": {
-      const next: TxStateReorged = {
-        status: "reorged",
-        txHash: state.txHash,
-        chainId: state.chainId,
-        blockNumber: state.blockNumber,
-        confirmations: null,
-        error: "REORGED",
-        replacedBy: null,
-      };
-      return next;
-    }
+    case "REORG":
+      return toReorged(state, event);
     case "REPLACE":
       return {
         status: "replaced",
@@ -275,18 +264,8 @@ function fromSafe(
   event: TransactionEvent,
 ): TransactionState {
   switch (event.type) {
-    case "REORG": {
-      const next: TxStateReorged = {
-        status: "reorged",
-        txHash: state.txHash,
-        chainId: state.chainId,
-        blockNumber: state.blockNumber,
-        confirmations: null,
-        error: "REORGED",
-        replacedBy: null,
-      };
-      return next;
-    }
+    case "REORG":
+      return toReorged(state, event);
     case "INDEXING": {
       const next: TxStateIndexing = {
         status: "indexing",
@@ -322,6 +301,8 @@ function fromIndexing(
   event: TransactionEvent,
 ): TransactionState {
   switch (event.type) {
+    case "REORG":
+      return toReorged(state, event);
     case "FINALIZE":
       return {
         status: "finalized",

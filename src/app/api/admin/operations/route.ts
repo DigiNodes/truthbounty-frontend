@@ -68,7 +68,9 @@ export async function POST(request: Request) {
     }
 
     const timestamp = new Date().toISOString();
-    const randomHex = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+    const randomBytes = new Uint32Array(1);
+    crypto.getRandomValues(randomBytes);
+    const randomHex = randomBytes[0].toString(16).padStart(8, '0');
     const consequenceHash = `0x${randomHex}${Date.now().toString(16)}0000000000000000000000000000000000000000`.slice(0, 66);
     const auditId = `AUD-${Date.now().toString().slice(-8)}`;
 

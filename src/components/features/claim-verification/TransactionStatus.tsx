@@ -29,11 +29,7 @@ const LEGACY_TONE_CLASS: Record<'neutral' | 'success' | 'warning' | 'danger', st
   danger: 'text-red-600 dark:text-red-400',
 };
 
-interface TransactionStatusProps {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  errorMessage?: string;
-  onRetry?: () => void;
-}
+
 
 export function TransactionStatus({
   status,

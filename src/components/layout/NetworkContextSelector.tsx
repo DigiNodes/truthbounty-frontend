@@ -72,7 +72,7 @@ export function NetworkContextSelector({ className = '' }: NetworkContextSelecto
         id={selectId}
         value={selectValue}
         onChange={handleNetworkChange}
-        className="bg-transparent text-foreground text-xs sm:text-sm focus:outline-none cursor-pointer pr-1"
+        className="hidden sm:block min-w-0 bg-transparent text-foreground text-xs sm:text-sm focus:outline-none cursor-pointer pr-1"
         aria-label="Select chain"
       >
         {!isSupported && isConnected && (

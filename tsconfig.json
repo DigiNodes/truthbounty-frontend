@@ -43,6 +43,9 @@
     "src/hooks/useLocalization.ts",
     "src/components/providers/LocalizationProvider.tsx",
     "src/components/ui/LocaleSwitcher.tsx",
-    "src/__tests__/i18n/**/*"
+    "src/__tests__/i18n/**/*",
+    "src/modules/**/*",
+    "src/__tests__/**/*.e2e-spec.ts",
+    "src/__tests__/**/*.e2e-spec.tsx"
   ]
 }
