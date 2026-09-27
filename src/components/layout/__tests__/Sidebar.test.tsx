@@ -56,7 +56,7 @@ describe('Sidebar', () => {
     trigger.focus();
     fireEvent.click(trigger);
     expect(navigation).toHaveAttribute('aria-modal', 'true');
-    expect(screen.getByRole('button', { name: 'Claims Feed' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Claims Feed' })).toHaveFocus();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(navigation).toHaveClass('invisible');

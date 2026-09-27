@@ -62,7 +62,7 @@ export const TimelineOfEvents = ({ events }: { events: TimelineEvent[] }) => {
         {validEvents.map((event) => (
           <div key={event.id} className="relative flex items-start">
             <div className="absolute left-0 mt-1.5 mr-4 z-10">
-              {getStatusIcon(event.type || "", event.isRecent)}
+              {getStatusIcon(event.type || "", Boolean(event.isRecent))}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-200">{event.title}</p>
