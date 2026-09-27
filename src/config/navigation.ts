@@ -14,6 +14,7 @@ import type { FeatureFlag } from '@/config/feature-flags';
 
 export const APP_ROUTES = {
   HOME: '/',
+  DASHBOARD: '/',
   CLAIMS: '/',
   CLAIM_NEW: '/claims/new',
   NEW_CLAIM: '/claims/new',

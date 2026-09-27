@@ -10,6 +10,12 @@ if (typeof globalThis.TextEncoder === 'undefined') {
   globalThis.TextDecoder = TextDecoder
 }
 
+if (typeof global.Request === 'undefined' && typeof globalThis.Request !== 'undefined') {
+  global.Request = globalThis.Request;
+  global.Response = globalThis.Response;
+  global.Headers = globalThis.Headers;
+}
+
 // Mock WebSocket for testing
 global.WebSocket = jest.fn(() => ({
   addEventListener: jest.fn(),
