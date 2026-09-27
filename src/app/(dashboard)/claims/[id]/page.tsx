@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import MainLayout from '@/components/layout/MainLayout';
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { EvidenceViewer } from '@/components/features/claim-verification/EvidenceViewer';
 import { StakeForm } from '@/components/features/claim-verification/StakeForm';
@@ -27,8 +28,9 @@ export default function ClaimDetailPage({
 
   if (claimNotFound) {
     return (
-      <main className="min-h-[70vh] flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md text-center">
+      <MainLayout>
+        <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
             <svg
               className="h-8 w-8 text-gray-400"
@@ -62,13 +64,15 @@ export default function ClaimDetailPage({
             Go back
           </button>
         </div>
-      </main>
+      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50/70 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <MainLayout>
+      <div className="min-h-screen bg-gray-50/70 dark:bg-gray-950">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
         {/* Page Header */}
         <header className="mb-6 lg:mb-8">
@@ -287,7 +291,8 @@ export default function ClaimDetailPage({
           </aside>
         </div>
       </div>
-    </main>
+    </div>
+    </MainLayout>
   );
 }
 
