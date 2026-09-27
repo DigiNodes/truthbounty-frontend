@@ -5,10 +5,14 @@
  *
  * Renders sanitized claim content with evidence links. All user-generated
  * content is sanitized; unsafe URLs fail closed to plain text.
+ *
+ * V2-FE Evidence Privacy Protection — Evidence URLs and timestamps are
+ * displayed in privacy-preserving format. Full URLs available via clipboard.
  */
 
 import { sanitizeText, sanitizeEvidenceList } from '@/lib/security/evidence-sanitizer';
-import { SafeExternalLink } from '@/components/security/SafeExternalLink';
+import { PrivateEvidenceLink } from '@/components/security/PrivateEvidenceLink';
+import { PrivateTimestamp } from '@/components/security/PrivateTimestamp';
 import type { ClaimDetailProjection } from '@/app/types/claim-detail-projection';
 
 export interface ClaimContentProps {
@@ -73,13 +77,13 @@ export function ClaimContent({ claim }: ClaimContentProps) {
             {evidence.map((ev, idx) => (
               <li key={idx} className="text-xs">
                 {ev.kind === 'link' && (
-                  <SafeExternalLink
+                  <PrivateEvidenceLink
                     href={ev.href}
                     className="text-blue-400 hover:text-blue-300 underline break-all transition-colors"
-                    aria-label={`Evidence link ${idx + 1}: ${ev.text} (opens in new tab)`}
-                  >
-                    {ev.text}
-                  </SafeExternalLink>
+                    ariaLabel={`Evidence link ${idx + 1} (truncated for privacy, click to copy full URL)`}
+                    showIcon={true}
+                    showCopyButton={true}
+                  />
                 )}
                 {ev.kind === 'image' && (
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -123,10 +127,11 @@ export function ClaimContent({ claim }: ClaimContentProps) {
           )}
 
           <div>
-            <span>Created: </span>
-            <span className="text-gray-200">
-              {new Date(claim.createdAt).toLocaleDateString()}
-            </span>
+            <PrivateTimestamp
+              timestamp={claim.createdAt}
+              prefix="Created"
+              showTooltip={false}
+            />
           </div>
         </div>
       </div>

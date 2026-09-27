@@ -162,6 +162,9 @@ function cloneAndRedact(value: unknown, depth: number): unknown {
       isLong0xHexString(redactedVal, 20)
     ) {
       redactedVal = REDACTED;
+    } else if (isEvidenceKey(key)) {
+      // Redact evidence URLs, values, CIDs
+      redactedVal = redactEvidenceValue(redactedVal, key);
     }
 
     result[key] = redactedVal;
@@ -229,4 +232,45 @@ export function redactError(error: unknown): {
 
 export function redactForErrorReporter<T>(payload: T): unknown {
   return redactForTelemetry(payload);
+}
+
+// ---------------------------------------------------------------------------
+// Evidence-specific redaction
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a key likely contains evidence metadata that should be redacted.
+ */
+function isEvidenceKey(key: string): boolean {
+  const k = key.toLowerCase();
+  return (
+    k === 'evidence' ||
+    k === 'evidenceurl' ||
+    k === 'evidencevalue' ||
+    k === 'evidencecid' ||
+    k.includes('evidence') && (k.includes('url') || k.includes('value') || k.includes('cid'))
+  );
+}
+
+/**
+ * Redact evidence-specific fields from telemetry payloads.
+ *
+ * Evidence URLs, values, and CIDs are replaced with [REDACTED_EVIDENCE] to
+ * prevent metadata leakage. Evidence IDs should be hashed before logging
+ * (see evidence-privacy.ts).
+ *
+ * @param value - Value to check for evidence data
+ * @param key - Object key name (if available)
+ * @returns Redacted value if evidence-related, original value otherwise
+ */
+export function redactEvidenceValue(value: unknown, key?: string): unknown {
+  if (key && isEvidenceKey(key)) {
+    if (typeof value === 'string' && value.length > 0) {
+      return '[REDACTED_EVIDENCE]';
+    }
+    if (typeof value === 'object' && value !== null) {
+      return '[REDACTED_EVIDENCE]';
+    }
+  }
+  return value;
 }
