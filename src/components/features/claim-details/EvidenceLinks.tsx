@@ -1,7 +1,16 @@
-
 import { Evidence } from "@/app/types/dispute";
 import { ExternalLink, FileText, LinkIcon } from "lucide-react";
+import { PrivateEvidenceLink } from "@/components/security/PrivateEvidenceLink";
+import { validateEvidenceUri, getSafeEvidenceHref } from "@/lib/validation/evidenceUri";
 
+/**
+ * V2-FE-075 — Evidence links are untrusted API content. Titles, descriptions
+ * and URLs are sanitized; unsafe URLs fail closed to an accessible blocked
+ * placeholder instead of an anchor.
+ *
+ * V2-FE Evidence Privacy Protection — URLs displayed with truncation for
+ * privacy, full URLs available via clipboard.
+ */
 export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-6 mb-6">
@@ -10,20 +19,60 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
         <h2>Evidence Links</h2>
       </div>
       <div className="space-y-3">
-        {evidences.map((evidence) => (
-          <div key={evidence.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors">
-            <div className="flex items-center space-x-4">
-              <FileText className="text-gray-500" size={20} />
-              <div>
-                <p className="text-sm font-medium text-gray-200">{evidence.title}</p>
-                <p className="text-xs text-gray-500">{evidence.description}</p>
+        {evidences.map((evidence) => {
+          const title = evidence.title || 'Untitled Evidence';
+          const description = evidence.description || '';
+          const validation = validateEvidenceUri(evidence.url);
+          const safeHref = getSafeEvidenceHref(evidence.url);
+          const title = (evidence as { title?: string }).title ?? '';
+          const description = (evidence as { description?: string }).description ?? '';
+
+          return (
+            <div
+              key={evidence.id}
+              className="flex items-center justify-between gap-3 p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors"
+            >
+              <div className="flex min-w-0 items-center space-x-4">
+                <FileText className="shrink-0 text-gray-500" size={20} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-200">{title}</p>
+                  {description && (
+                    <p className="truncate text-xs text-gray-500">{description}</p>
+                  )}
+                </div>
               </div>
+              <PrivateEvidenceLink
+                href={evidence.url}
+                className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
+                ariaLabel={`View evidence: ${title} (truncated for privacy, click to copy)`}
+                showIcon={true}
+              />
+                  <p className="truncate text-sm font-medium text-gray-200">{title || evidence.url}</p>
+                  <p className="truncate text-xs text-gray-500">{description}</p>
+                </div>
+              </div>
+              {validation.isValid && safeHref ? (
+                <a
+                  href={safeHref}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
+                  aria-label={`View evidence: ${title || description || "link"} (opens in new tab)`}
+                >
+                  View <ExternalLink size={14} className="ml-1" />
+                </a>
+              ) : (
+                <span
+                  className="shrink-0 text-sm text-gray-600 flex items-center"
+                  role="img"
+                  aria-label="Evidence link blocked for security reasons"
+                >
+                  Invalid URI
+                </span>
+              )}
             </div>
-            <a href={evidence.url} className="text-sm text-gray-400 hover:text-white flex items-center transition-colors">
-              View <ExternalLink size={14} className="ml-1" />
-            </a>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

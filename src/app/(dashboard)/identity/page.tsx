@@ -1,18 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import MainLayout from '@/components/layout/MainLayout';
 import { WorldcoinVerificationPanel } from '@/components/features/worldcoin';
 import { Button } from '@/components/ui/button';
 import { Wallet, Info } from 'lucide-react';
+import { useAccount } from '@/hooks/useAccount';
 
 export default function IdentityPage() {
+  const account = useAccount();
   const [walletAddress, setWalletAddress] = useState<string | undefined>();
   const [isVerified, setIsVerified] = useState(false);
 
+  useEffect(() => {
+    setWalletAddress(account?.address);
+  }, [account?.address]);
+
   const handleConnectWallet = () => {
-    // Mock wallet connection
-    const mockAddress = '0x' + Math.random().toString(16).substring(2, 42);
-    setWalletAddress(mockAddress);
+    if (!account?.address) {
+      setWalletAddress(undefined);
+      return;
+    }
+    setWalletAddress(account.address);
   };
 
   const handleDisconnectWallet = () => {
@@ -21,7 +30,8 @@ export default function IdentityPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -54,7 +64,7 @@ export default function IdentityPage() {
           </h2>
           
           {walletAddress ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   Connected Wallet
@@ -127,5 +137,6 @@ export default function IdentityPage() {
         )}
       </div>
     </div>
+    </MainLayout>
   );
 }
