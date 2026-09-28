@@ -66,7 +66,7 @@ describe('resolveVerificationArtifact', () => {
   });
 
   it('fails closed when the release tag is missing', () => {
-    const env = { ...DEPLOYED_ENV };
+    const env: Record<string, string | undefined> = { ...DEPLOYED_ENV };
     delete env.NEXT_PUBLIC_TRUTHBOUNTY_PROTOCOL_RELEASE_TAG;
     expectDisabled(resolveVerificationArtifact(env, 10), /release tag/);
   });
@@ -83,7 +83,7 @@ describe('resolveVerificationArtifact', () => {
   });
 
   it('fails closed when any required address is missing', () => {
-    const env = { ...DEPLOYED_ENV };
+    const env: Record<string, string | undefined> = { ...DEPLOYED_ENV };
     delete env.NEXT_PUBLIC_TRUTHBOUNTY_STAKING_TOKEN_ADDRESS;
     expectDisabled(resolveVerificationArtifact(env, 10), /StakingToken/);
   });
@@ -95,6 +95,33 @@ describe('resolveVerificationArtifact', () => {
         10
       ),
       /ClaimRegistry.*valid EVM address/
+    );
+  });
+
+  it('fails closed on zero placeholder addresses', () => {
+    expectDisabled(
+      resolveVerificationArtifact(
+        {
+          ...DEPLOYED_ENV,
+          NEXT_PUBLIC_TRUTHBOUNTY_VERIFICATION_SUBMISSION_ADDRESS:
+            '0x0000000000000000000000000000000000000000',
+        },
+        10
+      ),
+      /zero\/placeholder/
+    );
+  });
+
+  it('fails closed on dummy placeholder addresses', () => {
+    expectDisabled(
+      resolveVerificationArtifact(
+        {
+          ...DEPLOYED_ENV,
+          NEXT_PUBLIC_TRUTHBOUNTY_CLAIM_REGISTRY_ADDRESS: '0xDummyContractAddressPlaceholder000000',
+        },
+        10
+      ),
+      /placeholder|valid EVM/i
     );
   });
 
