@@ -92,7 +92,7 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
         </div>
         <div className="flex items-center gap-1.5">
           <span>Proposer Trust:</span>
-          <span className="text-yellow-500 font-bold">{proposerTrust.reputation}</span>
+          <span className="text-yellow-500 font-bold">{proposerTrust.reputation ?? '—'}</span>
           <TrustScoreTooltip />
         </div>
       </div>
