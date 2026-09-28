@@ -77,7 +77,7 @@ export interface ClaimantDashboardData {
     status: ClaimStatus;
   };
   trustSummary: {
-    reputation: number;
+    reputation: number | null;
     isVerified: boolean;
   };
   freshness: {
