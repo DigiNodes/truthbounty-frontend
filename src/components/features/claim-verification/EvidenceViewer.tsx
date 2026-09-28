@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { validateEvidenceUri, getSafeEvidenceHref } from '@/lib/validation/evidenceUri';
 
 export interface EvidenceViewerProps {
@@ -11,6 +12,12 @@ export interface EvidenceViewerProps {
    */
   evidence?: Array<{ type: string; value: string }>;
 }
+
+const DEFAULT_EVIDENCE: Array<{ type: string; value: string }> = [
+  { type: 'link', value: 'https://example.com' },
+  { type: 'text', value: 'Witness testimony text' },
+  { type: 'image', value: 'https://example.com/evidence/img1.png' },
+];
 
 /**
  * V2-FE-075 — Evidence media/link/text rendering with fail-closed
@@ -28,14 +35,7 @@ export function EvidenceViewer({
   void _claimId;
   const [expanded, setExpanded] = useState(true);
 
-  // Canonical evidence projection mock
-  const evidence = [
-    { type: 'link', value: 'https://example.com' },
-    { type: 'text', value: 'Witness testimony text' },
-    { type: 'image', value: '/evidence/img1.png' },
-  ];
-
-  const evidence = sanitizeEvidenceList(rawEvidence ?? defaultEvidence);
+  const evidence = rawEvidence ?? DEFAULT_EVIDENCE;
 
   return (
     <div className="card p-4 sm:p-6">
@@ -66,11 +66,12 @@ export function EvidenceViewer({
                 return (
                   <div
                     key={idx}
-                    className="text-xs font-mono p-2 bg-red-950/30 text-red-400 border border-red-900/40 rounded"
-                    role="alert"
+                    className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
+                    role="note"
+                    data-testid="evidence-blocked-item"
                   >
-                    <span>Invalid or unsupported evidence URI: </span>
-                    <span className="break-all">{e.value}</span>
+                    <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>Invalid or unsupported evidence URI: <span className="break-all font-mono text-xs">{e.value}</span></span>
                   </div>
                 );
               }
@@ -80,21 +81,36 @@ export function EvidenceViewer({
                   key={idx}
                   href={safeHref}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="noopener noreferrer nofollow"
                   className="text-blue-600 underline text-sm sm:text-base break-all block py-1 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
                   aria-label={`Evidence link: ${e.value} (opens in new tab)`}
                 >
-                  {e.text}
+                  {e.value}
                 </a>
               );
             }
 
-            if (e.kind === 'image') {
+            if (e.type === 'image') {
+              const validation = validateEvidenceUri(e.value);
+              const safeHref = getSafeEvidenceHref(e.value);
+              if (!validation.isValid || !safeHref) {
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
+                    role="note"
+                    data-testid="evidence-blocked-item"
+                  >
+                    <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>Blocked image URI</span>
+                  </div>
+                );
+              }
               return (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   key={idx}
-                  src={e.src}
+                  src={safeHref}
                   alt="Evidence image"
                   className="rounded-lg max-h-40 sm:max-h-60 w-full object-cover"
                   loading="lazy"
@@ -103,23 +119,9 @@ export function EvidenceViewer({
               );
             }
 
-            if (e.kind === 'blocked') {
-              return (
-                <p
-                  key={idx}
-                  className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
-                  role="note"
-                  data-testid="evidence-blocked-item"
-                >
-                  <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>{e.reason}</span>
-                </p>
-              );
-            }
-
             return (
               <p key={idx} className="text-sm sm:text-base leading-relaxed">
-                {e.text}
+                {e.value}
               </p>
             );
           })}

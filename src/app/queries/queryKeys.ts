@@ -12,15 +12,6 @@
  *  5. No fabricated calldata, hashes, receipts, or mock-wallet values.
  */
 
-export const queryKeys = {
-  claims: {
-    all: ['claims'] as const,
-    detail: (claimId: string) => ['claims', claimId] as const,
-    byStatus: (status: string) => ['claims', 'status', status] as const,
-    lifecycle: (claimId: string) => ['claims', claimId, 'lifecycle'] as const,
-    timeline: (claimId: string) => ['claims', claimId, 'timeline'] as const,
-    /** Canonical paginated projection read path (V2-FE-109). */
-    list: (params: unknown) => ['claims', 'list', params] as const,
 /** EIP-155 chain id. */
 export type ChainId = number;
 
@@ -54,11 +45,11 @@ export function walletScope(
 }
 
 export type ClaimListFilters = {
-  status?: string;
+  status?: string | null;
   category?: string;
   cursor?: string;
   limit?: number;
-  sort?: string;
+  sort?: unknown;
   [key: string]: unknown;
 };
 
@@ -133,6 +124,8 @@ export const claimKeys = {
    */
   detail: (claimId: string) => ['claims', claimId] as const,
   byStatus: (status: string) => ['claims', 'status', status] as const,
+  lifecycle: (claimId: string) => ['claims', claimId, 'lifecycle'] as const,
+  timeline: (claimId: string) => ['claims', claimId, 'timeline'] as const,
   /** Wallet-scoped claim index for the connected account. */
   byWallet: (address: string, chainId: ChainId) => {
     const scope = walletScope(address, chainId);
