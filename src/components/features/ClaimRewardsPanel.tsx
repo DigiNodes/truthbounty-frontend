@@ -22,6 +22,7 @@ import React from "react";
 import { useRewards } from "@/hooks/useRewards";
 import { ClaimRewardsPanelSkeleton } from "@/components/skeletons";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
+import { formatCurrency } from "@/lib/format";
 
 interface ClaimRewardsPanelProps {
   isLoading?: boolean;
@@ -160,7 +161,7 @@ export default function ClaimRewardsPanel({
           <div className="text-right">
             <p className="text-xs text-[#a1a1aa]">Total available</p>
             <p
-              className={`text-xl font-bold transition-colors ${
+              className={`text-xl font-bold font-mono tabular-nums transition-colors ${
                 hasRewards ? "text-[#5b5bf6]" : "text-[#a1a1aa]"
               }`}
             >
