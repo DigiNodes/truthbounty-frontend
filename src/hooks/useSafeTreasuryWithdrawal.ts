@@ -8,7 +8,7 @@
  * unsupported chain, missing config, non-admin caller, or ABI gap.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import {
   getContractAbi,
@@ -36,6 +36,7 @@ import {
   clearPendingTransaction,
   trackPendingTransaction,
 } from '@/lib/pending-transactions';
+import { useConstant } from './useConstant';
 
 const EMPTY_DRAFT: TreasuryWithdrawalDraft = {
   recipient: '',
@@ -71,9 +72,17 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  const abi = getContractAbi('TruthBountyWeighted');
-  const contractAddress = getContractAddress('TruthBountyWeighted');
-  const roles = getCanonicalRoles();
+  // wagmi hands back client objects whose identity is not guaranteed to be
+  // stable across renders. They are read through refs so that neither identity
+  // can invalidate the memoised access gate or re-trigger the balance effect.
+  const publicClientRef = useRef(publicClient);
+  publicClientRef.current = publicClient;
+  const walletClientRef = useRef(walletClient);
+  walletClientRef.current = walletClient;
+
+  const abi = useConstant(() => getContractAbi('TruthBountyWeighted'));
+  const contractAddress = useConstant(() => getContractAddress('TruthBountyWeighted'));
+  const roles = useConstant(() => getCanonicalRoles());
 
   const gate = useMemo(
     () =>
@@ -111,7 +120,8 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
       setBalance(null);
       return;
     }
-    if (!publicClient || !gate.chainSupported) {
+    const client = publicClientRef.current;
+    if (!client || !gate.chainSupported) {
       setBalance(null);
       return;
     }
@@ -120,14 +130,14 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
     try {
       let amountWei: string;
       if (abiHasTreasuryBalance(abi)) {
-        const raw = (await publicClient.readContract({
+        const raw = (await client.readContract({
           address: contractAddress,
           abi: abi as never,
           functionName: 'treasuryBalance',
         })) as bigint;
         amountWei = raw.toString();
       } else {
-        const raw = await publicClient.getBalance({ address: contractAddress });
+        const raw = await client.getBalance({ address: contractAddress });
         amountWei = raw.toString();
       }
 
@@ -150,15 +160,18 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
     } finally {
       setLoadingBalance(false);
     }
-  }, [gate, publicClient, abi, contractAddress, chainId]);
+  }, [gate, abi, contractAddress, chainId]);
 
   useEffect(() => {
     void refreshBalance();
   }, [refreshBalance]);
 
-  // Recompute staleness periodically without inventing new balances.
+  // Recompute staleness periodically without inventing new balances. The
+  // interval is keyed on presence only — keying on the balance object itself
+  // would tear the timer down and rebuild it on every staleness tick.
+  const hasBalance = balance !== null;
   useEffect(() => {
-    if (!balance) return;
+    if (!hasBalance) return;
     const id = window.setInterval(() => {
       setBalance((prev) =>
         prev
@@ -172,7 +185,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
       );
     }, 5_000);
     return () => window.clearInterval(id);
-  }, [balance?.fetchedAt]);
+  }, [hasBalance]);
 
   const requireTyped = step === 'typed_confirm' || step === 'submit';
   const validation = useMemo(
@@ -240,24 +253,35 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
         amountWei: draft.amountWei,
       });
 
-      let gasEstimate = '180000';
-      if (publicClient) {
-        try {
-          const gas = await publicClient.estimateGas({
-            account: address,
-            to: contractAddress,
-            data: calldata,
-          });
-          gasEstimate = gas.toString();
-        } catch (err) {
-          const result: TreasuryWithdrawalSimulation = {
-            success: false,
-            error: err instanceof Error ? err.message : 'Simulation reverted — fail closed',
-          };
-          setSimulation(result);
-          setStatusOverride('failed');
-          return result;
-        }
+      // Never invent a gas limit: without a real RPC estimate the withdrawal
+      // cannot be shown to the user, so fail closed instead.
+      const client = publicClientRef.current;
+      if (!client?.estimateGas) {
+        const result: TreasuryWithdrawalSimulation = {
+          success: false,
+          error: 'RPC gas estimate unavailable — fail closed',
+        };
+        setSimulation(result);
+        setStatusOverride('failed');
+        return result;
+      }
+
+      let gasEstimate: string;
+      try {
+        const gas = await client.estimateGas({
+          account: address,
+          to: contractAddress,
+          data: calldata,
+        });
+        gasEstimate = gas.toString();
+      } catch (err) {
+        const result: TreasuryWithdrawalSimulation = {
+          success: false,
+          error: err instanceof Error ? err.message : 'Simulation reverted — fail closed',
+        };
+        setSimulation(result);
+        setStatusOverride('failed');
+        return result;
       }
 
       const result: TreasuryWithdrawalSimulation = {
@@ -279,7 +303,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
       setStatusOverride('failed');
       return result;
     }
-  }, [draft, balance, typedConfirm, gate.blockReason, address, abi, publicClient, contractAddress]);
+  }, [draft, balance, typedConfirm, gate.blockReason, address, abi, contractAddress]);
 
   const submit = useCallback(async () => {
     if (gate.blockReason) {
@@ -287,7 +311,8 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
       return;
     }
     const sim = simulation?.success ? simulation : await simulate();
-    if (!sim.success || !sim.calldata || !walletClient || !address) {
+    const wallet = walletClientRef.current;
+    if (!sim.success || !sim.calldata || !wallet || !address) {
       setStatusOverride(sim.error?.toLowerCase().includes('reject') ? 'rejected' : 'failed');
       setReceipt({
         txHash: null,
@@ -314,7 +339,7 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
     setStep('submit');
 
     try {
-      const txHash = await walletClient.sendTransaction({
+      const txHash = await wallet.sendTransaction({
         account: address,
         to: contractAddress,
         data: sim.calldata,
@@ -341,15 +366,22 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
         machineState: 'submitted',
       });
 
-      if (publicClient) {
-        const conf = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const client = publicClientRef.current;
+      if (client) {
+        const conf = await client.waitForTransactionReceipt({ hash: txHash });
+        // Confirmation count comes from the node. If the provider cannot report
+        // it, one confirmation is implied by a mined receipt — never more.
+        const confirmations =
+          typeof client.getTransactionConfirmations === 'function'
+            ? Number(await client.getTransactionConfirmations({ hash: txHash }))
+            : 1;
         if (conf.status === 'reverted') {
           clearPendingTransaction(pendingId);
           setReceipt({
             txHash,
             chainId: chainId ?? null,
             status: 'failed',
-            confirmations: Number(conf.confirmations ?? 0),
+            confirmations,
             error: 'Transaction reverted on-chain',
             submittedAt: new Date().toISOString(),
           });
@@ -357,7 +389,6 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
           return;
         }
 
-        const confirmations = Number(conf.confirmations ?? 1);
         setReceipt({
           txHash,
           chainId: chainId ?? null,
@@ -388,12 +419,10 @@ export function useSafeTreasuryWithdrawal(): UseSafeTreasuryWithdrawalResult {
     gate.blockReason,
     simulation,
     simulate,
-    walletClient,
     address,
     chainId,
     draft,
     contractAddress,
-    publicClient,
     refreshBalance,
   ]);
 

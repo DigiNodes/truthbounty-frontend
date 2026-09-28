@@ -1,7 +1,6 @@
 import { test, expect } from './support/test';
 
-const EMPTY_STATE =
-  'No claims match the current search or filter. Try clearing your search or choosing a different filter.';
+const EMPTY_STATE = 'No claims match the current search or filter.';
 
 const claimsTable = 'table[aria-label="Active claims"]';
 

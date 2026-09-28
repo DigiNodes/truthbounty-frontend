@@ -20,7 +20,6 @@ import {
   TxStateConfirming,
   TxStateSafe,
   TxStateIndexing,
-  TxStateReorged,
   createIdleState,
   isValidChain,
 } from "./transaction-machine.types";
@@ -39,6 +38,28 @@ function illegal(from: string, event: string): never {
 // ---------------------------------------------------------------------------
 // Per-state handlers
 // ---------------------------------------------------------------------------
+
+function toReorged(
+  state: TransactionState,
+  event: Extract<TransactionEvent, { type: 'REORG' }>,
+): TransactionState {
+  if (!state.txHash) {
+    throw new TransactionMachineError(
+      'INVALID_TRANSITION',
+      'REORG requires an observed txHash from a prior submission',
+    );
+  }
+  return {
+    status: 'reorged',
+    txHash: state.txHash,
+    chainId: state.chainId as number,
+    blockNumber: 'blockNumber' in state && state.blockNumber != null ? state.blockNumber : null,
+    confirmations: null,
+    error: 'REORGED',
+    replacedBy: null,
+    orphanedBlockHash: event.orphanedBlockHash ?? null,
+  };
+}
 
 function fromIdle(
   state: TxStateIdle,
@@ -219,18 +240,8 @@ function fromConfirming(
         error: "REVERT",
         replacedBy: null,
       };
-    case "REORG": {
-      const next: TxStateReorged = {
-        status: "reorged",
-        txHash: state.txHash,
-        chainId: state.chainId,
-        blockNumber: state.blockNumber,
-        confirmations: null,
-        error: "REORG",
-        replacedBy: null,
-      };
-      return next;
-    }
+    case "REORG":
+      return toReorged(state, event);
     case "REPLACE":
       return {
         status: "replaced",
@@ -253,18 +264,8 @@ function fromSafe(
   event: TransactionEvent,
 ): TransactionState {
   switch (event.type) {
-    case "REORG": {
-      const next: TxStateReorged = {
-        status: "reorged",
-        txHash: state.txHash,
-        chainId: state.chainId,
-        blockNumber: state.blockNumber,
-        confirmations: null,
-        error: "REORG",
-        replacedBy: null,
-      };
-      return next;
-    }
+    case "REORG":
+      return toReorged(state, event);
     case "INDEXING": {
       const next: TxStateIndexing = {
         status: "indexing",
@@ -300,6 +301,8 @@ function fromIndexing(
   event: TransactionEvent,
 ): TransactionState {
   switch (event.type) {
+    case "REORG":
+      return toReorged(state, event);
     case "FINALIZE":
       return {
         status: "finalized",
