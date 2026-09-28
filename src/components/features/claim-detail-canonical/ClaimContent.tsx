@@ -13,8 +13,6 @@
 import { sanitizeText, sanitizeEvidenceList } from '@/lib/security/evidence-sanitizer';
 import { PrivateEvidenceLink } from '@/components/security/PrivateEvidenceLink';
 import { PrivateTimestamp } from '@/components/security/PrivateTimestamp';
- */
-
 import { sanitizeText, sanitizeEvidenceList } from '@/lib/security/evidence-sanitizer';
 import { SafeExternalLink } from '@/components/security/SafeExternalLink';
 import type { ClaimDetailProjection } from '@/app/types/claim-detail-projection';
