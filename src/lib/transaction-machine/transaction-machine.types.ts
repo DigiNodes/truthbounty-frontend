@@ -11,7 +11,7 @@
  *  - txHash is NEVER fabricated; it is null until Wagmi returns a real value
  *  - chainId is validated against ALLOWED_CHAIN_IDS before any transition past idle
  *  - Contradiction guard: illegal transitions throw TransactionMachineError
- *  - No Stellar/Freighter runtime dependencies
+ *  - No non-EVM runtime dependencies
  */
 
 // ---------------------------------------------------------------------------

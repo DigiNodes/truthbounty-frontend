@@ -16,7 +16,7 @@ jest.mock('wagmi', () => ({
 describe('useSettlementDetection', () => {
   const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const mockUserAddress = '0x1234567890123456789012345678901234567890';
-  const OPTIMISM_MAINNET = 11155420;
+  const OPTIMISM_MAINNET = 10;
 
   beforeEach(() => {
     jest.clearAllMocks();

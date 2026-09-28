@@ -107,9 +107,9 @@ export function TransactionItem({
             <p className="text-sm text-slate-400 break-words">{description}</p>
           </div>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-lg font-semibold text-white mb-1">{amount}</div>
-          <div className="text-xs text-slate-400">{timeAgo}</div>
+        <div className="text-right">
+          <div className="text-lg font-semibold text-white mb-1 font-mono tabular-nums">{amount}</div>
+          <div className="text-xs text-slate-400 font-mono tabular-nums">{timeAgo}</div>
         </div>
       </div>
 

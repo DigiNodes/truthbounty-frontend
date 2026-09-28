@@ -129,7 +129,8 @@ describe('useEvidenceRegistration', () => {
       });
 
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Oversized input: evidence URI must be at most 1024 characters');
+      expect(validation.errors).toContain('Unsupported scheme: only https and ipfs are allowed');
+    });
 
     it('returns error for oversized input', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
