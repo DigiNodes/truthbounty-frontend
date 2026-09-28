@@ -5,6 +5,14 @@
  *
  * Renders sanitized claim content with evidence links. All user-generated
  * content is sanitized; unsafe URLs fail closed to plain text.
+ *
+ * V2-FE Evidence Privacy Protection — Evidence URLs and timestamps are
+ * displayed in privacy-preserving format. Full URLs available via clipboard.
+ */
+
+import { sanitizeText, sanitizeEvidenceList } from '@/lib/security/evidence-sanitizer';
+import { PrivateEvidenceLink } from '@/components/security/PrivateEvidenceLink';
+import { PrivateTimestamp } from '@/components/security/PrivateTimestamp';
  */
 
 import { sanitizeText, sanitizeEvidenceList } from '@/lib/security/evidence-sanitizer';
@@ -73,6 +81,13 @@ export function ClaimContent({ claim }: ClaimContentProps) {
             {evidence.map((ev, idx) => (
               <li key={idx} className="text-xs">
                 {ev.kind === 'link' && (
+                  <PrivateEvidenceLink
+                    href={ev.href}
+                    className="text-blue-400 hover:text-blue-300 underline break-all transition-colors"
+                    ariaLabel={`Evidence link ${idx + 1} (truncated for privacy, click to copy full URL)`}
+                    showIcon={true}
+                    showCopyButton={true}
+                  />
                   <SafeExternalLink
                     href={ev.href}
                     className="text-blue-400 hover:text-blue-300 underline break-all transition-colors"
@@ -123,6 +138,11 @@ export function ClaimContent({ claim }: ClaimContentProps) {
           )}
 
           <div>
+            <PrivateTimestamp
+              timestamp={claim.createdAt}
+              prefix="Created"
+              showTooltip={false}
+            />
             <span>Created: </span>
             <span className="text-gray-200">
               {new Date(claim.createdAt).toLocaleDateString()}
