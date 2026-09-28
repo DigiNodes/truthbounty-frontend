@@ -3,15 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import MainLayout from "@/components/layout/MainLayout";
-import StatsCards from "@/components/features/StatsCards";
 import ActivityAndNodes from "@/components/features/ActivityAndNodes";
 import VerificationNodes from "@/components/features/VerificationNodes";
 import ActiveClaimsTable from "@/components/features/ActiveClaimsTable";
-import ClaimRewardsPanel from "@/components/features/ClaimRewardsPanel";
 import { useClaims } from "@/app/queries/claims.queries";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { NETWORK_COPY } from "@/lib/network-copy";
+import { ClaimantDashboard } from "@/components/features/claimant-dashboard";
 
 interface ReadNoticeProps {
   variant: "offline" | "error" | "stale";
@@ -130,8 +129,7 @@ const DashboardPage = () => {
             onRetry={() => void refetch()}
           />
         ) : null}
-        <StatsCards isLoading={claimsLoading && !hasData} />
-        <ClaimRewardsPanel isLoading={false} />
+        <ClaimantDashboard />
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-[#232329] bg-[#18181b] px-6 py-4">
           <div>
             <p className="text-sm font-medium text-white">Safe Treasury Withdrawal</p>
