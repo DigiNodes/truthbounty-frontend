@@ -1,5 +1,4 @@
-// src/hooks/useTransactionLifecycleMonitor.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 export type TxLifecycleStatus = 'pending' | 'confirmed' | 'replaced' | 'dropped' | 'stuck' | 'failed';
 
@@ -11,7 +10,7 @@ export interface TransactionLifecycleState {
     elapsedSeconds: number;
 }
 
-export function useTransactionLifecycleMonitor(txHash: string | null, provider: any) {
+export function useTransactionLifecycleMonitor(txHash: string | null, provider?: unknown) {
     const [txState, setTxState] = useState<TransactionLifecycleState | null>(null);
     const [isStuck, setIsStuck] = useState(false);
 
@@ -23,7 +22,6 @@ export function useTransactionLifecycleMonitor(txHash: string | null, provider: 
         }
 
         let isMounted = true;
-        let timer: NodeJS.Timeout;
         let elapsed = 0;
 
         setTxState({
@@ -34,22 +32,22 @@ export function useTransactionLifecycleMonitor(txHash: string | null, provider: 
         });
 
         // Timer to track stuck transactions (> 60 seconds without receipt)
-        timer = setInterval(() => {
+        const timer = setInterval(() => {
             if (!isMounted) return;
             elapsed += 5;
 
             setTxState(prev => (prev ? { ...prev, elapsedSeconds: elapsed } : null));
 
-            if (elapsed > 60 && !isStuck) {
+            if (elapsed > 60) {
                 setIsStuck(true);
                 setTxState(prev =>
-                    prev
+                    prev && prev.status !== 'stuck'
                         ? {
                               ...prev,
                               status: 'stuck',
                               message: 'Transaction is taking longer than usual. It may be stuck due to low gas price or network congestion.',
                           }
-                        : null,
+                        : prev,
                 );
             }
         }, 5000);

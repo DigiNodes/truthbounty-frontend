@@ -445,13 +445,13 @@ describe('Reorg path', () => {
     ]);
     const next = transitionTxState(state, {
       type: 'REORG',
-      orphanedBlockHash: ('0x' + 'cc' * 32) as `0x${string}`,
+      orphanedBlockHash: ('0x' + 'cc'.repeat(32)) as `0x${string}`,
     });
     expect(next.status).toBe('reorged');
     expect(next.txHash).toBe(MOCK_HASH_1);
     if (next.status === 'reorged') {
       expect(next.error).toBe('REORGED');
-      expect(next.orphanedBlockHash).toBe(('0x' + 'cc' * 32) as `0x${string}`);
+      expect(next.orphanedBlockHash).toBe(('0x' + 'cc'.repeat(32)) as `0x${string}`);
       expect(next.blockNumber).toBe(BigInt(100));
     }
   });
