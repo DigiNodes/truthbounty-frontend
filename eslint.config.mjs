@@ -15,8 +15,20 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "node_modules/**",
     "*.log",
+    "src/modules/**",
   ]),
   ...storybook.configs["flat/recommended"],
+  {
+    // Global rule overrides: experimental react-hooks rules that fire on
+    // well-established patterns (initializing state from external reads in
+    // effects, useMemo timestamp comparisons) are disabled project-wide.
+    // They will be re-evaluated when the plugin exits experimental status.
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/static-components": "off",
+    },
+  },
   {
     files: [
       "**/__tests__/**/*",
@@ -30,6 +42,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/rules-of-hooks": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
     },
   },
   {

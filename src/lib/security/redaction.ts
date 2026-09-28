@@ -31,6 +31,8 @@ const SENSITIVE_KEY_TOKENS = [
 
 const HEX_64_PLUS_RE = /\b0x[a-fA-F0-9]{64,}\b/g;
 const BEARER_TOKEN_RE = /(?:^|\s)Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi;
+const SENSITIVE_CONTEXT_HEX_RE =
+  /((?:(?:private|secret)[_\s-]*key|secret|password|credential|token|api[_\s-]*key)\s*(?:is|[:=])?\s*)(0x[a-fA-F0-9]{64,})\b/gi;
 
 function normalizeKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -59,6 +61,9 @@ function isLong0xHexString(value: string, minCharsAfter0x = 64): boolean {
 
 function redactStringValue(str: string): string {
   let result = str;
+  result = result.replace(SENSITIVE_CONTEXT_HEX_RE, (_match, prefix) => {
+    return `${prefix}${REDACTED}`;
+  });
   result = result.replace(HEX_64_PLUS_RE, (match) => {
     if (match.length > 66) {
       return REDACTED;
@@ -77,11 +82,11 @@ function cloneAndRedact(value: unknown, depth: number): unknown {
     return value;
   }
 
-  const type = typeof value;
-
-  if (type === 'string') {
+  if (typeof value === 'string') {
     return redactStringValue(value);
   }
+
+  const type = typeof value;
 
   if (type === 'number' || type === 'boolean' || type === 'bigint') {
     return value;
@@ -107,7 +112,12 @@ function cloneAndRedact(value: unknown, depth: number): unknown {
     try {
       const arr: Array<[unknown, unknown]> = [];
       for (const [k, v] of value.entries()) {
-        arr.push([cloneAndRedact(k, depth + 1), cloneAndRedact(v, depth + 1)]);
+        const clonedK = cloneAndRedact(k, depth + 1);
+        let clonedV = cloneAndRedact(v, depth + 1);
+        if (typeof k === 'string' && isSensitiveKey(k)) {
+          clonedV = REDACTED;
+        }
+        arr.push([clonedK, clonedV]);
       }
       return arr;
     } catch {
@@ -139,7 +149,7 @@ function cloneAndRedact(value: unknown, depth: number): unknown {
     return REDACTED;
   }
 
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
   const keys = Object.keys(value);
   for (const key of keys) {
     if (!Object.prototype.propertyIsEnumerable.call(value, key)) {
@@ -210,6 +220,9 @@ export function redactError(error: unknown): {
 
   const sanitize = (s: string): string => {
     let out = s;
+    out = out.replace(SENSITIVE_CONTEXT_HEX_RE, (_match, prefix) => {
+      return `${prefix}${REDACTED}`;
+    });
     out = out.replace(HEX_64_PLUS_RE, (match) => {
       if (match.length > 66) return REDACTED;
       return match;
@@ -222,10 +235,24 @@ export function redactError(error: unknown): {
     return out;
   };
 
+  const sanitizedMessage = sanitize(message);
+  const sanitizedStack = stack !== null ? sanitize(stack) : null;
+
+  if (error instanceof Error) {
+    try {
+      error.message = sanitizedMessage;
+      if (sanitizedStack !== null) {
+        error.stack = sanitizedStack;
+      }
+    } catch {
+      // In case error properties are non-writable
+    }
+  }
+
   return {
     name,
-    message: sanitize(message),
-    stack: stack !== null ? sanitize(stack) : null,
+    message: sanitizedMessage,
+    stack: sanitizedStack,
     cause: redactForTelemetry(cause),
   };
 }

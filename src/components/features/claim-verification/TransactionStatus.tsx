@@ -29,11 +29,7 @@ const LEGACY_TONE_CLASS: Record<'neutral' | 'success' | 'warning' | 'danger', st
   danger: 'text-red-600 dark:text-red-400',
 };
 
-interface TransactionStatusProps {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  errorMessage?: string;
-  onRetry?: () => void;
-}
+
 
 export function TransactionStatus({
   status,
@@ -105,11 +101,7 @@ export function TransactionStatus({
 
   if (status === 'pending') {
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex items-center space-x-2 text-gray-600 dark:text-gray-300"
-      >
+      <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
         <svg
           className="animate-spin h-4 w-4 text-blue-500"
           xmlns="http://www.w3.org/2000/svg"
@@ -130,18 +122,21 @@ export function TransactionStatus({
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
           />
         </svg>
-        <p className="text-sm font-medium">Transaction pending...</p>
+        <p
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="text-sm font-medium"
+        >
+          Transaction pending...
+        </p>
       </div>
     );
   }
 
   if (status === 'success') {
     return (
-      <div
-        role="alert"
-        aria-live="assertive"
-        className="flex items-center space-x-2 text-green-600 dark:text-green-400"
-      >
+      <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
         <svg
           className="h-4 w-4"
           xmlns="http://www.w3.org/2000/svg"
@@ -154,18 +149,21 @@ export function TransactionStatus({
             clipRule="evenodd"
           />
         </svg>
-        <p className="text-sm font-medium">Verification submitted</p>
+        <p
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="text-sm font-medium"
+        >
+          Verification submitted
+        </p>
       </div>
     );
   }
 
   if (status === 'error') {
     return (
-      <div
-        role="alert"
-        aria-live="assertive"
-        className="flex flex-col space-y-2 text-red-600 dark:text-red-400"
-      >
+      <div className="flex flex-col space-y-2 text-red-600 dark:text-red-400">
         <div className="flex items-center space-x-2">
           <svg
             className="h-4 w-4"
@@ -179,7 +177,14 @@ export function TransactionStatus({
               clipRule="evenodd"
             />
           </svg>
-          <p className="text-sm font-medium">Transaction failed</p>
+          <p
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+            className="text-sm font-medium"
+          >
+            Transaction failed
+          </p>
         </div>
         {errorMessage && (
           <p className="text-xs text-red-500 dark:text-red-300">

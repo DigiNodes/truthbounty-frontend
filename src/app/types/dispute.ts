@@ -275,6 +275,7 @@ export interface TimelineEvent {
   timeAgo: string;
   actor: string;
   isRecent?: boolean;
+  type?: string;
 }
 
 export interface TopVerifier {
