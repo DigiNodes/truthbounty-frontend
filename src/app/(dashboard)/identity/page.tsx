@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import MainLayout from '@/components/layout/MainLayout';
 import { WorldcoinVerificationPanel } from '@/components/features/worldcoin';
 import { Button } from '@/components/ui/button';
 import { Wallet, Info } from 'lucide-react';
@@ -29,7 +30,8 @@ export default function IdentityPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -62,7 +64,7 @@ export default function IdentityPage() {
           </h2>
           
           {walletAddress ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   Connected Wallet
@@ -135,5 +137,6 @@ export default function IdentityPage() {
         )}
       </div>
     </div>
+    </MainLayout>
   );
 }
