@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
-import { useReducedMotion } from '@/components/hooks/useReducedMotion';
+import { FormattedTime } from '@/components/ui/formatting';
 import type {
   ClaimCreatedEvent,
   ClaimStatusChangedEvent,
@@ -95,11 +95,6 @@ export function RealtimeActivityFeed() {
       unsubscribers.forEach((unsub) => unsub());
     };
   }, [isConnected, subscribe, addActivity]);
-
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString();
-  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -195,7 +190,7 @@ export function RealtimeActivityFeed() {
                 {activity.message}
               </span>
               <span className="text-gray-400 text-[10px] whitespace-nowrap">
-                {formatTime(activity.timestamp)}
+                <FormattedTime date={activity.timestamp} mode="time" />
               </span>
             </div>
           ))
