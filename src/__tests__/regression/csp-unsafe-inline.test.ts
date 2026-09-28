@@ -86,8 +86,8 @@ describe('CSP regression — no unsafe-inline in script-src', () => {
       headers: new Headers(),
     });
 
-    const firstResponse = middleware(createRequest());
-    const secondResponse = middleware(createRequest());
+    const firstResponse = middleware(createRequest() as unknown as import('next/server').NextRequest);
+    const secondResponse = middleware(createRequest() as unknown as import('next/server').NextRequest);
 
     const firstRequestNonce =
       capturedRequests[0]?.headers.get('x-nonce');
