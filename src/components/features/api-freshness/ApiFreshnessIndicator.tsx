@@ -7,7 +7,7 @@ import { useApiFreshness } from '@/app/queries/freshness.queries';
 import { formatLag, formatLastUpdate, getFreshnessStatus, FRESHNESS_THRESHOLDS } from '@/app/types/api-freshness';
 import { Wifi, AlertTriangle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-interface ApiFreshnessIndicatorProps {
+export interface ApiFreshnessIndicatorProps {
   /** Whether to show detailed breakdown */
   showDetails?: boolean;
   /** Compact mode for headers/toolbars */
@@ -19,24 +19,33 @@ interface ApiFreshnessIndicatorProps {
 }
 
 const statusStyles = {
+  loading: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
+  unknown: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
   fresh: 'text-green-500 bg-green-500/10 border-green-500/20',
   stale: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
   degraded: 'text-orange-500 bg-orange-500/10 border-orange-500/20',
   critical: 'text-red-500 bg-red-500/10 border-red-500/20',
+  error: 'text-red-500 bg-red-500/10 border-red-500/20',
 } as const;
 
 const statusLabels = {
+  loading: 'Checking',
+  unknown: 'Unknown',
   fresh: 'Fresh',
   stale: 'Stale',
   degraded: 'Degraded',
   critical: 'Critical',
+  error: 'Failed',
 } as const;
 
 const statusIcons = {
+  loading: Loader2,
+  unknown: AlertTriangle,
   fresh: CheckCircle,
   stale: Loader2,
   degraded: AlertTriangle,
   critical: XCircle,
+  error: XCircle,
 } as const;
 
 export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
@@ -45,7 +54,7 @@ export const ApiFreshnessIndicator = memo(function ApiFreshnessIndicator({
   className = '',
   pollInterval = 30_000,
 }: ApiFreshnessIndicatorProps) {
-  const { data, isLoading, error, isFresh, isDegraded, refetch } = useApiFreshness({
+  const { data, isLoading, error, isDegraded, refetch } = useApiFreshness({
     pollInterval,
   });
 

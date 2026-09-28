@@ -268,6 +268,45 @@ export function useERC20Approval({
   ]);
 
   // ---------------------------------------------------------------------------
+  // submitApproval (internal — submits the approve(spender, requiredAmount) tx)
+  // ---------------------------------------------------------------------------
+
+  const submitApproval = useCallback(async () => {
+    if (!tokenAddress || !spender || requiredAmount === undefined) return;
+
+    try {
+      setStatus('awaiting-signature');
+      const hash = await writeContractAsync({
+        address: tokenAddress,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [spender, requiredAmount],
+      });
+      setApproveTxHash(hash);
+      setStatus('pending-approval');
+    } catch (err: unknown) {
+      isSubmitting.current = false;
+      const isUserRejection =
+        err instanceof Error &&
+        (err.message.includes('User rejected') ||
+          err.message.includes('user rejected') ||
+          err.message.includes('4001'));
+
+      if (isUserRejection) {
+        setError(new ERC20ApprovalError('USER_REJECTED', 'User rejected the approval request'));
+        setStatus('rejected');
+      } else {
+        setError(
+          err instanceof Error
+            ? err
+            : new ERC20ApprovalError('UNEXPECTED', String(err)),
+        );
+        setStatus('error');
+      }
+    }
+  }, [tokenAddress, spender, requiredAmount, writeContractAsync]);
+
+  // ---------------------------------------------------------------------------
   // React to reset tx receipt
   // ---------------------------------------------------------------------------
 
@@ -288,7 +327,7 @@ export function useERC20Approval({
     setResetTxHash(undefined);
     void submitApproval();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetReceiptQuery.data, status]);
+  }, [resetReceiptQuery.data, status, submitApproval]);
 
   // ---------------------------------------------------------------------------
   // React to approve tx receipt
@@ -332,45 +371,6 @@ export function useERC20Approval({
       setStatus('error');
     }
   }, [status, allowanceStatus, isSufficient]);
-
-  // ---------------------------------------------------------------------------
-  // submitApproval (internal — submits the approve(spender, requiredAmount) tx)
-  // ---------------------------------------------------------------------------
-
-  const submitApproval = useCallback(async () => {
-    if (!tokenAddress || !spender || requiredAmount === undefined) return;
-
-    try {
-      setStatus('awaiting-signature');
-      const hash = await writeContractAsync({
-        address: tokenAddress,
-        abi: ERC20_APPROVE_ABI,
-        functionName: 'approve',
-        args: [spender, requiredAmount],
-      });
-      setApproveTxHash(hash);
-      setStatus('pending-approval');
-    } catch (err: unknown) {
-      isSubmitting.current = false;
-      const isUserRejection =
-        err instanceof Error &&
-        (err.message.includes('User rejected') ||
-          err.message.includes('user rejected') ||
-          err.message.includes('4001'));
-
-      if (isUserRejection) {
-        setError(new ERC20ApprovalError('USER_REJECTED', 'User rejected the approval request'));
-        setStatus('rejected');
-      } else {
-        setError(
-          err instanceof Error
-            ? err
-            : new ERC20ApprovalError('UNEXPECTED', String(err)),
-        );
-        setStatus('error');
-      }
-    }
-  }, [tokenAddress, spender, requiredAmount, writeContractAsync]);
 
   // ---------------------------------------------------------------------------
   // Public `approve()` method

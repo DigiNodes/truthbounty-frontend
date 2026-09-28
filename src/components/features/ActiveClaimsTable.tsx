@@ -1,28 +1,21 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useClaimsList } from "@/hooks/useClaimsList";
-import { CLAIMS_LIST_DEFAULTS } from "@/app/types/claim-list";
+import { CLAIMS_LIST_DEFAULTS, type ClaimsListSort } from "@/app/types/claim-list";
+import {
+  buildClaimListUrlSearch,
+  parseClaimListUrl,
+} from "@/app/lib/claim-list-url";
 import type { ClaimStatus } from "@/app/types/claim";
 import {
   formatRelativeAge,
   formatStatus,
   getPaginationWindow,
 } from "@/app/lib/format";
-
-const activeClaims: Array<{
-  category: string;
-  impact: string;
-  title: string;
-  source: string;
-  status: string;
-  confidence: string;
-  votes: string;
-  stake: string;
-  time: string;
-  actions: string;
-}> = [];
 
 interface ActiveClaimsTableProps {
   /** Force the skeleton view while parent-level data is loading. */
@@ -64,10 +57,29 @@ function formatUSD(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Active claims feed table.
+ *
+ * Responsive behaviour: the filter and search controls stack full-width
+ * below `sm`, and the six-column table lives in a keyboard-focusable
+ * horizontal scroll region (`role="region"` + `tabIndex={0}`) with a
+ * minimum width so columns stay readable on narrow viewports — genuine
+ * two-dimensional scrolling is reserved for this data table.
+ */
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
-  const [searchInput, setSearchInput] = useState("");
-  const [activeChip, setActiveChip] = useState(0);
-  const [highImpactOnly, setHighImpactOnly] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialUrlState = useMemo(
+    () => parseClaimListUrl(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  );
+  const [searchInput, setSearchInput] = useState(initialUrlState.search);
+  const [activeChip, setActiveChip] = useState(
+    Math.max(0, FILTER_CHIPS.findIndex((filter) => filter.status === initialUrlState.status))
+  );
+  const [highImpactOnly, setHighImpactOnly] = useState(initialUrlState.highImpact);
+  const [sort, setSort] = useState<ClaimsListSort>(initialUrlState.sort);
   const [page, setPage] = useState(1);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -79,7 +91,21 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
   // Any change to the query shape invalidates the current page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, activeChip, highImpactOnly]);
+  }, [debouncedSearch, activeChip, highImpactOnly, sort]);
+
+  useEffect(() => {
+    const chip = FILTER_CHIPS[activeChip] ?? FILTER_CHIPS[0];
+    const next = buildClaimListUrlSearch({
+      search: debouncedSearch,
+      status: chip.status,
+      highImpact: highImpactOnly || Boolean(chip.highImpact),
+      sort,
+    });
+    const current = searchParams.toString();
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    }
+  }, [activeChip, debouncedSearch, highImpactOnly, pathname, router, searchParams, sort]);
 
   const chip = FILTER_CHIPS[activeChip] ?? FILTER_CHIPS[0];
   const claims = useClaimsList({
@@ -88,6 +114,7 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
     highImpact: highImpactOnly || chip.highImpact,
     page,
     pageSize: CLAIMS_LIST_DEFAULTS.pageSize,
+    sort,
   });
 
   const envelope = claims.data;
@@ -158,16 +185,16 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           <label className="sr-only" htmlFor="claims-search">Search claims</label>
-          <div className="relative">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <input
               id="claims-search"
               ref={searchInputRef}
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs"
+              className="w-full bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs sm:w-auto"
               placeholder="Search claims..."
               aria-label="Search claims"
             />
@@ -229,8 +256,18 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left" aria-label="Active claims">
+      {/*
+        Scroll region: on narrow viewports the table exceeds the container,
+        so it scrolls horizontally. Focusable + labelled so keyboard and
+        screen-reader users can reach the scrolled content.
+      */}
+      <div
+        className="overflow-x-auto"
+        role="region"
+        aria-label="Active claims table (scrollable)"
+        tabIndex={0}
+      >
+        <table className="w-full min-w-[640px] text-sm text-left" aria-label="Active claims">
           <thead>
             <tr className="text-[#a1a1aa] border-b border-[#232329]">
               <th scope="col" className="py-2">Claim</th>

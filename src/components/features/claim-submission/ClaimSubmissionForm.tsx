@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef } from "react";
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
 import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
 import { keccak256, stringToHex, parseAbi } from "viem";
+import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 
 const claimAbi = parseAbi([
   "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
@@ -157,6 +159,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const { connect, connectors } = useConnect();
   const isWalletConnected = !!account?.address;
 
+  // V2-FE-100: fail-closed wallet/chain readiness for claim submission.
+  // Expected chain comes from the release manifest (not the wallet's current chain).
+  const readiness = useWriteReadiness({
+    enabled: isWalletConnected,
+    accountOverride: account?.address ?? null,
+    chainIdOverride: account?.chainId ?? null,
+  });
+
   const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
   const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
   const isPending = isSubmittingApi || isSubmittingTx;
@@ -168,47 +178,10 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     !trust.isVerified || lowReputation || newWallet || trust.suspicious;
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement;
-    firstInputRef.current?.focus();
-    return () => {
-      previousActiveElement.current?.focus();
-    };
-  }, []);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusableElements || focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
-    }
-  }, []);
+  useDialogFocus(true, modalRef, firstInputRef, () => {
+    if (!isPending) onClose();
+  });
 
   const validateField = (name: string, value: string): string | undefined => {
     switch (name) {
@@ -265,6 +238,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
 
     if (!isWalletConnected) {
       setSubmitError("Please connect your wallet before submitting a claim.");
+      return;
+    }
+
+    // V2-FE-100: fail closed when chain/account readiness is not established
+    if (!readiness.isReady) {
+      setSubmitError(
+        readiness.message || "Wallet is not ready to submit this claim."
+      );
       return;
     }
 
@@ -348,7 +329,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     ? "Submitting your claim..."
     : submitError
       ? submitError
-      : "";
+      : !readiness.isReady && readiness.message
+        ? readiness.message
+        : "";
 
   const formValues: Record<StringFormField, string> = {
     title,
@@ -356,6 +339,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     impact,
     source,
   };
+
+  const canSubmit = isWalletConnected && readiness.isReady;
+  const submitDisabledLabel = !isWalletConnected
+    ? "Connect wallet to submit"
+    : !readiness.isReady
+      ? readiness.message || "Wallet not ready"
+      : "Submit claim";
 
   return (
     <div
@@ -365,12 +355,11 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       aria-modal="true"
       aria-labelledby="claim-submission-title"
       data-testid="claim-submission-modal"
-      onKeyDown={handleFocusTrap}
+      tabIndex={-1}
     >
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
       >
         <h2 id="claim-submission-title" className="text-xl font-bold text-white">Submit a Claim</h2>
 
@@ -405,6 +394,16 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         {lowTrust && (
           <div className="bg-yellow-500 text-black px-2 py-2 rounded text-sm">
             ⚠️ Low trust score <TrustScoreTooltip />
+          </div>
+        )}
+
+        {isWalletConnected && !readiness.isReady && readiness.message && (
+          <div
+            data-testid="write-readiness-reason"
+            role="status"
+            className="bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-2 rounded-lg text-sm"
+          >
+            {readiness.message}
           </div>
         )}
 
@@ -468,14 +467,27 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             type="submit"
             data-testid="submit-claim-button"
             className="btn btn-primary flex-1 disabled:opacity-50"
-            disabled={isPending || !isWalletConnected}
-            aria-label={isPending ? "Submitting claim" : !isWalletConnected ? "Connect wallet to submit" : "Submit claim"}
+            disabled={isPending || !canSubmit}
+            aria-label={
+              isPending
+                ? "Submitting claim"
+                : !canSubmit
+                  ? submitDisabledLabel
+                  : "Submit claim"
+            }
+            aria-describedby={
+              isWalletConnected && !readiness.isReady
+                ? "write-readiness-reason"
+                : undefined
+            }
           >
             {isPending
               ? "Submitting..."
               : !isWalletConnected
                 ? "Connect your wallet to submit"
-                : "Submit Claim"}
+                : !readiness.isReady
+                  ? readiness.message || "Wallet not ready"
+                  : "Submit Claim"}
           </button>
         </div>
       </form>

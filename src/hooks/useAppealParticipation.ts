@@ -22,7 +22,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { encodeFunctionData, maxUint256 } from 'viem';
-import type { Abi, Address, Hash } from 'viem';
+import type { Abi, Hash } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWriteContract } from 'wagmi';
 import {
   AppealDecision,
@@ -42,6 +42,7 @@ import {
   getProtocolVersion,
   getReleaseChainId,
 } from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { isValidContractAddress } from '@/lib/contracts/address-guard';
 import { isValidChain } from '@/lib/transaction-machine/transaction-machine.types';
 
@@ -256,7 +257,10 @@ export function useAppealParticipation(
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();
   const publicClient = usePublicClient() as AppealPublicClient | undefined;
-  const { writeContractAsync } = useWriteContract();
+  // A wallet may be absent (disconnected provider, unsupported connector, or a
+  // provider that exposes no write path). Degrade to `undefined` so submission
+  // fails closed with a clear error instead of throwing during render.
+  const { writeContractAsync } = useWriteContract() ?? {};
 
   const [phase, setPhase] = useState<AppealParticipationPhase>('idle');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -310,6 +314,17 @@ export function useAppealParticipation(
         );
       }
 
+      // Fail closed through the single validated release manifest before any signing path.
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: currentChainId,
+        contractAddress,
+        expectedProtocolVersion: artifactVersion,
+      });
+      if (!writeTarget.ok) {
+        errors.push(...writeTarget.errors);
+      }
+
+      // Check contract address valid
       const contractAddressValid = isValidContractAddress(contractAddress);
       if (!contractAddressValid) {
         errors.push('Invalid contract address format');
@@ -392,6 +407,7 @@ export function useAppealParticipation(
           stakeWithinBounds,
           contractAddressValid,
           artifactVersionValid,
+          roundCurrent: true,
           abiFunctionSupported: abiSupported,
         },
       };
@@ -572,6 +588,13 @@ export function useAppealParticipation(
         if (!isConnected || !userAddress) {
           return fail('UNCONNECTED', 'Wallet not connected.');
         }
+        if (!writeContractAsync) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            'Wallet write path unavailable: the connected wallet cannot submit transactions.',
+            'unsupported'
+          );
+        }
         if (!isValidChain(currentChainId)) {
           return fail(
             'UNSUPPORTED_CHAIN',
@@ -650,6 +673,20 @@ export function useAppealParticipation(
           );
         }
 
+        // V2-FE-100 readiness gate — fail closed before any submission attempt
+        const gate = evaluateWriteTarget({
+          account: userAddress ?? null,
+          chainId: currentChainId,
+          expectedChainId,
+          targetAddress: contractAddress,
+        });
+        if (!gate.ready) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            gate.reason ?? 'Wallet is not ready for appeal participation.'
+          );
+        }
+
         // ---- Allowance + approval (only when a stake token is pinned) ----
         setAllowance(null);
         if (stakeTokenAddress) {
@@ -669,16 +706,6 @@ export function useAppealParticipation(
               : BigInt(value as number | string);
           };
 
-        // Production path must not fabricate transaction hashes or optimistic state.
-        // Wait for actual wallet submission result from the contract API layer.
-        throw new Error('Wallet submission is not available in the current production build.');
-
-        const timestamp = new Date().toISOString();
-
-        const transaction: AppealParticipationTransaction = {
-          transactionHash: '',
-          from: userAddress!,
-          to: contractAddress,
           let currentAllowance: bigint;
           try {
             currentAllowance = await readAllowance();

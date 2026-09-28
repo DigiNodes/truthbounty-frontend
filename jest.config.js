@@ -31,5 +31,16 @@ const customJestConfig = {
   ],
 }
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig)
+// Wrap so we can merge transformIgnorePatterns after next/jest sets them.
+// next-intl ships ESM-only in v4; it must not be excluded from transformation.
+const jestConfigWithNextDefaults = createJestConfig(customJestConfig)
+
+module.exports = async () => {
+  const config = await jestConfigWithNextDefaults()
+  // Allow next-intl (and its peer next-intl/server, next-intl/middleware) to be
+  // transformed alongside wagmi and viem which next/jest already handles.
+  config.transformIgnorePatterns = (config.transformIgnorePatterns ?? []).map(
+    (pattern) => (typeof pattern === 'string' ? pattern.replace(/\(wagmi/g, '(next-intl|wagmi') : pattern)
+  )
+  return config
+}
