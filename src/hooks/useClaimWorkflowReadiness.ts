@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useAccount, useChainId, useNetwork } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { OPTIMISM_CHAIN_IDS, isValidChain, TransactionMachineError } from '../lib/transaction-machine';
 
 /**
@@ -21,8 +21,7 @@ export interface ClaimWorkflowReadiness {
 
 export function useClaimWorkflowReadiness(): ClaimWorkflowReadiness {
   const chainId = useChainId();
-  const { address, isConnected } = useAccount();
-  const { chain } = useNetwork();
+  const { address, isConnected, chain } = useAccount();
 
   return useMemo(() => {
     // 1. Check Wallet Connection

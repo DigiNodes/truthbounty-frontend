@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const PROJECT_ROOT = path.resolve(__dirname, '../../../..');
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 const FORBIDDEN_RUNTIME_TOKENS = [
   'mock-wagmi',

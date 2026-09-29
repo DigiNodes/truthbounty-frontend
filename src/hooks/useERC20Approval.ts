@@ -327,7 +327,7 @@ export function useERC20Approval({
     setResetTxHash(undefined);
     void submitApproval();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetReceiptQuery.data, status]);
+  }, [resetReceiptQuery.data, status, submitApproval]);
 
   // ---------------------------------------------------------------------------
   // React to approve tx receipt

@@ -76,6 +76,16 @@ describe("uploadReducer", () => {
 
   it("boundary: empty digest never verifies", () => {
     const s = run([{ type: "START" }, { type: "HASHED", digest: "" }, { type: "UPLOAD_DONE", remoteDigest: "" }]);
-    expect(s.phase).toBe("verified"); // equal empty strings match, so guard in hook
+    expect(s.phase).toBe("failed");
+    expect(s.failure).toBe("integrity-mismatch");
+    expect(s.retryable).toBe(false);
+    expect(s.verifiedDigest).toBeUndefined();
+  });
+
+  it("boundary: only a local digest is not enough to verify", () => {
+    const s = run([{ type: "START" }, { type: "HASHED", digest: "abc" }, { type: "UPLOAD_DONE", remoteDigest: "" }]);
+    expect(s.phase).toBe("failed");
+    expect(s.failure).toBe("integrity-mismatch");
+    expect(s.verifiedDigest).toBeUndefined();
   });
 });
