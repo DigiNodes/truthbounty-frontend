@@ -10,7 +10,7 @@ import {
   sanitizeEvidenceList,
   sanitizeText,
 } from '@/lib/security/evidence-sanitizer';
-import { SafeExternalLink } from '@/components/security/SafeExternalLink';
+import { PrivateEvidenceLink } from '@/components/security/PrivateEvidenceLink';
 
 export interface ClaimDetailsProps {
   claimId?: string;
@@ -66,20 +66,20 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
   const evidence = sanitizeEvidenceList(claim.evidence);
 
   return (
-    <div className="bg-[#18181b] border border-[#232329] rounded-xl p-6 space-y-4">
-      <div className="flex items-center justify-between border-b border-[#232329] pb-4">
-        <h2 className="text-xl font-bold text-white">{safeTitle}</h2>
-        <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-full text-xs font-semibold uppercase tracking-wider">
+    <div className="bg-[#18181b] border border-[#232329] rounded-xl p-4 sm:p-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#232329] pb-4">
+        <h2 className="min-w-0 flex-1 text-lg font-bold break-words text-white sm:text-xl">{safeTitle}</h2>
+        <span className="shrink-0 px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-full text-xs font-semibold uppercase tracking-wider">
           {claim.status}
         </span>
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</h4>
-        <p className="text-gray-200 text-sm leading-relaxed">{safeDescription}</p>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</h3>
+        <p className="text-gray-200 text-sm leading-relaxed break-words">{safeDescription}</p>
       </div>
 
-      <div className="flex items-center justify-between pt-4 border-t border-[#232329] text-xs text-gray-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-[#232329] text-xs text-gray-400">
         <div>
           {claim.category ? (
             <>
@@ -92,25 +92,24 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
         </div>
         <div className="flex items-center gap-1.5">
           <span>Proposer Trust:</span>
-          <span className="text-yellow-500 font-bold">{proposerTrust.reputation}</span>
+          <span className="text-yellow-500 font-bold">{proposerTrust.reputation ?? '—'}</span>
           <TrustScoreTooltip />
         </div>
       </div>
 
       {evidence.length > 0 && (
         <div className="pt-4 border-t border-[#232329] space-y-2">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Evidence</h4>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Evidence</h3>
           <ul className="space-y-1">
             {evidence.map((ev, idx) => (
               <li key={idx} className="text-xs text-gray-300">
                 {ev.kind === 'link' && (
-                  <SafeExternalLink
+                  <PrivateEvidenceLink
                     href={ev.href}
                     className="text-blue-400 underline break-all"
-                    aria-label={`Evidence link (opens in new tab)`}
-                  >
-                    {ev.text}
-                  </SafeExternalLink>
+                    ariaLabel={`Evidence link ${idx + 1} (truncated for privacy, click to copy)`}
+                    showIcon={true}
+                  />
                 )}
                 {ev.kind === 'image' && (
                   /* eslint-disable-next-line @next/next/no-img-element */
