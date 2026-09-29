@@ -2,15 +2,18 @@ import { renderHook, act } from '@testing-library/react';
 
 const admin = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as const;
 
+/** Mutable so individual tests can simulate a provider without an RPC client. */
+const mockPublicClient = {
+  readContract: jest.fn(async () => 5_000_000_000_000_000_000n),
+  getBalance: jest.fn(async () => 5_000_000_000_000_000_000n),
+  estimateGas: jest.fn(async () => 21000n),
+  waitForTransactionReceipt: jest.fn(async () => ({ status: 'success', confirmations: 1 })),
+};
+
 jest.mock('wagmi', () => ({
   useAccount: () => ({ address: admin, isConnected: true }),
   useChainId: () => 11155420,
-  usePublicClient: () => ({
-    readContract: jest.fn(async () => 5_000_000_000_000_000_000n),
-    getBalance: jest.fn(async () => 5_000_000_000_000_000_000n),
-    estimateGas: jest.fn(async () => 21000n),
-    waitForTransactionReceipt: jest.fn(async () => ({ status: 'success', confirmations: 1 })),
-  }),
+  usePublicClient: () => mockPublicClient,
   useWalletClient: () => ({
     data: {
       sendTransaction: jest.fn(async () => '0x' + 'ab'.repeat(32)),
@@ -97,11 +100,46 @@ describe('useSafeTreasuryWithdrawal', () => {
       result.current.setTypedConfirm('WITHDRAW');
     });
 
-    let sim;
-    await act(async () => {
-      sim = await result.current.simulate();
-    });
+    const sim = await result.current.simulate();
+    await act(async () => {});
     expect(sim.success).toBe(true);
     expect(sim.calldata?.startsWith('0x')).toBe(true);
+    // Gas must come from the RPC estimate, never a hard-coded fallback.
+    expect(sim.gasEstimate).toBe('21000');
+    expect(mockPublicClient.estimateGas).toHaveBeenCalled();
+  });
+
+  it('fails closed and reports no gas when the RPC estimate is unavailable', async () => {
+    const original = mockPublicClient.estimateGas;
+    // @ts-expect-error — deliberately removing the RPC capability under test.
+    delete mockPublicClient.estimateGas;
+
+    try {
+      const { useSafeTreasuryWithdrawal } = await import('../useSafeTreasuryWithdrawal');
+      const { result } = renderHook(() => useSafeTreasuryWithdrawal());
+
+      await act(async () => {
+        await result.current.refreshBalance();
+      });
+
+      act(() => {
+        result.current.setDraft({ recipient: admin, amountWei: '1000' });
+        result.current.goReview();
+        result.current.goTypedConfirm();
+        result.current.setTypedConfirm('WITHDRAW');
+      });
+
+      let sim: Awaited<ReturnType<typeof result.current.simulate>>;
+      await act(async () => {
+        sim = await result.current.simulate();
+      });
+
+      expect(sim!.success).toBe(false);
+      expect(sim!.gasEstimate).toBeUndefined();
+      expect(sim!.error).toMatch(/gas estimate unavailable/i);
+      expect(result.current.status).toBe('failed');
+    } finally {
+      mockPublicClient.estimateGas = original;
+    }
   });
 });

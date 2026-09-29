@@ -261,6 +261,11 @@ export const FLAG_METADATA: Record<FeatureFlag, FeatureFlagMeta> = {
     description: 'Show the frontend performance budget indicator',
     defaultValue: true,
     category: 'feature',
+    owner: 'platform-team',
+    environments: ALL_ENVS,
+    expiresAt: null,
+    safeFallback: false,
+    protocolInvariantProtected: false,
   },
   BETA_FEATURES: {
     name: 'BETA_FEATURES',

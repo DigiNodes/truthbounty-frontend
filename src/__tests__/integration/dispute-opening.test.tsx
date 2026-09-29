@@ -4,7 +4,14 @@
  */
 
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useAccount, useBlockNumber, useChainId, useWaitForTransactionReceipt } from 'wagmi';
+import {
+  useAccount,
+  useBlockNumber,
+  useChainId,
+  usePublicClient,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi';
 import { useDisputeContext } from '@/hooks/useDisputeContext';
 import { useDisputeSubmission } from '@/hooks/useDisputeSubmission';
 import { useDisputeReconciliation } from '@/hooks/useDisputeReconciliation';
@@ -16,13 +23,34 @@ jest.mock('wagmi', () => ({
   useBlockNumber: jest.fn(),
   useChainId: jest.fn(),
   useWaitForTransactionReceipt: jest.fn(),
-  usePublicClient: jest.fn(() => ({})),
+  usePublicClient: jest.fn(),
+  useWriteContract: jest.fn(),
 }));
+
+const mockEstimateGas = jest.fn(async () => 187_654n);
+const mockSimulateContract = jest.fn(async () => ({ request: {} }));
+const mockWriteContractAsync = jest.fn(
+  async () => `0x${'cd'.repeat(32)}` as `0x${string}`,
+);
 
 // Mock contract registry
 jest.mock('@/lib/contracts/registry', () => ({
   getContractAddress: jest.fn(() => '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'),
-  getContractAbi: jest.fn(() => []),
+  // Literal lives inside the hoisted factory: outer consts are not initialised
+  // when the module registry first evaluates this module.
+  getContractAbi: jest.fn(() => [
+    {
+      type: 'function',
+      name: 'openDispute',
+      stateMutability: 'payable',
+      inputs: [
+        { name: 'claimId', type: 'bytes32' },
+        { name: 'reason', type: 'string' },
+        { name: 'bondAmount', type: 'uint256' },
+      ],
+      outputs: [],
+    },
+  ]),
   getProtocolVersion: jest.fn(() => '2.0.0'),
   getReleaseChainId: jest.fn(() => 11155420),
   getProtocolRelease: jest.fn(() => ({
@@ -53,7 +81,8 @@ const mockUseWaitForTransactionReceipt = useWaitForTransactionReceipt as jest.Mo
 describe('Dispute Opening Integration', () => {
   const contractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const userAddress = '0x1234567890123456789012345678901234567890';
-  const claimId = 'claim-123';
+  /** Canonical 32-byte claim id, as the contract ABI requires. */
+  const claimId = `0x${'1a'.repeat(32)}`;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,6 +104,17 @@ describe('Dispute Opening Integration', () => {
       isLoading: false,
       error: null,
     } as any);
+
+    mockEstimateGas.mockResolvedValue(187_654n);
+    mockSimulateContract.mockResolvedValue({ request: {} });
+    mockWriteContractAsync.mockResolvedValue(`0x${'cd'.repeat(32)}`);
+    (usePublicClient as jest.Mock).mockReturnValue({
+      estimateGas: mockEstimateGas,
+      simulateContract: mockSimulateContract,
+    });
+    (useWriteContract as jest.Mock).mockReturnValue({
+      writeContractAsync: mockWriteContractAsync,
+    });
   });
 
   describe('Complete successful flow', () => {
@@ -122,7 +162,8 @@ describe('Dispute Opening Integration', () => {
 
       expect(simulation.success).toBe(true);
       expect(simulation.gasEstimate).toBeDefined();
-      expect(simulation.projectedState?.disputeId).toBeDefined();
+      // The contract assigns the dispute id on-chain; it is never predicted.
+      expect(simulation.projectedState?.disputeId).toBeUndefined();
       expect(simulation.projectedState?.bondLocked).toBe(context.bond.bondAmount);
 
       // Step 5: Submit would happen here via writeContract
@@ -578,7 +619,9 @@ describe('Dispute Opening Integration', () => {
       const simulation = await submissionResult.current.simulateDispute(context, payload);
 
       expect(simulation.success).toBe(true);
-      expect(simulation.gasEstimate).toBe('200000'); // Expected gas for dispute opening
+      // Gas is the RPC estimate, never a hard-coded constant.
+      expect(simulation.gasEstimate).toBe('187654');
+      expect(mockEstimateGas).toHaveBeenCalled();
       expect(simulation.data?.calldata).toBeDefined();
       expect(simulation.data?.from).toBe(userAddress);
       expect(simulation.data?.to).toBe(contractAddress);
@@ -613,7 +656,7 @@ describe('Dispute Opening Integration', () => {
       expect(simulation.projectedState).toBeDefined();
       expect(simulation.projectedState?.bondLocked).toBe(context.bond.bondAmount);
       expect(simulation.projectedState?.newStatus).toBe('DISPUTED');
-      expect(simulation.projectedState?.disputeId).toMatch(/^dispute-/);
+      expect(simulation.projectedState?.disputeId).toBeUndefined();
     });
   });
 });
