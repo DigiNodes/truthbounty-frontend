@@ -14,9 +14,12 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testEnvironment: 'jest-environment-jsdom',
+  // Only pick up unit/integration tests. Playwright (e2e/*.spec.ts) and
+  // Vitest (*.spec.ts) specs run through their own runners.
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.test.[jt]s?(x)',
     '<rootDir>/src/**/?(*.)+(spec|test).[jt]s?(x)',
+    '<rootDir>/**/*.test.{js,jsx,ts,tsx}',
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
