@@ -164,6 +164,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
       className="fixed inset-0 z-50 modal-shell bg-black/80 backdrop-blur-sm"
       role="presentation"
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/focus-trap keydown handling on the dialog container */}
       <div
         ref={modalRef}
         className="modal-panel border border-zinc-800 bg-[#111111] shadow-2xl"

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- test doubles and dynamic module access */
 import { renderHook, waitFor } from "@testing-library/react";
 import { useTrust, useTrustForAddress } from "../useTrust";
 
