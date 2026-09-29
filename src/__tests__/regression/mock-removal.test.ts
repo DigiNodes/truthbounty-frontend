@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 // ---------------------------------------------------------------------------
 // 8. Feature-branch regression checks — no mock/placeholder runtime deps
 // ---------------------------------------------------------------------------

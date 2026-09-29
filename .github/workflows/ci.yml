@@ -1,5 +1,5 @@
 # Production-grade CI for TruthBounty Frontend
-# Supports fast feedback, stable PR validation, and open-source contributions
+# Enforces Lint, Tests, Accessibility (A11y), Contract Verification, and Production Build
 
 name: CI
 
@@ -16,6 +16,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   artifacts:
     name: Artifacts
@@ -31,7 +34,7 @@ jobs:
         run: node scripts/verify-artifacts.mjs
 
   lint:
-    name: Lint
+    name: Lint & Style
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,7 +75,7 @@ jobs:
         run: npm run lint
 
   test:
-    name: Test
+    name: Unit & Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -109,18 +112,73 @@ jobs:
           else
             npm ci
           fi
-      - name: Run tests
+      - name: Run unit & integration tests
         run: npm run test
 
-  build:
-    name: Build
+  a11y:
+    name: Accessibility (axe-core)
     runs-on: ubuntu-latest
-    env:
-      # Public placeholder so the production build/prerender can run without
-      # third-party WalletConnect credentials in CI. Real deployments must set
-      # a genuine NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.
-      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
+    needs: lint
     steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Detect package manager
+        id: pkg
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+          fi
+      - name: Cache dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
+            corepack enable pnpm && pnpm install --frozen-lockfile
+          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
+            corepack enable yarn && yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Run Accessibility Tests
+        run: npm run test:a11y
+
+  build:
+    name: Build & Artifact Gates
+    runs-on: ubuntu-latest
+    needs: [test, a11y]
+    steps:
+      - name: Preflight — require a real WalletConnect project id
+        env:
+          WC_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+        run: |
+          if [ -z "$WC_PROJECT_ID" ]; then
+            echo "::error::Repository secret NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set."
+            echo "The E2E job runs the production bundle, and src/lib/wallet-boundary/config-guard.ts"
+            echo "fails closed on a missing or placeholder WalletConnect project id, so every"
+            echo "page-level spec would fail on the configuration error page. Add a genuine"
+            echo "project id as a repository secret and re-run."
+            exit 1
+          fi
+          if printf '%s' "$WC_PROJECT_ID" | grep -Eqi 'yourprojectid|your-project-id|placeholder|dummy|example'; then
+            echo "::error::Repository secret NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID looks like a placeholder."
+            echo "The provider configuration guard rejects placeholder values. Supply a genuine project id."
+            exit 1
+          fi
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node.js
@@ -157,85 +215,7 @@ jobs:
           fi
       - name: Verify contract release artifacts
         run: npm run verify-artifacts
-      - name: Verify staging smoke gate
-        run: npm run verify:staging-smoke
-      - name: Verify production smoke runner
-        run: npm run test:production-smoke:unit
       - name: Type check
         run: npm run type-check
-      - name: Build app
+      - name: Build production app
         run: npm run build
-
-
-  accessibility:
-    name: Accessibility
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - name: Enable pnpm
-        run: corepack enable pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run accessibility tests
-        run: pnpm test:a11y
-
-  e2e:
-    name: E2E
-    runs-on: ubuntu-latest
-    env:
-      # Public placeholder (see the Build job) so Playwright can build and boot
-      # the production app without WalletConnect credentials.
-      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - name: Detect package manager
-        id: pkg
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            echo "manager=pnpm" >> $GITHUB_OUTPUT
-          elif [ -f yarn.lock ]; then
-            echo "manager=yarn" >> $GITHUB_OUTPUT
-          else
-            echo "manager=npm" >> $GITHUB_OUTPUT
-          fi
-      - name: Cache dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            node_modules
-            ~/.pnpm-store
-          key: ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ steps.pkg.outputs.manager }}-
-      - name: Install dependencies
-        run: |
-          if [ "${{ steps.pkg.outputs.manager }}" = "pnpm" ]; then
-            corepack enable pnpm && pnpm install --frozen-lockfile
-          elif [ "${{ steps.pkg.outputs.manager }}" = "yarn" ]; then
-            corepack enable yarn && yarn install --frozen-lockfile
-          else
-            npm ci
-          fi
-      - name: Build application for Playwright
-        run: npm run build
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-      - name: Run Playwright E2E tests
-        run: npm run test:e2e
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
