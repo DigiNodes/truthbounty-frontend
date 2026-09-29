@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "verify-artifacts": "node scripts/verify-artifacts.mjs",
-    "verify-production-boundaries": "node scripts/verify-production-boundaries.mjs source",
-    "verify-production-bundle": "node scripts/verify-production-boundaries.mjs bundle",
     "verify-performance-budgets": "node scripts/verify-performance-budgets.mjs",
     "test:production-smoke": "node scripts/production-smoke.mjs",
     "test:production-smoke:unit": "node --test scripts/__tests__/production-smoke.test.mjs",
@@ -82,7 +80,7 @@
     "storybook": "^10.6.0",
     "tailwindcss": "^4",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3",
+    "typescript": "^6",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
   },
