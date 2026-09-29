@@ -170,9 +170,9 @@ describe('useSettlementDetection', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // Simulate chain change
+      // Simulate chain change (expected chain stays on Optimism mainnet)
       (wagmi.useChainId as jest.Mock).mockReturnValue(1);
-      rerender({ chainId: 1 });
+      rerender({ chainId: OPTIMISM_MAINNET });
 
       await waitFor(() => {
         expect(result.current.validation?.isValid).toBe(false);

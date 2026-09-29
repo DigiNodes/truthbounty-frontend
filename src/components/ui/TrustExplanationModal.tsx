@@ -15,6 +15,7 @@ export default function TrustExplanationModal({ onClose }: Props) {
       className="fixed inset-0 z-50 modal-shell bg-black/60"
       role="presentation"
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/focus-trap keydown handling on the dialog container */}
       <div
         ref={modalRef}
         className="modal-panel bg-[#18181b] border border-[#232329]"
