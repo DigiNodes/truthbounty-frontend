@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
-import { validateEvidenceUri, getSafeEvidenceHref } from '@/lib/validation/evidenceUri';
+import {
+  sanitizeEvidenceList,
+  SafeEvidenceItem,
+} from '@/lib/security/evidence-sanitizer';
 
 export interface EvidenceViewerProps {
   claimId: string;
@@ -35,7 +38,15 @@ export function EvidenceViewer({
   void _claimId;
   const [expanded, setExpanded] = useState(true);
 
-  const evidence = rawEvidence ?? DEFAULT_EVIDENCE;
+  // Canonical default set used when the API payload is not wired through yet.
+  // These go through the same sanitizer as untrusted content.
+  const defaultEvidence = [
+    { type: 'link', value: 'https://example.com' },
+    { type: 'text', value: 'Witness testimony text' },
+    { type: 'image', value: '/evidence/img1.png' },
+  ];
+
+  const evidence = sanitizeEvidenceList(rawEvidence ?? defaultEvidence);
 
   return (
     <div className="card p-4 sm:p-6">
@@ -57,33 +68,20 @@ export function EvidenceViewer({
           className="space-y-3 sm:space-y-3 overflow-y-auto overscroll-contain"
           style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}
         >
-          {evidence.map((e, idx) => {
-            if (e.type === 'link') {
-              const validation = validateEvidenceUri(e.value);
-              const safeHref = getSafeEvidenceHref(e.value);
+          {evidence.length === 0 && (
+            <p className="text-sm text-gray-500">No evidence available.</p>
+          )}
 
-              if (!validation.isValid || !safeHref) {
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
-                    role="note"
-                    data-testid="evidence-blocked-item"
-                  >
-                    <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                    <span>Invalid or unsupported evidence URI: <span className="break-all font-mono text-xs">{e.value}</span></span>
-                  </div>
-                );
-              }
-
+          {evidence.map((e: SafeEvidenceItem, idx) => {
+            if (e.kind === 'link') {
               return (
                 <a
                   key={idx}
-                  href={safeHref}
+                  href={e.href}
                   target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1 focus-visible:outline-2 focus-visible:outline-[#5b5bf6] rounded"
-                  aria-label={`Evidence link: ${e.value} (opens in new tab)`}
+                  rel={e.rel}
+                  className="text-blue-600 underline text-sm sm:text-base break-all block py-1"
+                  aria-label={`Evidence link: ${e.text} (opens in new tab)`}
                 >
                   {e.value}
                 </a>

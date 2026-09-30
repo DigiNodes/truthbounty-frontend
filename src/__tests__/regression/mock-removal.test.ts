@@ -5,10 +5,10 @@ import path from 'path';
 // 8. Feature-branch regression checks — no mock/placeholder runtime deps
 // ---------------------------------------------------------------------------
 
-describe('V2-FE-045 — wallet reconnection has no mock/placeholder dependencies', () => {
+describe('V2-FE-047 — secure SIWE session UX has no mock/placeholder dependencies', () => {
   const productionFiles = [
-    path.resolve(__dirname, '../../lib/wallet/reconnect.ts'),
-    path.resolve(__dirname, '../../hooks/useWallet.ts'),
+    path.resolve(__dirname, '../../lib/auth/siwe-presentation.ts'),
+    path.resolve(__dirname, '../../components/auth/SiweSessionPanel.tsx'),
   ];
 
   it.each(productionFiles)('%s does not import mocks or simulators', (filePath) => {
@@ -17,11 +17,17 @@ describe('V2-FE-045 — wallet reconnection has no mock/placeholder dependencies
     expect(content).not.toContain('Math.random');
   });
 
-  it('reconnect policy does not read a cached address/chain from storage', () => {
-    const filePath = path.resolve(__dirname, '../../lib/wallet/reconnect.ts');
+  it('siwe-presentation.ts is pure — no React, wallet SDK, or storage imports', () => {
+    const filePath = path.resolve(__dirname, '../../lib/auth/siwe-presentation.ts');
     const content = fs.readFileSync(filePath, 'utf-8');
-    // Only the connector id hint may be persisted — never identity material.
-    expect(content).not.toMatch(/localStorage|sessionStorage/);
+    expect(content).not.toMatch(/from 'react'|from 'wagmi'|localStorage|sessionStorage/);
+  });
+
+  it('identity page never fabricates a wallet address', () => {
+    const filePath = path.resolve(__dirname, '../../app/(dashboard)/identity/page.tsx');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('Math.random');
+    expect(content).not.toMatch(/mockAddress/i);
   });
 });
 

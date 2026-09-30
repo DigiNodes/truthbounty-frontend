@@ -21,6 +21,13 @@ const eslintConfig = defineConfig([
     "*.log",
     "src/modules/**",
   ]),
+  // eslint-config-next already registers the jsx-a11y plugin, so only apply
+  // the recommended rules here — re-registering the plugin would throw
+  // "Cannot redefine plugin jsx-a11y".
+  {
+    name: "jsx-a11y/recommended",
+    rules: jsxA11y.flatConfigs.recommended.rules,
+  },
   ...storybook.configs["flat/recommended"],
   {
     // Global rule overrides: experimental react-hooks rules that fire on
