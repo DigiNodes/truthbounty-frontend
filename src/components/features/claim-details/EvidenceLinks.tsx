@@ -8,6 +8,9 @@ import { SafeExternalLink } from "@/components/security/SafeExternalLink";
  * V2-FE-075 — Evidence links are untrusted API content. Titles, descriptions
  * and URLs are sanitized; unsafe URLs fail closed to an accessible blocked
  * placeholder instead of an anchor.
+ *
+ * V2-FE Evidence Privacy Protection — URLs displayed with truncation for
+ * privacy, full URLs available via clipboard.
  */
 export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
   return (
@@ -23,17 +26,34 @@ export const EvidenceLinks = ({ evidences }: { evidences: Evidence[] }) => {
           const urlCheck = safeUrl(evidence.url);
 
           return (
-            <div key={evidence.id} className="flex items-center justify-between gap-3 p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors">
+            <div
+              key={evidence.id}
+              className="flex items-center justify-between gap-3 p-4 rounded-lg border border-gray-800 bg-[#0a0a0f] hover:border-gray-700 transition-colors"
+            >
               <div className="flex min-w-0 items-center space-x-4">
                 <FileText className="shrink-0 text-gray-500" size={20} aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-200">{title}</p>
+                  {description && (
+                    <p className="truncate text-xs text-gray-500">{description}</p>
+                  )}
+                </div>
+              </div>
+              <PrivateEvidenceLink
+                href={evidence.url}
+                className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
+                ariaLabel={`View evidence: ${title} (truncated for privacy, click to copy)`}
+                showIcon={true}
+              />
+                  <p className="truncate text-sm font-medium text-gray-200">{title || evidence.url}</p>
                   <p className="truncate text-xs text-gray-500">{description}</p>
                 </div>
               </div>
-              {urlCheck.ok ? (
-                <SafeExternalLink
-                  href={evidence.url}
+              {validation.isValid && safeHref ? (
+                <a
+                  href={safeHref}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
                   className="shrink-0 text-sm text-gray-400 hover:text-white flex items-center transition-colors"
                   aria-label={`View evidence: ${title || description || "link"} (opens in new tab)`}
                 >
