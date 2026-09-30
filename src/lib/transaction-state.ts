@@ -20,7 +20,6 @@ import type {
   StalenessConfig,
 } from '@/app/types/transaction';
 import type { ChainFinality } from '@/config/chains';
-import { getChainConfig } from '@/config/chains';
 
 /**
  * Type guards for each transaction state
@@ -140,7 +139,7 @@ export function getStateName(state: TransactionStateName): string {
 export function canTransitionToState(
   currentTx: Transaction,
   nextState: Transaction['state'],
-  config: ChainFinality
+  _config?: ChainFinality
 ): boolean {
   if (!('state' in currentTx)) return false;
 
