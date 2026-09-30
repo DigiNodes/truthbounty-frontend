@@ -20,9 +20,9 @@ export interface ChainClockAnchor {
   /** Confirmed block number this projection is anchored to. */
   anchorBlockNumber: bigint | number | string | null | undefined;
   /** Confirmed ms-epoch timestamp of the anchor block (from the block header). */
-  anchorBlockTimestampMs: number | null | undefined;
+  anchorBlockTimestampMs: number | string | null | undefined;
   /** Protocol's expected seconds per block (e.g. 2s on Optimism). */
-  avgBlockSeconds?: number | null | undefined;
+  avgBlockSeconds?: number | string | null | undefined;
 }
 
 export interface BlockDeadlineProjection {
