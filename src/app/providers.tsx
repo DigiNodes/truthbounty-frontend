@@ -13,6 +13,8 @@ import {
   TelemetryProvider,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { IntegrityBoundary } from '@/components/security/IntegrityBoundary';
 
 interface ProvidersProps {
   children: ReactNode;
