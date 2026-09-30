@@ -1,19 +1,34 @@
 import React from 'react';
 
-interface TransactionStatusProps {
-  status: 'idle' | 'pending' | 'success' | 'error';
-  errorMessage?: string;
-  onRetry?: () => void;
-}
+const errorStatuses = new Set<TransactionStatusValue>([
+  "error",
+  "dropped",
+  "replaced",
+  "reverted",
+  "rejected",
+  "reorged",
+  "failed",
+]);
+
+const busyStatuses = new Set<TransactionStatusValue>([
+  "pending",
+  "preparing",
+  "signature-requested",
+  "submitted",
+  "confirming",
+  "safe",
+  "indexing",
+  "stale",
+]);
 
 export function TransactionStatus({
   status,
-  errorMessage,
-  onRetry,
-}: TransactionStatusProps) {
-  if (status === 'idle') {
-    return null;
-  }
+  messages = {},
+}: {
+  status: TransactionStatusValue;
+  messages?: Partial<TransactionStatusMessages>;
+}) {
+  if (status === "idle") return null;
 
   if (status === 'pending') {
     return (
