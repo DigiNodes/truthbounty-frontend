@@ -11,7 +11,7 @@ export interface NormalizedError {
 export function useTransactionErrorHandler() {
     const [errorState, setErrorState] = useState<NormalizedError | null>(null);
 
-    const handleTransactionError = useCallback((err: any): NormalizedError => {
+    const handleTransactionError = useCallback((err: unknown): NormalizedError => {
         let title = 'Transaction Failed';
         let message = 'An unexpected error occurred while processing your transaction.';
         let isUserRejection = false;
@@ -19,8 +19,13 @@ export function useTransactionErrorHandler() {
         let retryable = true;
 
         // Inspect error codes and messages across standard EVM providers (MetaMask, WalletConnect, Viem/Ethers)
-        const errorCode = err?.code || err?.info?.error?.code;
-        const errorMessage = err?.message || err?.reason || JSON.stringify(err);
+        const errObj = (typeof err === 'object' && err !== null) ? (err as Record<string, unknown>) : null;
+        const infoObj = errObj?.info && typeof errObj.info === 'object' ? (errObj.info as Record<string, unknown>) : null;
+        const innerErrObj = infoObj?.error && typeof infoObj.error === 'object' ? (infoObj.error as Record<string, unknown>) : null;
+
+        const errorCode = errObj?.code ?? innerErrObj?.code;
+        const rawMessage = (typeof errObj?.message === 'string' && errObj.message) || (typeof errObj?.reason === 'string' && errObj.reason);
+        const errorMessage = rawMessage || (typeof err === 'string' ? err : JSON.stringify(err) || '');
 
         if (
             errorCode === 4001 ||

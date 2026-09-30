@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server';
-import { middleware, _testing } from '../../middleware';
+import { middleware, _testing } from '../../../middleware';
 import { CSP_NONCE_HEADER } from '../csp-allowlist';
 
 const url = 'https://truthbounty.example.com/';
@@ -34,12 +34,12 @@ describe('middleware headers', () => {
   it('CSP never contains unsafe-inline for script-src in production', () => {
     const originalNodeEnv = process.env.NODE_ENV;
     try {
-      process.env.NODE_ENV = 'production';
+      (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
       const resp = middleware(makeRequest());
       const csp = resp.headers.get('content-security-policy') as string;
       expect(csp).not.toMatch(/script-src [^;]*unsafe-inline/);
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
+      (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
     }
   });
 });

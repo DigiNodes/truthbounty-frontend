@@ -46,11 +46,11 @@ export function walletScope(
 }
 
 export type ClaimListFilters = {
-  status?: string;
+  status?: string | null;
   category?: string;
   cursor?: string;
   limit?: number;
-  sort?: string;
+  sort?: unknown;
   [key: string]: unknown;
 };
 

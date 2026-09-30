@@ -9,7 +9,7 @@ export default function ClaimDetailRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/dashboard/claims');
+    router.replace('/');
   }, [router]);
 
   return (

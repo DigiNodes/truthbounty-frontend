@@ -164,6 +164,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
       className="fixed inset-0 z-50 modal-shell bg-black/80 backdrop-blur-sm"
       role="presentation"
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape/focus-trap keydown handling on the dialog container */}
       <div
         ref={modalRef}
         className="modal-panel border border-zinc-800 bg-[#111111] shadow-2xl"
@@ -220,10 +221,10 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
           {context && (
             <div className="rounded-lg bg-zinc-900/50 border border-zinc-700 p-3">
               <div className="text-sm text-zinc-400 mb-1">Required Challenge Bond</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-lg font-bold text-white font-mono tabular-nums">
                 {formatBondAmount(context.bond.bondAmount)} ETH
               </div>
-              <div className="text-xs text-zinc-500 mt-1">
+              <div className="text-xs text-zinc-500 mt-1 font-mono tabular-nums">
                 Your balance: {formatBondAmount(context.walletPosition.currentBalance)} ETH
               </div>
             </div>
