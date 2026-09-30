@@ -17,6 +17,12 @@ export interface EvidenceViewerProps {
   evidence?: Array<{ type: string; value: string }>;
 }
 
+const DEFAULT_EVIDENCE: Array<{ type: string; value: string }> = [
+  { type: 'link', value: 'https://example.com' },
+  { type: 'text', value: 'Witness testimony text' },
+  { type: 'image', value: 'https://example.com/evidence/img1.png' },
+];
+
 /**
  * V2-FE-075 — Evidence media/link/text rendering with fail-closed
  * sanitization. All content is treated as untrusted:
@@ -86,17 +92,32 @@ export function EvidenceViewer({
                   className="text-blue-600 underline text-sm sm:text-base break-all block py-1"
                   aria-label={`Evidence link: ${e.text} (opens in new tab)`}
                 >
-                  {e.text}
+                  {e.value}
                 </a>
               );
             }
 
-            if (e.kind === 'image') {
+            if (e.type === 'image') {
+              const validation = validateEvidenceUri(e.value);
+              const safeHref = getSafeEvidenceHref(e.value);
+              if (!validation.isValid || !safeHref) {
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
+                    role="note"
+                    data-testid="evidence-blocked-item"
+                  >
+                    <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>Blocked image URI</span>
+                  </div>
+                );
+              }
               return (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   key={idx}
-                  src={e.src}
+                  src={safeHref}
                   alt="Evidence image"
                   className="rounded-lg max-h-40 sm:max-h-60 w-full object-cover"
                   loading="lazy"
@@ -105,23 +126,9 @@ export function EvidenceViewer({
               );
             }
 
-            if (e.kind === 'blocked') {
-              return (
-                <p
-                  key={idx}
-                  className="flex items-start gap-2 text-sm text-gray-500 italic py-1"
-                  role="note"
-                  data-testid="evidence-blocked-item"
-                >
-                  <ShieldAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>{e.reason}</span>
-                </p>
-              );
-            }
-
             return (
               <p key={idx} className="text-sm sm:text-base leading-relaxed">
-                {e.text}
+                {e.value}
               </p>
             );
           })}

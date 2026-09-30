@@ -1,18 +1,23 @@
 
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useParams } from 'next/navigation';
+import MainLayout from '@/components/layout/MainLayout';
+
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { EvidenceViewer } from '@/components/features/claim-verification/EvidenceViewer';
 import { StakeForm } from '@/components/features/claim-verification/StakeForm';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
 import { FeatureErrorBoundary } from '@/components/common/FeatureErrorBoundary';
 
-export default function ClaimDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function ClaimDetailPage() {
+  // Route params are read through useParams() rather than the page props:
+  // under async request APIs the props value is a Promise on the client, and
+  // `params.id` evaluated to undefined there, so the page rendered its
+  // "Claim not Found" state without ever consulting the API projection.
+  const { id: claimId } = useParams<{ id: string }>();
+
   const [stakeAmount, setStakeAmount] = useState(0);
   const [claimNotFound, setClaimNotFound] = useState(false);
 
@@ -27,8 +32,9 @@ export default function ClaimDetailPage({
 
   if (claimNotFound) {
     return (
-      <main className="min-h-[70vh] flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md text-center">
+      <MainLayout>
+        <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
             <svg
               className="h-8 w-8 text-gray-400"
@@ -62,13 +68,15 @@ export default function ClaimDetailPage({
             Go back
           </button>
         </div>
-      </main>
+      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50/70 dark:bg-gray-950">
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <MainLayout>
+      <div className="min-h-screen bg-gray-50/70 dark:bg-gray-950">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
         {/* Page Header */}
         <header className="mb-6 lg:mb-8">
@@ -118,7 +126,7 @@ export default function ClaimDetailPage({
                   </div>
 
                   <span className="hidden rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:inline-flex">
-                    ID: {params.id}
+                    ID: {claimId}
                   </span>
                 </div>
               </div>
@@ -126,7 +134,7 @@ export default function ClaimDetailPage({
               <div className="p-5 sm:p-6">
                 <FeatureErrorBoundary scope="claim-details">
                   <ClaimDetails
-                    claimId={params.id}
+                    claimId={claimId}
                     onNotFound={handleNotFound}
                   />
                 </FeatureErrorBoundary>
@@ -147,7 +155,7 @@ export default function ClaimDetailPage({
 
               <div className="p-5 sm:p-6">
                 <FeatureErrorBoundary scope="evidence">
-                  <EvidenceViewer claimId={params.id} />
+                  <EvidenceViewer claimId={claimId} />
                 </FeatureErrorBoundary>
               </div>
             </div>
@@ -226,7 +234,7 @@ export default function ClaimDetailPage({
               <div className="p-5">
                 <FeatureErrorBoundary scope="stake">
                   <StakeForm
-                    claimId={params.id}
+                    claimId={claimId}
                     onStakeChange={handleStakeChange}
                   />
                 </FeatureErrorBoundary>
@@ -248,7 +256,7 @@ export default function ClaimDetailPage({
               <div className="p-5">
                 <FeatureErrorBoundary scope="verification-actions">
                   <VerificationActions
-                    claimId={params.id}
+                    claimId={claimId}
                     stakeAmount={stakeAmount}
                   />
                 </FeatureErrorBoundary>
@@ -287,7 +295,8 @@ export default function ClaimDetailPage({
           </aside>
         </div>
       </div>
-    </main>
+    </div>
+    </MainLayout>
   );
 }
 
