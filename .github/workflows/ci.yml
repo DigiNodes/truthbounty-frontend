@@ -185,6 +185,8 @@ jobs:
         run: corepack enable pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify accessibility gate and state coverage
+        run: pnpm verify:accessibility
       - name: Run accessibility tests
         run: pnpm test:a11y
 
