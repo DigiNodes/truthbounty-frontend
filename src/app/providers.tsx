@@ -10,7 +10,7 @@ import {
   RainbowKitThemedProvider,
   FeatureFlagProvider,
   FeatureFlagPanel,
-  TelemetryProvider,
+  WalletStateGuard,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -28,13 +28,13 @@ export function Providers({ children }: ProvidersProps) {
           <RainbowKitThemedProvider>
             <SiweAuthProvider>
               <FeatureFlagProvider enablePersistence={true}>
-                {/* TelemetryProvider must be inside FeatureFlagProvider so the
-                    PRIVACY_SAFE_TELEMETRY flag is available at initialisation. */}
-                <TelemetryProvider>
-                  {children}
-                  {/* Feature flag panel for development debugging */}
-                  <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                </TelemetryProvider>
+                <ErrorBoundary>
+                  <WalletStateGuard>
+                    {children}
+                    {/* Feature flag panel for development debugging */}
+                    <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                  </WalletStateGuard>
+                </ErrorBoundary>
               </FeatureFlagProvider>
             </SiweAuthProvider>
           </RainbowKitThemedProvider>
