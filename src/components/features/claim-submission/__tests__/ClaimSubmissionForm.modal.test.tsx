@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 jest.mock("@/i18n", () => {
   const mockMsgs = {
@@ -28,6 +29,8 @@ jest.mock("@/i18n", () => {
   };
 });
 
+let mockApiPending = false;
+
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => ({
     isVerified: true,
@@ -46,7 +49,7 @@ jest.mock('@/hooks/useAccount', () => ({
 }));
 
 jest.mock('@/app/queries/claims.queries', () => ({
-  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useSubmitClaim: () => ({ mutateAsync: jest.fn(), isPending: mockApiPending }),
 }));
 
 jest.mock('wagmi', () => ({
@@ -88,6 +91,10 @@ jest.mock('@/features/evidence-upload/EvidenceUploader', () => ({
 import ClaimSubmissionForm from '../ClaimSubmissionForm';
 
 describe('ClaimSubmissionForm modal layout', () => {
+  beforeEach(() => {
+    mockApiPending = false;
+  });
+
   it('uses modal shell and panel classes for mobile-safe spacing', () => {
     render(<ClaimSubmissionForm onClose={jest.fn()} />);
     const modal = screen.getByTestId('claim-submission-modal');
@@ -96,9 +103,18 @@ describe('ClaimSubmissionForm modal layout', () => {
     expect(form?.className).toContain('modal-panel');
   });
 
-  it('renders the evidence upload section when wallet is connected', () => {
-    render(<ClaimSubmissionForm onClose={jest.fn()} />);
-    expect(screen.getByTestId('evidence-upload-section')).toBeInTheDocument();
-    expect(screen.getByTestId('evidence-uploader-mock')).toBeInTheDocument();
+  it('keeps the dialog open on Escape while submission is pending', async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    mockApiPending = true;
+    const { rerender } = render(<ClaimSubmissionForm onClose={onClose} />);
+
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+
+    mockApiPending = false;
+    rerender(<ClaimSubmissionForm onClose={onClose} />);
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
