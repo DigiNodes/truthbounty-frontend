@@ -56,7 +56,7 @@ describe('ActiveClaimsTable — search clear button', () => {
     // Wait for the canonical projection to arrive; the clear button must
     // stay hidden the whole time.
     await waitFor(() =>
-      expect(screen.getByLabelText(/active claims/i)).toBeInTheDocument()
+      expect(screen.getByRole('table', { name: /^active claims$/i })).toBeInTheDocument()
     );
     expect(
       screen.queryByRole('button', { name: /clear search/i })

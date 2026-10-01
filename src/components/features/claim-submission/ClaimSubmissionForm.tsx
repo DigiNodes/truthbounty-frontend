@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef } from "react";
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useConnect } from "wagmi";
 import { useTrust } from "@/components/hooks/useTrust";
 import TrustScoreTooltip from "@/components/ui/TrustScoreTooltip";
 import { useSubmitClaim } from "@/app/queries/claims.queries";
 import { useWriteContract, useReadContract, usePublicClient, useChainId } from "wagmi";
-import { parseAbi } from "viem";
-import { useTranslations } from '@/i18n';
-import { useAccount } from "@/hooks/useAccount";
+import { keccak256, stringToHex, parseAbi } from "viem";
 import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 import { EvidenceUploader } from "@/features/evidence-upload/EvidenceUploader";
 import { buildContentDigest, buildEvidenceSubmission } from "@/features/evidence-upload/evidence-commitment";
@@ -41,7 +40,6 @@ function getClaimConfig() {
 }
 
 function useCreateClaimTransaction() {
-  const t = useTranslations('claim');
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [transactionHash, setTransactionHash] = useState<`0x${string}` | null>(null);
@@ -71,20 +69,20 @@ function useCreateClaimTransaction() {
 
   const submitClaim = async (contentDigest: `0x${string}`) => {
     if (!address) {
-      throw new Error(t('errors.WALLET_NOT_CONNECTED'));
+      throw new Error("Wallet not connected");
     }
     if (!config || !contractAddress || !asset || !configHash) {
-      throw new Error(t('errors.configIncomplete'));
+      throw new Error("Claim contract configuration is incomplete.");
     }
     const targetContract = contractAddress;
     const targetAsset = asset;
     const targetConfigHash = configHash;
 
     if (chainId !== expectedChainId) {
-      throw new Error(t('errors.networkMismatch', { connected: chainId, expected: expectedChainId }));
+      throw new Error("Wrong network connected.");
     }
     if (!publicClient) {
-      throw new Error(t('errors.unexpectedError'));
+      throw new Error("Public client not available");
     }
 
     setIsPending(true);
@@ -113,7 +111,7 @@ function useCreateClaimTransaction() {
       setTransactionHash(hash);
       await publicClient.waitForTransactionReceipt({ hash });
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('errors.unexpectedError');
+      const message = err instanceof Error ? err.message : "Claim creation failed";
       setError(message);
       throw err;
     } finally {
@@ -149,10 +147,6 @@ interface ClaimFormProps {
 type StringFormField = "title" | "category" | "impact" | "source";
 
 const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) => {
-  const t = useTranslations('claim');
-  const tWallet = useTranslations('wallet');
-  const tCommon = useTranslations('common');
-  
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [impact, setImpact] = useState("");
@@ -182,77 +176,40 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const isPending = isSubmittingApi || isSubmittingTx;
 
 
-  const lowReputation = trust.reputation < 20;
-  const newWallet = trust.accountAgeDays < 7;
+  const lowReputation = trust.reputation !== null && trust.reputation < 20;
+  const newWallet = trust.accountAgeDays !== null && trust.accountAgeDays < 7;
   const lowTrust =
-    !trust.isVerified || lowReputation || newWallet || trust.suspicious;
+    !trust.isVerified || lowReputation || newWallet || trust.suspicious === true;
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement;
-    firstInputRef.current?.focus();
-    return () => {
-      previousActiveElement.current?.focus();
-    };
-  }, []);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
-  }, [onClose]);
-
-  const handleFocusTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab") return;
-
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusableElements || focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
-    }
-  }, []);
+  useDialogFocus(true, modalRef, firstInputRef, () => {
+    if (!isPending) onClose();
+  });
 
   const validateField = (name: string, value: string): string | undefined => {
     switch (name) {
       case "title":
-        if (!value.trim()) return t('validation.titleRequired');
-        if (value.length < 5) return t('validation.titleMinLength', { min: 5 });
+        if (!value.trim()) return "Title is required";
+        if (value.length < 5) return "Title must be at least 5 characters";
         break;
       case "category":
-        if (!value.trim()) return t('validation.categoryRequired');
+        if (!value.trim()) return "Category is required";
         break;
       case "impact":
-        if (!value.trim()) return t('validation.impactRequired');
+        if (!value.trim()) return "Impact is required";
         break;
       case "source":
-        if (!value.trim()) return t('validation.sourceRequired');
+        if (!value.trim()) return "Source is required";
         try {
           new URL(value);
         } catch {
-          return t('validation.sourceInvalidUrl');
+          return "Enter a valid URL";
         }
         break;
       case "description":
-        if (!value.trim()) return t('validation.descriptionRequired');
-        if (value.length < 10) return t('validation.descriptionMinLength', { min: 10 });
+        if (!value.trim()) return "Description is required";
+        if (value.length < 10) return "Description must be at least 10 characters";
         break;
     }
     return undefined;
@@ -284,7 +241,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     });
 
     if (!isWalletConnected) {
-      setSubmitError(tWallet('connectPrompt'));
+      setSubmitError("Please connect your wallet before submitting a claim.");
       return;
     }
 
@@ -326,7 +283,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       setSubmitError(
         err instanceof Error
           ? err.message
-          : t('errors.submissionFailed')
+          : "Failed to submit claim. Please try again."
       );
     }
   };
@@ -359,13 +316,15 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       // Use the first available EVM connector (injected / WalletConnect / etc.).
       const connector = connectors[0];
       if (!connector) {
-        setSubmitError(tWallet('noConnector'));
+        setSubmitError("No wallet connector found. Please install a browser wallet and reload.");
         return;
       }
       connect({ connector });
     } catch (err) {
       console.error("Failed to open wallet connector:", err);
-      setSubmitError(tWallet('connectFailed'));
+      setSubmitError(
+        "Could not open the wallet. Please install a browser wallet and try again."
+      );
     }
   };
 
@@ -373,7 +332,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
   const statusMessage = isPending
-    ? t('submittingClaim')
+    ? "Submitting your claim..."
     : submitError
       ? submitError
       : !readiness.isReady && readiness.message
@@ -402,14 +361,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       aria-modal="true"
       aria-labelledby="claim-submission-title"
       data-testid="claim-submission-modal"
-      onKeyDown={handleFocusTrap}
+      tabIndex={-1}
     >
       <form
         className="modal-panel bg-[#18181b] border border-[#232329] flex flex-col gap-4"
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
       >
-        <h2 id="claim-submission-title" className="text-xl font-bold text-white">{t('submitClaim')}</h2>
+        <h2 id="claim-submission-title" className="text-xl font-bold text-white">Submit a Claim</h2>
 
         <div
           aria-live="polite"
@@ -426,7 +384,7 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             className="flex flex-col gap-2 bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-3 rounded-lg text-sm"
           >
             <p className="font-medium">
-              {tWallet('connectPrompt')}
+              You need to connect a wallet to submit a claim.
             </p>
             <button
               type="button"
@@ -434,14 +392,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
               onClick={handleConnectWallet}
               className="self-start bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-md font-semibold"
             >
-              {tWallet('connect')}
+              Connect Wallet
             </button>
           </div>
         )}
 
         {lowTrust && (
           <div className="bg-yellow-500 text-black px-2 py-2 rounded text-sm">
-            {t('trust.lowTrustWarning')} <TrustScoreTooltip />
+            ⚠️ Low trust score <TrustScoreTooltip />
           </div>
         )}
 
@@ -497,67 +455,47 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
           }
           onBlur={() => handleBlur("description", description)}
         />
-          {errors.description && touched.description && (
-            <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
-          )}
+        {errors.description && touched.description && (
+          <p className="text-red-500 text-sm break-words" role="alert">{errors.description}</p>
+        )}
 
-          {isWalletConnected && (
-            <div
-              data-testid="evidence-upload-section"
-              className="border-t border-[#232329] pt-3"
-            >
-              <p className="text-xs text-gray-400 mb-2">
-                Optional: upload supporting evidence. The file is hashed locally
-                (SHA-256) and its verified digest is bound to your claim.
-              </p>
-              <EvidenceUploader onCommitmentChange={setEvidenceCommitment} />
-              {evidenceCommitment && (
-                <p
-                  data-testid="evidence-verified-badge"
-                  className="mt-1 text-xs text-green-300"
-                  role="status"
-                >
-                  Evidence verified — sha256:{evidenceCommitment.digest.slice(0, 12)}…
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              className="btn btn-secondary flex-1"
-              onClick={onClose}
-              disabled={isPending}
-              aria-label={tCommon('cancel')}
-            >
-              {tCommon('cancel')}
-            </button>
-            <button
-              type="submit"
-              data-testid="submit-claim-button"
-              className="btn btn-primary flex-1 disabled:opacity-50"
-              disabled={isPending || !canSubmit}
-              aria-label={
-                isPending
-                  ? "Submitting claim"
-                  : !canSubmit
-                    ? submitDisabledLabel
-                    : "Submit claim"
-              }
-              aria-describedby={
-                isWalletConnected && !readiness.isReady
-                  ? "write-readiness-reason"
-                  : undefined
-              }
-            >
-              {isPending
-                ? t('submittingClaim')
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            className="btn btn-secondary flex-1"
+            onClick={onClose}
+            disabled={isPending}
+            aria-label="Cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            data-testid="submit-claim-button"
+            className="btn btn-primary flex-1 disabled:opacity-50"
+            disabled={isPending || !canSubmit}
+            aria-label={
+              isPending
+                ? "Submitting claim"
                 : !canSubmit
                   ? submitDisabledLabel
-                  : t('submitClaim')}
-            </button>
-          </div>
+                  : "Submit claim"
+            }
+            aria-describedby={
+              isWalletConnected && !readiness.isReady
+                ? "write-readiness-reason"
+                : undefined
+            }
+          >
+            {isPending
+              ? "Submitting..."
+              : !isWalletConnected
+                ? "Connect your wallet to submit"
+                : !readiness.isReady
+                  ? readiness.message || "Wallet not ready"
+                  : "Submit Claim"}
+          </button>
+        </div>
       </form>
     </div>
   );
