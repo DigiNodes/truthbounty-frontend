@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import type { Preview } from '@storybook/nextjs-vite';
 
 import '../src/app/globals.css';
@@ -19,12 +20,14 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const theme = context.globals.theme === 'dark' ? 'dark' : 'light';
-      return (
-        <div className={theme} data-theme={theme} style={{ minHeight: '100vh' }}>
-          <div className="bg-canvas text-ink min-h-screen p-6">
-            <Story />
-          </div>
-        </div>
+      return createElement(
+        'div',
+        { className: theme, 'data-theme': theme, style: { minHeight: '100vh' } },
+        createElement(
+          'div',
+          { className: 'bg-canvas text-ink min-h-screen p-6' },
+          createElement(Story),
+        ),
       );
     },
   ],
