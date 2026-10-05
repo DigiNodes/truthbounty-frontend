@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
 import { FormattedTime } from '@/components/ui/formatting';
+import { useReducedMotion } from '@/components/hooks/useReducedMotion';
 import type {
   ClaimCreatedEvent,
   ClaimStatusChangedEvent,
