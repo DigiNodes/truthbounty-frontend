@@ -65,24 +65,27 @@ describe('Accessibility: TransactionStatus — every status', () => {
 
   it('announces pending, success, and error status via live regions', async () => {
     const { container: pending } = render(<TransactionStatus status="pending" />);
-    const pendingEl = screen.getByText(/transaction pending/i);
+    const pendingEl = pending.querySelector('[role="status"]');
     expect(pendingEl).toHaveAttribute('role', 'status');
     expect(pendingEl).toHaveAttribute('aria-live', 'polite');
+    expect(pendingEl).toHaveTextContent(/transaction pending/i);
 
     const { container: success } = render(<TransactionStatus status="success" />);
-    const successEl = screen.getByText(/verification submitted/i);
+    const successEl = success.querySelector('[role="status"]');
     expect(successEl).toHaveAttribute('role', 'status');
     expect(successEl).toHaveAttribute('aria-live', 'polite');
+    expect(successEl).toHaveTextContent(/verification submitted/i);
 
     const { container: error } = render(<TransactionStatus status="error" />);
-    const errorEl = screen.getByText(/transaction failed/i);
+    const errorEl = error.querySelector('[role="alert"]');
     expect(errorEl).toHaveAttribute('role', 'alert');
     expect(errorEl).toHaveAttribute('aria-live', 'assertive');
+    expect(errorEl).toHaveTextContent(/transaction failed/i);
 
     const { assertAccessible: ax } = await import('../utils/axe');
-    await ax(pendingEl as HTMLElement);
-    await ax(successEl as HTMLElement);
-    await ax(errorEl as HTMLElement);
+    await ax(pending);
+    await ax(success);
+    await ax(error);
   });
 });
 
@@ -232,9 +235,13 @@ describe('Accessibility: appeal rounds and escalation', () => {
         <TransactionStatus status="pending" />
       </div>,
     );
-    const pendingEl = screen.getByText(/transaction pending/i);
+    const pendingEl = Array.from(container.querySelectorAll('[role="status"]')).find(
+      (region) => /transaction pending/i.test(region.textContent ?? ''),
+    );
+    expect(pendingEl).toBeDefined();
     expect(pendingEl).toHaveAttribute('role', 'status');
     expect(pendingEl).toHaveAttribute('aria-live', 'polite');
+    expect(pendingEl).toHaveTextContent(/transaction pending/i);
     await assertAccessible(container);
   });
 
@@ -254,9 +261,13 @@ describe('Accessibility: appeal rounds and escalation', () => {
         <TransactionStatus status="error" />
       </div>,
     );
-    const errorEl = screen.getByText(/transaction failed/i);
+    const errorEl = Array.from(container.querySelectorAll('[role="alert"]')).find(
+      (region) => /transaction failed/i.test(region.textContent ?? ''),
+    );
+    expect(errorEl).toBeDefined();
     expect(errorEl).toHaveAttribute('role', 'alert');
     expect(errorEl).toHaveAttribute('aria-live', 'assertive');
+    expect(errorEl).toHaveTextContent(/transaction failed/i);
     await assertAccessible(container);
   });
 

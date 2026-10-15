@@ -61,7 +61,7 @@ describe('Accessibility: route and feature error boundaries', () => {
         <Flaky />
       </ErrorBoundary>
     );
-    const retry = screen.getByRole('button', { name: /try again/i });
+    const retry = screen.getByRole('button', { name: /retry after error/i });
     shouldThrow = false;
     retry.focus();
     expect(retry).toHaveFocus();

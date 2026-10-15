@@ -20,7 +20,10 @@ export interface ClaimDetailsProps {
 }
 
 export function ClaimDetails({ claimId, claim: initialClaim, isLoading: externalLoading = false, onNotFound }: ClaimDetailsProps) {
-  const projection = useClaimDetailProjection(initialClaim ? undefined : claimId);
+  const projection = useClaimDetailProjection({
+    claimId: claimId ?? '',
+    enabled: !initialClaim && Boolean(claimId),
+  });
   const claim = initialClaim || projection.data?.claim;
   const isLoading = externalLoading || (!initialClaim && projection.viewState === 'loading');
   const notFound = !initialClaim && projection.viewState === 'not-found';

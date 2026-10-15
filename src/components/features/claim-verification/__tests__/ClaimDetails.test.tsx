@@ -1,8 +1,20 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ClaimDetails } from '../ClaimDetails';
 import { createMockClaim } from '@/__tests__/utils/test-utils';
+
+function renderClaimDetails(claim: Parameters<typeof ClaimDetails>[0]['claim']) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ClaimDetails claim={claim} />
+    </QueryClientProvider>,
+  );
+}
 
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrustForAddress: () => ({
@@ -40,7 +52,7 @@ describe('ClaimDetails - evidence rendering', () => {
       ],
     });
 
-    render(<ClaimDetails claim={claim} />);
+    renderClaimDetails(claim);
 
     const link = screen.getByRole('link', { name: /Evidence link/ });
     expect(link).toHaveAttribute('href', 'https://example.com/proof');
@@ -61,7 +73,7 @@ describe('ClaimDetails - evidence rendering', () => {
       ],
     });
 
-    render(<ClaimDetails claim={claim} />);
+    renderClaimDetails(claim);
 
     expect(screen.getByRole('note')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -79,7 +91,7 @@ describe('ClaimDetails - evidence rendering', () => {
       ],
     });
 
-    render(<ClaimDetails claim={claim} />);
+    renderClaimDetails(claim);
 
     expect(screen.getByText('Witness testimony')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -97,7 +109,7 @@ describe('ClaimDetails - evidence rendering', () => {
       ],
     });
 
-    render(<ClaimDetails claim={claim} />);
+    renderClaimDetails(claim);
 
     expect(screen.getByRole('note')).toBeInTheDocument();
     expect(screen.queryByAltText('Evidence image')).not.toBeInTheDocument();

@@ -82,18 +82,18 @@ const ActiveClaimsTable = ({
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           <label className="sr-only" htmlFor="claims-search">
             Search claims
           </label>
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
             <input
               id="claims-search"
               ref={searchInputRef}
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs"
+              className="w-full bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs sm:w-auto"
               placeholder="Search claims..."
               aria-label="Search claims"
             />
@@ -112,6 +112,7 @@ const ActiveClaimsTable = ({
             )}
           </div>
           <button
+            type="button"
             className="px-3 py-1 rounded bg-[#232329] text-xs text-white"
             aria-label="Open additional filters"
           >
@@ -122,11 +123,12 @@ const ActiveClaimsTable = ({
 
       {isError ? (
         <div className="py-12 text-center">
-          <p className="text-sm text-[#a1a1aa] mb-3">
+          <p role="alert" className="text-sm text-[#a1a1aa] mb-3">
             Failed to load claims. Please try again.
           </p>
           {onRetry && (
             <button
+              type="button"
               onClick={onRetry}
               className="px-4 py-1.5 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
             >
@@ -135,8 +137,13 @@ const ActiveClaimsTable = ({
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left" aria-label="Active claims">
+        <div
+          className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5b5bf6]"
+          role="region"
+          aria-label="Active claims table"
+          tabIndex={0}
+        >
+          <table className="min-w-[640px] w-full text-sm text-left" aria-label="Active claims">
             <thead>
               <tr className="text-[#a1a1aa] border-b border-[#232329]">
                 <th scope="col" className="py-2">Claim</th>

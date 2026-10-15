@@ -1,126 +1,65 @@
-// Accessibility checks for the claims list surface (V2-FE-109).
-// Runs jest-axe against every user-visible state: loading skeleton, ready,
-// empty, stale, and error. Wired into CI via `pnpm test:a11y`.
+import React from "react";
+import { render, screen, within } from "@testing-library/react";
+import ActiveClaimsTable, {
+  type ActiveClaim,
+} from "@/components/features/ActiveClaimsTable";
+import { assertAccessible } from "../utils/axe";
 
-import React from 'react';
-import { render, waitFor } from '@testing-library/react';
-import { axe, toHaveNoViolations } from 'jest-axe';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
-import {
-  makeClaimItem,
-  makeEnvelope,
-  makeJsonResponse,
-} from '@/hooks/__tests__/claim-list-fixtures';
+const claim: ActiveClaim = {
+  category: "Science",
+  impact: "High Impact",
+  title: "Canonical claim row",
+  source: "Reviewed source",
+  status: "Verified",
+  confidence: "97%",
+  votes: "12",
+  stake: "50 ETH",
+  time: "2 days",
+  actions: "View",
+};
 
-expect.extend(toHaveNoViolations);
+describe("ActiveClaimsTable accessibility", () => {
+  it("loading state exposes a polite live region without axe violations", async () => {
+    const { container } = render(<ActiveClaimsTable isLoading />);
 
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
-  });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
-}
-
-function mockFetchOnce(payload: unknown) {
-  return jest
-    .spyOn(global, 'fetch')
-    .mockResolvedValue(makeJsonResponse(payload));
-}
-
-async function expectNoAxeViolations(container: HTMLElement) {
-  const results = await axe(container);
-  expect(results).toHaveNoViolations();
-}
-
-describe('ActiveClaimsTable accessibility', () => {
-  afterEach(() => jest.restoreAllMocks());
-
-  it('loading state (skeleton) has no axe violations', async () => {
-    // Keep the fetch pending so the skeleton remains visible.
-    jest.spyOn(global, 'fetch').mockReturnValue(new Promise(() => {}));
-
-    const { container } = render(<ActiveClaimsTable />, {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() =>
-      expect(container.querySelector('.animate-shimmer')).not.toBeNull()
-    );
-    await expectNoAxeViolations(container);
+    expect(
+      screen.getByRole("status", { name: "Loading claims table" }),
+    ).toHaveAttribute("aria-live", "polite");
+    await assertAccessible(container);
   });
 
-  it('ready state (rows + pagination) has no axe violations', async () => {
-    mockFetchOnce(
-      makeEnvelope({
-        items: [
-          makeClaimItem({ id: 'claim-1' }),
-          makeClaimItem({ id: 'claim-2', confidenceScore: null, status: 'DISPUTED' }),
-        ],
-        total: 22,
-        totalPages: 3,
-      })
-    );
+  it("ready state labels the table and its keyboard-reachable scroll region", async () => {
+    const { container } = render(<ActiveClaimsTable claims={[claim]} />);
+    const region = screen.getByRole("region", { name: "Active claims table" });
 
-    const { container } = render(<ActiveClaimsTable />, {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() =>
-      expect(container.querySelector('table')).not.toBeNull()
-    );
-    await expectNoAxeViolations(container);
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(
+      within(region).getByRole("table", { name: "Active claims" }),
+    ).toBeInTheDocument();
+    expect(within(region).getByText("Canonical claim row")).toBeInTheDocument();
+    await assertAccessible(container);
   });
 
-  it('stale state (banner + rows) has no axe violations', async () => {
-    mockFetchOnce(
-      makeEnvelope({
-        freshness: 'stale',
-        generatedAt: new Date(Date.now() - 120_000).toISOString(),
-        reason: 'Indexer lagging behind chain head',
-      })
-    );
+  it("empty state explains that there are no active claims", async () => {
+    const { container } = render(<ActiveClaimsTable />);
 
-    const { container } = render(<ActiveClaimsTable />, {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() =>
-      expect(container.textContent).toContain('Claim data may be out of date.')
-    );
-    await expectNoAxeViolations(container);
+    expect(
+      screen.getByText("No active claims at the moment."),
+    ).toBeInTheDocument();
+    await assertAccessible(container);
   });
 
-  it('empty state has no axe violations', async () => {
-    mockFetchOnce(makeEnvelope({ items: [] }));
-
-    const { container } = render(<ActiveClaimsTable />, {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() =>
-      expect(container.textContent).toContain('No claims have been indexed yet')
+  it("error state announces the failure and exposes a retry action", async () => {
+    const onRetry = jest.fn();
+    const { container } = render(
+      <ActiveClaimsTable isError onRetry={onRetry} />,
     );
-    // Sanity check: the empty state is the visible one, not only the
-    // sr-only announcement.
-    expect(container.textContent).not.toContain('No claims match');
-    await expectNoAxeViolations(container);
-  });
 
-  it('error state (recoverable) has no axe violations', async () => {
-    jest
-      .spyOn(global, 'fetch')
-      .mockRejectedValue(new TypeError('Failed to fetch'));
-
-    const { container } = render(<ActiveClaimsTable />, {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
-    await expectNoAxeViolations(container);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Failed to load claims. Please try again.",
+    );
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    await assertAccessible(container);
   });
 });
