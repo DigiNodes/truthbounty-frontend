@@ -20,7 +20,7 @@ import { isAddress, isHex } from 'viem';
 // ---------------------------------------------------------------------------
 
 export type ValidationResult = 
-  | { valid: true }
+  | { valid: true; error?: never }
   | { valid: false; error: string };
 
 export interface ClaimFormData {
@@ -132,7 +132,7 @@ export function validateCategory(category: string): ValidationResult {
     return { valid: false, error: 'Category is required' };
   }
 
-  if (!PREDEFINED_CATEGORIES.includes(category as any)) {
+  if (!PREDEFINED_CATEGORIES.some((item) => item === category)) {
     return { valid: false, error: 'Invalid category selected' };
   }
 
@@ -152,7 +152,7 @@ export function validateImpact(impact: string): ValidationResult {
     return { valid: false, error: 'Impact is required' };
   }
 
-  if (!PREDEFINED_IMPACTS.includes(impact as any)) {
+  if (!PREDEFINED_IMPACTS.some((item) => item === impact)) {
     return { valid: false, error: 'Invalid impact selected' };
   }
 
@@ -274,7 +274,7 @@ export function validateFileType(file: File): ValidationResult {
   const fileName = file.name.toLowerCase();
 
   // Check MIME type
-  if (!ALLOWED_FILE_TYPES.includes(fileType as any)) {
+  if (!ALLOWED_FILE_TYPES.some((item) => item === fileType)) {
     // Also check file extension as fallback
     const hasValidExtension = ALLOWED_FILE_EXTENSIONS.some(ext => 
       fileName.endsWith(ext)
@@ -543,7 +543,7 @@ export function validateAllowance(
 /**
  * Validate content digest format (32 bytes hex).
  */
-export function validateContentDigest(digest: Hex): ValidationResult {
+export function validateContentDigest(digest: string): ValidationResult {
   if (!isHex(digest)) {
     return { valid: false, error: 'Content digest must be hex string' };
   }

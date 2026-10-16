@@ -33,11 +33,15 @@ function makeTransport(): { fn: jest.Mock; events: TelemetryEvent[] } {
 }
 
 function makeContextWrapper(client: TelemetryClient, isEnabled: boolean) {
-  return ({ children }: { children: React.ReactNode }) => (
-    <TelemetryContext.Provider value={{ client, isEnabled }}>
-      {children}
-    </TelemetryContext.Provider>
-  )
+  function TelemetryContextWrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      TelemetryContext.Provider,
+      { value: { client, isEnabled } },
+      children
+    )
+  }
+
+  return TelemetryContextWrapper
 }
 
 // ---------------------------------------------------------------------------

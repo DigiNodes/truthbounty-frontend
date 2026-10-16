@@ -42,18 +42,11 @@ const Sidebar = () => {
   } = useAppShellContext();
   const pathname = currentRoute || '/';
 
-  const [localIsMobileOpen, setLocalIsMobileOpen] = useState(false);
-  const isMobileMenuOpen = contextIsMobileMenuOpen || localIsMobileOpen;
-  const setIsMobileMenuOpen = useCallback(
-    (open: boolean | ((prev: boolean) => boolean)) => {
-      setLocalIsMobileOpen((prev) => {
-        const next = typeof open === 'function' ? open(prev) : open;
-        contextSetIsMobileMenuOpen(next);
-        return next;
-      });
-    },
-    [contextSetIsMobileMenuOpen],
-  );
+  // AppShellProvider is the single source of truth for drawer state. Keeping a
+  // second local copy caused context updates from inside a state updater during
+  // render and could desynchronise the backdrop, focus trap, and navigation.
+  const isMobileMenuOpen = contextIsMobileMenuOpen;
+  const setIsMobileMenuOpen = contextSetIsMobileMenuOpen;
 
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransactionEntry[]>(
     () => getPendingTransactions(),
@@ -67,15 +60,34 @@ const Sidebar = () => {
     return subscribeToPendingTransactions(setPendingTransactions);
   }, []);
 
-  // Document-level Escape listener to close mobile drawer from anywhere
+  // Close and trap focus for the mobile drawer at the document level.
   useEffect(() => {
     if (!isMobileMenuOpen) return;
-    const handleDocumentKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+
+    const handleDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setIsMobileMenuOpen(false);
         hamburgerRef.current?.focus();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !sidebarRef.current) return;
+      const focusableElements = sidebarRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
       }
     };
+
     document.addEventListener('keydown', handleDocumentKeyDown);
     return () => document.removeEventListener('keydown', handleDocumentKeyDown);
   }, [isMobileMenuOpen, setIsMobileMenuOpen]);
@@ -132,40 +144,6 @@ const Sidebar = () => {
     }
   }, [isMobileMenuOpen]);
 
-  // Keyboard navigation: Escape key to close and trap focus
-  const handleSidebarKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsMobileMenuOpen(false);
-        hamburgerRef.current?.focus();
-        return;
-      }
-
-      if (e.key === 'Tab' && isMobileMenuOpen && sidebarRef.current) {
-        const focusableElements = sidebarRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    },
-    [isMobileMenuOpen, setIsMobileMenuOpen],
-  );
-
   const isCurrentActive = useCallback(
     (item: NavigationItem) => {
       if (item.exact) {
@@ -214,13 +192,14 @@ const Sidebar = () => {
 
       {/* Backdrop overlay for mobile drawer */}
       {isMobileMenuOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Close navigation menu"
           className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity"
           onClick={() => {
             setIsMobileMenuOpen(false);
             hamburgerRef.current?.focus();
           }}
-          role="presentation"
         />
       )}
 
@@ -242,7 +221,6 @@ const Sidebar = () => {
         role={isMobileMenuOpen ? 'dialog' : undefined}
         aria-modal={isMobileMenuOpen ? true : undefined}
         tabIndex={isMobileMenuOpen ? -1 : undefined}
-        onKeyDown={handleSidebarKeyDown}
       >
         {/* Brand / Logo */}
         <div className="flex items-center h-16 px-6 py-6 font-bold text-lg tracking-tight border-b border-border">
@@ -284,7 +262,7 @@ const Sidebar = () => {
               <div className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
                 {group.label}
               </div>
-              <ul className="space-y-1" role="list">
+              <ul className="space-y-1">
                 {group.items.map((item, index) => {
                   const active = isCurrentActive(item);
                   return (
@@ -346,7 +324,7 @@ const Sidebar = () => {
                 No transactions are waiting for confirmation right now.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2" role="list">
+              <ul className="mt-3 space-y-2">
                 {pendingTransactions.slice(0, 3).map((transaction) => (
                   <li
                     key={transaction.id}
@@ -365,7 +343,7 @@ const Sidebar = () => {
             <div className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">
               Resources
             </div>
-            <ul className="space-y-1" role="list">
+            <ul className="space-y-1">
               <li>
                 <Link
                   href={RESOURCE_LINKS.docs}

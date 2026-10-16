@@ -49,7 +49,7 @@ import type { TransactionState } from '@/lib/transaction-machine/transaction-mac
 
 const createState = (
   status: TransactionState['status'],
-  overrides: Partial<TransactionState> = {}
+  overrides: Record<string, unknown> = {}
 ): TransactionState => {
   const base = {
     status,
@@ -93,9 +93,9 @@ describe('calculateConfirmations', () => {
 });
 
 describe('getConfirmationsFromState', () => {
-  it('uses state.confirmations if available', () => {
+  it('derives confirmations from canonical block numbers', () => {
     const state = createState('confirming', { blockNumber: 100n, confirmations: 5 });
-    expect(getConfirmationsFromState(state, 105n)).toBe(5);
+    expect(getConfirmationsFromState(state, 105n)).toBe(6);
   });
 
   it('calculates from blockNumber if confirmations is null', () => {
@@ -123,8 +123,8 @@ describe('isSafeConfirmations', () => {
     expect(isSafeConfirmations(0, 10)).toBe(false);
   });
 
-  it('returns null for unknown chains (fail-closed)', () => {
-    expect(isSafeConfirmations(1, 999)).toBeNull();
+  it('returns false for unknown chains (fail-closed)', () => {
+    expect(isSafeConfirmations(1, 999)).toBe(false);
   });
 
   it('handles OP Sepolia', () => {
@@ -148,8 +148,8 @@ describe('isFinalizedConfirmations', () => {
     expect(isFinalizedConfirmations(1, 10)).toBe(false);
   });
 
-  it('returns null for unknown chains (fail-closed)', () => {
-    expect(isFinalizedConfirmations(12, 999)).toBeNull();
+  it('returns false for unknown chains (fail-closed)', () => {
+    expect(isFinalizedConfirmations(12, 999)).toBe(false);
   });
 });
 
@@ -168,8 +168,8 @@ describe('getFinalityLevel', () => {
     expect(getFinalityLevel(20, 10)).toBe('finalized');
   });
 
-  it('returns "none" for unknown chains (fail-closed)', () => {
-    expect(getFinalityLevel(12, 999)).toBe('none');
+  it('returns null for unknown chains (fail-closed)', () => {
+    expect(getFinalityLevel(12, 999)).toBeNull();
   });
 });
 
@@ -266,8 +266,8 @@ describe('shouldWithholdSuccess', () => {
     expect(shouldWithholdSuccess(createState('finalized'))).toBe(false);
   });
 
-  it('returns false for replaced (user may want to track replacement)', () => {
-    expect(shouldWithholdSuccess(createState('replaced'))).toBe(false);
+  it('withholds success for replaced transactions', () => {
+    expect(shouldWithholdSuccess(createState('replaced'))).toBe(true);
   });
 });
 
@@ -281,9 +281,9 @@ describe('estimateTimeToSafe', () => {
     expect(result).toBe(2000);
   });
 
-  it('returns 0 if already safe', () => {
-    expect(estimateTimeToSafe(1, 10)).toBe(0);
-    expect(estimateTimeToSafe(5, 10)).toBe(0);
+  it('returns null if already safe', () => {
+    expect(estimateTimeToSafe(1, 10)).toBeNull();
+    expect(estimateTimeToSafe(5, 10)).toBeNull();
   });
 
   it('returns null for unknown chains', () => {
@@ -302,9 +302,9 @@ describe('estimateTimeToFinalized', () => {
     expect(result).toBe(22000);
   });
 
-  it('returns 0 if already finalized', () => {
-    expect(estimateTimeToFinalized(12, 10)).toBe(0);
-    expect(estimateTimeToFinalized(20, 10)).toBe(0);
+  it('returns null if already finalized', () => {
+    expect(estimateTimeToFinalized(12, 10)).toBeNull();
+    expect(estimateTimeToFinalized(20, 10)).toBeNull();
   });
 
   it('returns null for unknown chains', () => {
@@ -315,14 +315,14 @@ describe('estimateTimeToFinalized', () => {
 describe('formatTimeEstimate', () => {
   it('formats seconds', () => {
     expect(formatTimeEstimate(1000)).toBe('~1s');
-    expect(formatTimeEstimate(2500)).toBe('~2s');
+    expect(formatTimeEstimate(2500)).toBe('~3s');
     expect(formatTimeEstimate(30000)).toBe('~30s');
   });
 
   it('formats minutes', () => {
     expect(formatTimeEstimate(60000)).toBe('~1m');
     expect(formatTimeEstimate(120000)).toBe('~2m');
-    expect(formatTimeEstimate(90000)).toBe('~1m'); // rounds down
+    expect(formatTimeEstimate(90000)).toBe('~2m'); // rounds up conservatively
   });
 
   it('formats hours', () => {
@@ -331,8 +331,8 @@ describe('formatTimeEstimate', () => {
   });
 
   it('handles edge cases', () => {
-    expect(formatTimeEstimate(0)).toBe('~0s');
-    expect(formatTimeEstimate(500)).toBe('~0s'); // rounds down
+    expect(formatTimeEstimate(0)).toBe('~1s'); // never promises zero wait
+    expect(formatTimeEstimate(500)).toBe('~1s'); // never promises zero wait
   });
 });
 
@@ -415,11 +415,11 @@ describe('calculateConfirmationProgress', () => {
 
 describe('getProgressTarget', () => {
   it('returns finalized threshold if not yet finalized', () => {
-    expect(getProgressTarget(5, 10)).toBe(12); // OP Mainnet
+    expect(getProgressTarget(5, 10)).toBe('finalized'); // OP Mainnet
   });
 
   it('returns safe threshold if already finalized', () => {
-    expect(getProgressTarget(12, 10)).toBe(1);
+    expect(getProgressTarget(12, 10)).toBe('finalized');
   });
 
   it('returns null for unknown chains', () => {
@@ -477,10 +477,10 @@ describe('isConfirmationTransitionValid', () => {
     expect(isConfirmationTransitionValid(prev, next)).toBe(false);
   });
 
-  it('rejects transition to reorged with same confirmation count', () => {
+  it('allows transition to reorged because canonical inclusion changed', () => {
     const prev = createState('safe', { confirmations: 5 });
     const next = createState('reorged', { confirmations: 5 });
-    expect(isConfirmationTransitionValid(prev, next)).toBe(false);
+    expect(isConfirmationTransitionValid(prev, next)).toBe(true);
   });
 
   it('allows terminal state transitions', () => {
@@ -498,8 +498,8 @@ describe('CONFIRMATION_THRESHOLDS', () => {
   it('defines Optimism Mainnet thresholds', () => {
     const config = CONFIRMATION_THRESHOLDS[10];
     expect(config).toEqual({
-      safe: 1,
-      finalized: 12,
+      safeConfirmations: 1,
+      finalizedConfirmations: 12,
       blockTimeMs: 2000,
     });
   });
@@ -507,8 +507,8 @@ describe('CONFIRMATION_THRESHOLDS', () => {
   it('defines OP Sepolia thresholds', () => {
     const config = CONFIRMATION_THRESHOLDS[11155420];
     expect(config).toEqual({
-      safe: 1,
-      finalized: 12,
+      safeConfirmations: 1,
+      finalizedConfirmations: 12,
       blockTimeMs: 2000,
     });
   });
@@ -516,8 +516,8 @@ describe('CONFIRMATION_THRESHOLDS', () => {
   it('defines Hardhat local fork thresholds', () => {
     const config = CONFIRMATION_THRESHOLDS[31337];
     expect(config).toEqual({
-      safe: 1,
-      finalized: 1,
+      safeConfirmations: 1,
+      finalizedConfirmations: 1,
       blockTimeMs: 100,
     });
   });

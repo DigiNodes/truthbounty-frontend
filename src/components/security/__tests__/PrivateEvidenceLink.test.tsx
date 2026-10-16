@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PrivateEvidenceLink } from '../PrivateEvidenceLink';
 
@@ -49,7 +49,7 @@ describe('PrivateEvidenceLink', () => {
       render(<PrivateEvidenceLink href={url} />);
 
       const link = screen.getByRole('link');
-      expect(link).toHaveTextContent('QmYwAPJz...F8xFk (IPFS)');
+      expect(link).toHaveTextContent('QmYwAPJz...xF8xFk (IPFS)');
       expect(link).not.toHaveTextContent('QmYwAPJzv5CZsnAzt8auVZRn2tQQkDdqBvHThY6WxF8xFk');
     });
 
@@ -93,20 +93,24 @@ describe('PrivateEvidenceLink', () => {
       const url = 'https://example.com/file.pdf';
       render(<PrivateEvidenceLink href={url} />);
 
-      const link = screen.getByRole('link');
-      fireEvent.click(link);
+      try {
+        const link = screen.getByRole('link');
+        await act(async () => {
+          fireEvent.click(link);
+          await Promise.resolve();
+        });
 
-      await waitFor(() => {
         expect(screen.getByText('Copied!')).toBeInTheDocument();
-      });
 
-      jest.advanceTimersByTime(2000);
+        act(() => {
+          jest.advanceTimersByTime(2000);
+        });
 
-      await waitFor(() => {
         expect(screen.queryByText('Copied!')).not.toBeInTheDocument();
-      });
-
-      jest.useRealTimers();
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     it('shows separate copy button when showCopyButton is true', () => {
@@ -143,7 +147,7 @@ describe('PrivateEvidenceLink', () => {
 
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       expect(
-        screen.getByText(/blocked.*security/i, { selector: 'span' }),
+        screen.getByRole('note', { name: /blocked for security reasons/i }),
       ).toBeInTheDocument();
     });
 

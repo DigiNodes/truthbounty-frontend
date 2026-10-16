@@ -33,7 +33,7 @@ export function ClaimDetailWithActions({ claimId }: ClaimDetailWithActionsProps)
     if (wallet.status !== 'ready') {
       // Prompt wallet connection
       if (wallet.status === 'disconnected') {
-        wallet.connect();
+        wallet.reconnect();
       }
       return;
     }
@@ -46,7 +46,7 @@ export function ClaimDetailWithActions({ claimId }: ClaimDetailWithActionsProps)
     if (wallet.status !== 'ready') {
       // Prompt wallet connection
       if (wallet.status === 'disconnected') {
-        wallet.connect();
+        wallet.reconnect();
       }
       return;
     }
@@ -64,7 +64,7 @@ export function ClaimDetailWithActions({ claimId }: ClaimDetailWithActionsProps)
             Connect your wallet to verify or dispute claims
           </p>
           <button
-            onClick={() => wallet.connect()}
+            onClick={() => wallet.reconnect()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Connect Wallet
@@ -154,7 +154,7 @@ export function ClaimDetailWithCustomWalletUI({ claimId }: ClaimDetailWithAction
       {wallet.status === 'unsupported' && (
         <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
           <p className="text-sm text-yellow-500 mb-3">
-            You're connected to an unsupported network. Please switch to Optimism or OP Sepolia.
+            You&apos;re connected to an unsupported network. Please switch to Optimism or OP Sepolia.
           </p>
           <button
             onClick={handleNetworkSwitch}

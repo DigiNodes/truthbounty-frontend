@@ -36,7 +36,7 @@ export interface TruncatedUrl {
  *   1. Parse URL and extract hostname
  *   2. Strip query parameters and hash fragment
  *   3. Extract filename from path (last segment)
- *   4. If path has ≥3 segments, replace middle with "..."
+ *   4. If path has ≥2 segments, replace intermediate path data with "..."
  *   5. Return: {hostname}/.../filename or {hostname}/... if no filename
  *
  * @param rawUrl - Evidence URL (HTTPS or IPFS)
@@ -93,11 +93,8 @@ export function truncateEvidenceUrl(rawUrl: string): TruncatedUrl {
   } else if (segments.length === 1) {
     // Single segment: hostname/filename
     display = `${hostname}/${segments[0]}`;
-  } else if (segments.length === 2) {
-    // Two segments: hostname/path/filename
-    display = `${hostname}/${segments[0]}/${segments[1]}`;
   } else {
-    // Three or more segments: hostname/.../filename
+    // Two or more segments: hide intermediate path metadata.
     display = filename
       ? `${hostname}/.../${filename}`
       : `${hostname}/...`;
@@ -369,19 +366,11 @@ export async function hashEvidenceId(evidenceId: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(evidenceId.trim());
 
-    let hash: ArrayBuffer;
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      // Browser
-      hash = await crypto.subtle.digest('SHA-256', data);
-    } else if (typeof require !== 'undefined') {
-      // Node.js fallback
-      const nodeCrypto = require('crypto');
-      const nodeHash = nodeCrypto.createHash('sha256').update(evidenceId.trim()).digest();
-      hash = nodeHash.buffer.slice(nodeHash.byteOffset, nodeHash.byteOffset + nodeHash.byteLength);
-    } else {
-      // No crypto available
+    if (typeof crypto === 'undefined' || !crypto.subtle) {
       return 'ev_nocrypto';
     }
+
+    const hash = await crypto.subtle.digest('SHA-256', data);
 
     const hashArray = Array.from(new Uint8Array(hash));
     const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -470,8 +459,11 @@ export function redactEvidenceForTelemetry(evidence: {
 
   let displayValue = '[redacted]';
   if (evidence.type === 'link' || evidence.type === 'image' || evidence.type === 'video' || evidence.type === 'document') {
-    const truncated = truncateEvidenceUrl(evidence.value);
-    displayValue = truncated.display;
+    // Telemetry must not retain hostnames, filenames, paths, or CIDs. Those
+    // values can identify sources or reveal protected evidence metadata.
+    displayValue = evidence.value.trim().startsWith('ipfs:')
+      ? '[ipfs evidence]'
+      : '[external evidence]';
   } else if (evidence.type === 'text') {
     // For text evidence, show length only
     displayValue = `[text, ${evidence.value.length} chars]`;

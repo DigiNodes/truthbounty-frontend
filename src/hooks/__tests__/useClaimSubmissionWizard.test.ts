@@ -4,14 +4,14 @@
  * Tests for wizard state management, navigation, and validation orchestration
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useClaimSubmissionWizard } from '../useClaimSubmissionWizard';
 
 // Mock wagmi hooks
-vi.mock('wagmi', () => ({
-  useAccount: vi.fn(() => ({ address: '0x1234567890123456789012345678901234567890' })),
-  useChainId: vi.fn(() => 10),
+jest.mock('wagmi', () => ({
+  useAccount: jest.fn(() => ({ address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' })),
+  useChainId: jest.fn(() => 10),
 }));
 
 describe('useClaimSubmissionWizard', () => {
@@ -258,7 +258,7 @@ describe('useClaimSubmissionWizard', () => {
 
       let isValid = false;
       act(() => {
-        isValid = actions.validateCurrentStep();
+        isValid = result.current[1].validateCurrentStep();
       });
 
       expect(isValid).toBe(true);
@@ -274,7 +274,7 @@ describe('useClaimSubmissionWizard', () => {
 
       let isValid = true;
       act(() => {
-        isValid = actions.validateCurrentStep();
+        isValid = result.current[1].validateCurrentStep();
       });
 
       expect(isValid).toBe(false);
@@ -303,7 +303,7 @@ describe('useClaimSubmissionWizard', () => {
 
       let isValid = false;
       act(() => {
-        isValid = actions.validateCurrentStep();
+        isValid = result.current[1].validateCurrentStep();
       });
 
       expect(isValid).toBe(true);
@@ -319,7 +319,7 @@ describe('useClaimSubmissionWizard', () => {
 
       let isValid = true;
       act(() => {
-        isValid = actions.validateCurrentStep();
+        isValid = result.current[1].validateCurrentStep();
       });
 
       expect(isValid).toBe(false);
@@ -347,7 +347,7 @@ describe('useClaimSubmissionWizard', () => {
 
       let isValid = false;
       act(() => {
-        isValid = actions.validateCurrentStep();
+        isValid = result.current[1].validateCurrentStep();
       });
 
       expect(isValid).toBe(true);

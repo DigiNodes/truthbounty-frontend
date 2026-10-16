@@ -17,6 +17,8 @@
 
 import React, { createRef, ErrorInfo, ReactNode } from 'react'
 import { getTelemetryClient } from '@/lib/telemetry'
+import { redactError } from '@/lib/security/redaction'
+import { toSafeErrorMessage } from '@/lib/sanitize-error'
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -33,6 +35,7 @@ export interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  retryCount: number;
 }
 
 /**
@@ -51,12 +54,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, retryCount: 0 };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     redactError(error);
-    return { hasError: true, error };
+    return { hasError: true, error } as ErrorBoundaryState;
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -82,11 +85,27 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
   }
 
+  componentDidUpdate(previousProps: ErrorBoundaryProps) {
+    if (!this.state.hasError) return;
+    const previous = previousProps.resetKeys ?? [];
+    const current = this.props.resetKeys ?? [];
+    const changed =
+      previous.length !== current.length ||
+      previous.some((value, index) => !Object.is(value, current[index]));
+    if (changed) {
+      this.handleRetry();
+    }
+  }
+
   handleRetry = () => {
     // Safe retry: reset local error state only. Pending transaction stores
     // are intentionally left untouched so reload recovery still works.
     this.props.onReset?.();
-    this.setState({ hasError: false, error: null });
+    this.setState((current) => ({
+      hasError: false,
+      error: null,
+      retryCount: current.retryCount + 1,
+    }));
   };
 
   render() {
@@ -117,11 +136,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             </p>
             <button
               ref={this.retryRef}
-              autoFocus
               type="button"
               onClick={this.handleRetry}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
-              aria-label="Retry after error"
+              aria-label="Try again after error"
             >
               Try again
             </button>
@@ -129,7 +147,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         </div>
       );
     }
-    return this.props.children;
+    return (
+      <React.Fragment key={this.state.retryCount}>
+        {this.props.children}
+      </React.Fragment>
+    );
   }
 }
 

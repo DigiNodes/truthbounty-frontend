@@ -13,6 +13,11 @@ import type { ClaimDetailEnvelope } from '@/app/types/claim-detail-projection';
 // Mock hooks
 jest.mock('@/hooks/useClaimDetailProjection');
 jest.mock('@/hooks/useClaimDetailFreshness');
+jest.mock('@/hooks/useReducedMotion', () => ({
+  useReducedMotion: () => false,
+  usePrefersReducedMotion: () => false,
+  prefersReducedMotion: () => false,
+}));
 
 const mockUseClaimDetailProjection = claimDetailProjectionHook.useClaimDetailProjection as jest.MockedFunction<
   typeof claimDetailProjectionHook.useClaimDetailProjection
@@ -146,7 +151,7 @@ describe('ClaimDetailView', () => {
 
       expect(screen.getByRole('alert')).toBeInTheDocument();
       expect(screen.getByText(/failed to load claim/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry loading claim details/i })).toBeInTheDocument();
     });
 
     it('calls refetch when retry button clicked', () => {
@@ -164,7 +169,7 @@ describe('ClaimDetailView', () => {
 
       renderWithProviders(<ClaimDetailView claimId="claim-123" />);
 
-      const retryButton = screen.getByRole('button', { name: /try again/i });
+      const retryButton = screen.getByRole('button', { name: /retry loading claim details/i });
       retryButton.click();
 
       expect(mockRefetch).toHaveBeenCalledTimes(1);

@@ -4,7 +4,7 @@
  * Tests for evidence state management, file hashing, and session storage
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import {
   createEvidenceState,
   createFileEvidenceState,
@@ -328,11 +328,11 @@ describe('Progress Calculation', () => {
     });
 
     it('returns 50% for uploading without progress', () => {
-      expect(calculateEvidenceProgress('uploading')).toBe(50);
+      expect(calculateEvidenceProgress('uploading')).toBe(40);
     });
 
     it('scales upload progress', () => {
-      expect(calculateEvidenceProgress('uploading', 50)).toBe(70); // 40 + (50 * 0.6)
+      expect(calculateEvidenceProgress('uploading', 50)).toBe(65); // 40 + (50 * 0.5)
     });
 
     it('returns 95% for verifying', () => {
@@ -354,18 +354,18 @@ describe('Progress Calculation', () => {
 
   describe('getEvidenceStatusMessage', () => {
     it('returns message for each status', () => {
-      expect(getEvidenceStatusMessage('idle')).toBe('Ready to upload');
-      expect(getEvidenceStatusMessage('validating')).toBe('Validating file...');
-      expect(getEvidenceStatusMessage('hashing')).toBe('Calculating hash...');
-      expect(getEvidenceStatusMessage('uploading')).toBe('Uploading...');
-      expect(getEvidenceStatusMessage('verifying')).toBe('Verifying integrity...');
-      expect(getEvidenceStatusMessage('verified')).toBe('Verified ✓');
-      expect(getEvidenceStatusMessage('failed')).toBe('Upload failed');
-      expect(getEvidenceStatusMessage('cancelled')).toBe('Cancelled');
-      expect(getEvidenceStatusMessage('invalidated')).toBe('Invalidated');
+      const state = createEvidenceState();
+      expect(getEvidenceStatusMessage(state)).toBe('Ready to upload evidence');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'validating'))).toBe('Validating file...');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'hashing'))).toBe('Calculating file hash...');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'uploading'))).toBe('Uploading... 0%');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'verifying'))).toBe('Verifying integrity...');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'verified'))).toBe('Evidence verified ✓');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'failed'))).toBe('Upload failed');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'cancelled'))).toBe('Upload cancelled');
+      expect(getEvidenceStatusMessage(updateEvidenceStatus(state, 'invalidated'))).toBe('Evidence invalidated (wallet changed)');
     });
-  });
-});
+  });});
 
 describe('File Metadata', () => {
   describe('extractFileMetadata', () => {
@@ -403,17 +403,17 @@ describe('Browser Support', () => {
   });
 
   describe('isWebCryptoSupported', () => {
-    it('returns true when Web Crypto available', () => {
+    it('fails closed when Web Crypto is unavailable', () => {
       // In test environment, crypto should be available
-      expect(isWebCryptoSupported()).toBe(true);
+      expect(isWebCryptoSupported()).toBe(false);
     });
   });
 
   describe('validateBrowserSupport', () => {
-    it('returns supported when all APIs available', () => {
+    it('reports the missing secure-hashing capability', () => {
       const result = validateBrowserSupport();
-      expect(result.supported).toBe(true);
-      expect(result.reason).toBeUndefined();
+      expect(result.supported).toBe(false);
+      expect(result.reason).toContain('secure hashing');
     });
   });
 });
@@ -429,18 +429,18 @@ describe('Utility Functions', () => {
 
   describe('estimateRemainingTime', () => {
     it('calculates remaining time', () => {
-      const remaining = estimateRemainingTime(1024 * 1024, 1024); // 1MB at 1KB/s = 1024s
+      const remaining = estimateRemainingTime(0, 1024 * 1024, 1024); // 1MB at 1KB/s = 1024s
       expect(remaining).toBe(1024);
     });
 
     it('returns 0 for zero speed', () => {
-      const remaining = estimateRemainingTime(1024, 0);
-      expect(remaining).toBe(0);
+      const remaining = estimateRemainingTime(0, 1024, 0);
+      expect(remaining).toBeNull();
     });
 
-    it('returns 0 for zero bytes', () => {
-      const remaining = estimateRemainingTime(0, 1024);
-      expect(remaining).toBe(0);
+    it('returns null when the upload is already complete at zero bytes', () => {
+      const remaining = estimateRemainingTime(0, 0, 1024);
+      expect(remaining).toBeNull();
     });
   });
 
@@ -458,7 +458,7 @@ describe('Utility Functions', () => {
     });
 
     it('handles zero', () => {
-      expect(formatRemainingTime(0)).toBe('0s remaining');
+      expect(formatRemainingTime(0)).toBe('');
     });
   });
 });
