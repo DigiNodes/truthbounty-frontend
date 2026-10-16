@@ -1,5 +1,4 @@
 // src/components/features/RealtimeActivityFeed.tsx
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -21,6 +20,15 @@ interface ActivityItem {
   timestamp: string;
 }
 
+/**
+ * Deterministic event id derived from canonical payload identifiers.
+ * Never uses Date.now() or Math.random() so SSR and client renders can
+ * reconcile without mismatch warnings.
+ */
+function eventId(type: string, canonicalId: string): string {
+  return `${type}-${canonicalId}`;
+}
+
 export function RealtimeActivityFeed() {
   const { subscribe, isConnected } = useWebSocketContext();
   const reducedMotion = useReducedMotion();
@@ -28,7 +36,10 @@ export function RealtimeActivityFeed() {
   const feedRef = useRef<HTMLDivElement>(null);
 
   const addActivity = useCallback((activity: ActivityItem) => {
-    setActivities((prev) => [activity, ...prev].slice(0, 50)); // Keep last 50
+    setActivities((prev) => {
+      if (prev.some((item) => item.id === activity.id)) return prev;
+      return [activity, ...prev].slice(0, 50); // Keep last 50
+    });
   }, []);
 
   useEffect(() => {
@@ -38,7 +49,7 @@ export function RealtimeActivityFeed() {
     const unsubscribers = [
       subscribe('CLAIM_CREATED', (payload: ClaimCreatedEvent) => {
         const activity: ActivityItem = {
-          id: `claim-${payload.claim.id}-${Date.now()}`,
+          id: eventId('claim', payload.claim.id),
           type: 'claim_created',
           message: `New claim: "${payload.claim.title}"`,
           timestamp: new Date().toISOString(),
@@ -47,7 +58,7 @@ export function RealtimeActivityFeed() {
       }),
       subscribe('CLAIM_STATUS_CHANGED', (payload: ClaimStatusChangedEvent) => {
         const activity: ActivityItem = {
-          id: `status-${payload.claimId}-${Date.now()}`,
+          id: eventId('status', `${payload.claimId}-${payload.newStatus}`),
           type: 'status_changed',
           message: `Claim status changed to ${payload.newStatus}`,
           timestamp: new Date().toISOString(),
@@ -56,25 +67,25 @@ export function RealtimeActivityFeed() {
       }),
       subscribe('VERIFICATION_ADDED', (payload: VerificationAddedEvent) => {
         const activity: ActivityItem = {
-          id: `verify-${payload.verification.id}-${Date.now()}`,
+          id: eventId('verify', payload.verification.id),
           type: 'verification',
           message: `New verification on claim`,
           timestamp: new Date().toISOString(),
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_CREATED', (payload: DisputeCreatedEvent) => {
+      subscribe('DISPUVE_CREATED', (payload: DisputeCreatedEvent) => {
         const activity: ActivityItem = {
-          id: `dispute-${payload.dispute.id}-${Date.now()}`,
+          id: eventId('dispute', payload.dispute.id),
           type: 'dispute',
           message: `New dispute raised`,
           timestamp: new Date().toISOString(),
         };
         addActivity(activity);
       }),
-      subscribe('DISPUTE_RESOLVED', (payload: DisputeResolvedEvent) => {
+      subscribe('DISPUVE_RESOLVED', (payload: DisputeResolvedEvent) => {
         const activity: ActivityItem = {
-          id: `resolved-${payload.disputeId}-${Date.now()}`,
+          id: eventId('resolved', payload.disputeId),
           type: 'dispute_resolved',
           message: `Dispute ${payload.outcome === 'UPHELD' ? 'upheld' : 'overturned'}`,
           timestamp: new Date().toISOString(),
@@ -83,7 +94,7 @@ export function RealtimeActivityFeed() {
       }),
       subscribe('LEADERBOARD_UPDATED', () => {
         const activity: ActivityItem = {
-          id: `leaderboard-${Date.now()}`,
+          id: eventId('leaderboard', new Date().toISOString()),
           type: 'leaderboard',
           message: 'Leaderboard rankings updated',
           timestamp: new Date().toISOString(),
