@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useTransactionMachine } from '@/hooks/useTransactionMachine';
 import { submitVerification } from '@/app/lib/api';
-import { TransactionStatus } from './TransactionStatus';
+import { TransactionStatusBadge } from '@/components/transactions/TransactionStatusBadge';
 import {
   clearPendingTransaction,
   trackPendingTransaction,
@@ -10,16 +10,24 @@ import {
 import { ProtocolContractBoundary } from '@/components/protocol/ProtocolContractBoundary';
 import { getReleaseChainId } from '@/lib/contracts/registry';
 import type { ProtocolLifecycleState } from '@/lib/protocol-contract';
+import type { TransactionStatus } from '@/lib/transaction-machine';
 
 function statusToLifecycle(
-  status: 'idle' | 'pending' | 'success' | 'error',
+  status: TransactionStatus,
 ): ProtocolLifecycleState | undefined {
   switch (status) {
-    case 'pending':
+    case 'preparing':
+    case 'signature-requested':
+    case 'submitted':
+    case 'confirming':
+    case 'safe':
+    case 'indexing':
       return 'pending';
-    case 'success':
+    case 'finalized':
       return 'confirmed';
-    case 'error':
+    case 'dropped':
+    case 'replaced':
+    case 'reverted':
       return 'failed';
     default:
       return undefined;
@@ -37,11 +45,14 @@ export function VerificationActions({
   chainId?: number;
 }) {
   const resolvedChainId = chainId ?? getReleaseChainId();
-  const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+  
+  const { state, send, reset } = useTransactionMachine({
+    id: `verification:${claimId}`,
+    label: 'Verification stake',
+  });
 
   const submit = async (decision: 'verify' | 'reject') => {
     if (!stakeAmount || stakeAmount <= 0) {
-      setStatus('error');
       console.error('Stake amount is required and must be greater than 0');
       return;
     }
@@ -49,49 +60,76 @@ export function VerificationActions({
     const transactionId = `verification:${claimId}:${decision}`;
 
     try {
-      setStatus('pending');
+      send({ type: 'PREPARE', chainId: resolvedChainId });
+      
       trackPendingTransaction({
         id: transactionId,
         kind: 'verification',
         title: decision === 'verify' ? 'Verification stake pending' : 'Rejection stake pending',
         description: `Claim ${claimId} is waiting for wallet confirmation.`,
         txHash: null,
-        chainId: null,
-        machineState: 'preparing',
+        chainId: resolvedChainId,
+        machineState: state.status,
       });
+
+      send({ type: 'REQUEST_SIGNATURE' });
+      
       await submitVerification({ claimId, decision, stakeAmount });
+      
       clearPendingTransaction(transactionId);
-      setStatus('success');
-    } catch {
+    } catch (error) {
       clearPendingTransaction(transactionId);
-      setStatus('error');
+      console.error('Verification failed:', error);
     }
   };
+
+  const isTerminal = state.status === 'finalized' || 
+                     state.status === 'dropped' || 
+                     state.status === 'replaced' || 
+                     state.status === 'reverted';
 
   return (
     <ProtocolContractBoundary
       chainId={resolvedChainId}
-      lifecycle={statusToLifecycle(status)}
+      lifecycle={statusToLifecycle(state.status)}
       blockWhenNotReady={false}
     >
-      <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6">
-        <button
-          onClick={() => submit('verify')}
-          className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
-        >
-          Verify
-        </button>
-        <button
-          onClick={() => submit('reject')}
-          className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
-        >
-          Reject
-        </button>
+      <div className="card flex flex-col gap-4 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <button
+            onClick={() => submit('verify')}
+            className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+            disabled={state.status !== 'idle'}
+          >
+            Verify
+          </button>
+          <button
+            onClick={() => submit('reject')}
+            className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+            disabled={state.status !== 'idle'}
+          >
+            Reject
+          </button>
+        </div>
 
-        <TransactionStatus status={status} />
+        {state.status !== 'idle' && (
+          <TransactionStatusBadge
+            status={state.status}
+            txHash={state.txHash}
+            replacedBy={state.replacedBy}
+            confirmations={state.confirmations}
+          />
+        )}
+
+        {isTerminal && state.status !== 'finalized' && (
+          <button
+            onClick={reset}
+            className="btn-secondary py-2 px-4 text-sm"
+          >
+            Try again
+          </button>
+        )}
       </div>
     </ProtocolContractBoundary>
   );
 }
-
-export default VerificationActions;
