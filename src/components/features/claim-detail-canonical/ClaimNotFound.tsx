@@ -4,7 +4,8 @@
  * ClaimNotFound — Not-found state for claim detail view
  *
  * Displayed when a claim does not exist or has been removed.
- * Provides navigation back to claims list with focus management.
+ * Preserves the safe claim identifier and provides navigation back to
+ * the claims list with focus management.
  */
 
 import React from 'react';
@@ -51,6 +52,7 @@ export function ClaimNotFound({ claimId }: ClaimNotFoundProps) {
       </p>
 
       <button
+        type="button"
         onClick={() => router.push('/claims')}
         className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-[#18181b]"
         aria-label="Go back to claims list"

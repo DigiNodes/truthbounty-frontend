@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "feat/issue-615-ui-fe-045-build-global-not-found-retired",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "feat/issue-615-ui-fe-045-build-global-not-found-retired": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "feat/issue-615-ui-fe-045-build-global-not-found-retired",
+    "origin"
+  ]
+}

@@ -3,9 +3,6 @@
 import { useEffect } from 'react';
 import { RouteErrorFallback } from '@/components/common/RouteErrorFallback';
 
-/**
- * Dashboard segment boundary. Preserves pending-transaction recovery state.
- */
 export default function DashboardError({
   error,
   reset,

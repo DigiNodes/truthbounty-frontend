@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useSwitchChain } from 'wagmi';
 import { MdLock, MdNetworkCheck, MdSecurity, MdBlock, MdArrowBack } from 'react-icons/md';
 import type { RouteDenialReason } from '@/context/AppShellContext';
 import { APP_ROUTES } from '@/config/navigation';
@@ -20,8 +19,6 @@ export function AccessDeniedState({
   returnHref = APP_ROUTES.HOME,
   onRetry,
 }: AccessDeniedStateProps) {
-  const { switchChain } = useSwitchChain();
-
   let Icon = MdLock;
   let title = 'Access Restricted';
   let description =
@@ -53,14 +50,11 @@ export function AccessDeniedState({
         <button
           type="button"
           onClick={() => {
-            if (switchChain) {
-              switchChain({ chainId: 10 });
-            }
             onRetry?.();
           }}
           className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Switch to Optimism
+          Retry Network Check
         </button>
       );
       break;
@@ -153,7 +147,7 @@ export function AccessDeniedState({
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         {primaryAction}
         <Link
-          href={returnHref}
+          href={returnHref || APP_ROUTES.HOME}
           className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <MdArrowBack className="mr-1.5 h-4 w-4" aria-hidden="true" />
