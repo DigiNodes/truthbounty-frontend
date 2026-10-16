@@ -32,9 +32,13 @@ export function RouteErrorFallback({
     >
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
-          This section couldn&apos;t load
+          This section couldn&#39;t load
         </h1>
         <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{message}</p>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Your draft and any recoverable input are preserved. Retrying is safe and will not
+          submit, sign, or switch networks.
+        </p>
         {preserveNotice ? (
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Your pending transactions are preserved. Retrying is safe and will not
