@@ -167,6 +167,17 @@ beforeEach(() => {
   };
 });
 
+function renderClaimDetails() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ClaimDetails claim={claimFixture} />
+    </QueryClientProvider>,
+  );
+}
+
 /* ------------------------------------------------------------------ *
  * 1. App shell
  * ------------------------------------------------------------------ */
@@ -347,7 +358,7 @@ describe('Rewards claim — ClaimRewardsPanel mobile layout', () => {
 
 describe('Claim verification — detail page mobile layout', () => {
   it('wraps long claim titles and pins the status badge instead of overflowing', () => {
-    render(<ClaimDetails claim={claimFixture} />);
+    renderClaimDetails();
     const title = screen.getByRole('heading', { level: 2 });
     expect(title.className).toContain('break-words');
     expect(title.className).toContain('min-w-0');
@@ -358,7 +369,7 @@ describe('Claim verification — detail page mobile layout', () => {
   });
 
   it('wraps the category/trust footer row on narrow viewports', () => {
-    render(<ClaimDetails claim={claimFixture} />);
+    renderClaimDetails();
 
     let footer = screen.getByText(/Category:/) as HTMLElement | null;
     while (footer && !footer.className.includes('flex-wrap')) {
@@ -371,7 +382,7 @@ describe('Claim verification — detail page mobile layout', () => {
   });
 
   it('allows long evidence URLs to break instead of causing horizontal overflow', () => {
-    render(<ClaimDetails claim={claimFixture} />);
+    renderClaimDetails();
     // Evidence links are rendered through SafeExternalLink, so the accessible
     // name comes from the labelled anchor rather than the raw URL text.
     const link = screen.getByRole('link', { name: /evidence link/i });
@@ -534,7 +545,7 @@ describe('Evidence cards — mobile layout', () => {
 describe('Identity workflow — mobile layout', () => {
   it('renders both workflow steps and the Worldcoin panel on mobile', () => {
     render(<IdentityPage />);
-    expect(screen.getByRole('heading', { name: /step 1: connect wallet/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /step 1: sign in with ethereum/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /step 2: verify identity/i })).toBeInTheDocument();
     expect(screen.getByTestId('worldcoin-panel')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^identity verification$/i })).toBeInTheDocument();

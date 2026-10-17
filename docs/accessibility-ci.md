@@ -6,6 +6,11 @@ TruthBounty is a canonical client for the Optimism/EVM protocol. Because users i
 
 This document defines the UI state model, ARIA live region conventions, keyboard navigation rules, reduced motion adaptations, and automated CI enforcement gates.
 
+Manual cross-platform assistive-technology acceptance is tracked separately in
+[Manual Assistive-Technology Acceptance Testing](./manual-assistive-technology-acceptance.md).
+Automated CI results do not substitute for completing its browser and journey
+matrix.
+
 ---
 
 ## Canonical UI State Model

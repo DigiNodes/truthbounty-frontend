@@ -141,6 +141,7 @@ jest.mock('wagmi', () => ({
   useBalance: jest.fn(() => ({ data: { value: 1000000000000000000n, formatted: '1.0' }, isLoading: false })),
   useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
   useConnect: () => ({ connect: jest.fn(), connectAsync: jest.fn().mockResolvedValue(undefined) }),
+  useSignMessage: () => ({ signMessageAsync: jest.fn() }),
   WagmiProvider: ({ children }) => children,
   createStorage: jest.fn(() => ({})),
   cookieStorage: {},
