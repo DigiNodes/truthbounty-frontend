@@ -1,4 +1,3 @@
-import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import { RoleAdministrationContent } from './RoleAdministration';
@@ -23,10 +22,11 @@ function buildData(overrides: Partial<UseRoleAdministrationDataReturn> = {}): Us
       { field: 'Role membership', source: 'pinned-contract', unavailableReason: MANIFEST_UNAVAILABLE_REASON },
     ],
     prepareDraft: ({ action, roleId, address }) => ({ action, roleId, address, warnings: [] }),
-    refetch: vi.fn(async () => {}),
+    refetch: jest.fn(async () => {}),
     ...overrides,
   };
 }
 
 describe('RoleAdministrationContent', () => {
   it('renders the access-denied boundary and nothing else when unauthorized', () => {
+    render(<RoleAdministrationContent data={buildData({ isAuthorized: false })} />);
