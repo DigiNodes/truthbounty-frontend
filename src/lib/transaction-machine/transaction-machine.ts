@@ -57,7 +57,6 @@ function toReorged(
     confirmations: null,
     error: 'REORG',
     replacedBy: null,
-    orphanedBlockHash: event.orphanedBlockHash ?? null,
   };
 }
 

@@ -228,9 +228,6 @@ export function canShowDurableSuccess(
   // Must have indexer acknowledgement (projection updated)
   if (!indexerAcknowledged) return false;
 
-  // Must not be reorged
-  if (txState.status === 'reorged' || txState.error === 'REORGED' || txState.error === 'REORG') return false;
-
   return true;
 }
 
@@ -262,9 +259,6 @@ export function canShowProvisionalSuccess(
   if (!isSafeConfirmations(txState.confirmations, txState.chainId)) {
     return false;
   }
-
-  // Must not be reorged
-  if (txState.status === 'reorged' || txState.error === 'REORGED' || txState.error === 'REORG') return false;
 
   return true;
 }

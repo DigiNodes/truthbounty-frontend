@@ -46,6 +46,9 @@
     "src/__tests__/i18n/**/*",
     "src/modules/**/*",
     "src/__tests__/**/*.e2e-spec.ts",
-    "src/__tests__/**/*.e2e-spec.tsx"
+    "src/__tests__/**/*.e2e-spec.tsx",
+    "**/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

@@ -6,8 +6,7 @@
  */
 
 import type { Meta, StoryObj } from '@storybook/react';
-import { expect } from '@storybook/jest';
-import { within, userEvent, waitFor } from '@storybook/testing-library';
+import { expect, within, userEvent, waitFor } from 'storybook/test';
 import { AdminDashboard } from './AdminDashboard';
 import type { UseAdminDashboardDataReturn } from '@/hooks/useAdminDashboardData';
 

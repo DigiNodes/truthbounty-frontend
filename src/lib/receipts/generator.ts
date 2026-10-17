@@ -204,10 +204,14 @@ export function createReceiptFromTxState(
   const chainId = state.chainId ?? 11155420;
   const isReplaced = state.status === 'replaced';
   const isReorged = state.status === 'reorged';
+  const receiptStatus: ReceiptLifecycleStatus =
+    state.status === 'idle' || state.status === 'preparing' || state.status === 'signature-requested'
+      ? 'pending'
+      : state.status;
 
   return generateReceipt({
     action,
-    status: state.status,
+    status: receiptStatus,
     chainId,
     txHash: state.txHash,
     blockNumber: 'blockNumber' in state && state.blockNumber !== null ? state.blockNumber : null,

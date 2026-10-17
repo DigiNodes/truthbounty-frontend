@@ -219,7 +219,7 @@ export function useEvmTransaction(
       ) {
         const orphaned = observedBlockHashRef.current;
         observedBlockHashRef.current = null;
-        send({ type: 'REORG', orphanedBlockHash: orphaned });
+        send({ type: 'REORG' });
       }
       return;
     }
@@ -240,7 +240,7 @@ export function useEvmTransaction(
     ) {
       const orphaned = observedBlockHashRef.current;
       observedBlockHashRef.current = currentBlockHash;
-      send({ type: 'REORG', orphanedBlockHash: orphaned });
+      send({ type: 'REORG' });
       return;
     }
 

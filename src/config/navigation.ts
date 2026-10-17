@@ -28,6 +28,7 @@ export const APP_ROUTES = {
   DISPUTES: '/disputes',
   ANALYTICS: '/analytics',
   ADMIN: '/admin',
+  SECURITY: '/security',
 } as const;
 
 export type NavigationGroupType = 'public' | 'personal' | 'verifier' | 'admin';

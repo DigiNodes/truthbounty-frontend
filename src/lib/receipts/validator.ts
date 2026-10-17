@@ -84,7 +84,7 @@ const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
  */
 export function assertValidChainId(chainId: number, allowDev = true): void {
   const allowed = allowDev ? ALLOWED_CHAIN_IDS_DEV : OPTIMISM_CHAIN_IDS;
-  if (!allowed.includes(chainId as (typeof allowed)[number])) {
+  if (!(allowed as readonly number[]).includes(chainId)) {
     throw new ReceiptValidationError(
       'INVALID_CHAIN',
       `Chain ID ${chainId} is not supported. Supported chains: ${allowed.join(', ')}`,

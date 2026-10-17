@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FaGithub, FaDiscord, FaBug } from 'react-icons/fa';
-import { MdPendingActions } from 'react-icons/md';
+import { MdPendingActions, MdSecurity } from 'react-icons/md';
 import { useFeatureFlags } from '@/components/providers';
 import {
   getPendingTransactions,
@@ -426,6 +426,16 @@ const Sidebar = () => {
                   <FaBug className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
                   <span className="ml-3 truncate">Report Bug</span>
                 </a>
+              </li>
+              <li>
+                <Link
+                  href={APP_ROUTES.SECURITY}
+                  className="w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  aria-label="Security & Responsible Disclosure"
+                >
+                  <MdSecurity className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
+                  <span className="ml-3 truncate">Security & Disclosure</span>
+                </Link>
               </li>
             </ul>
           </div>

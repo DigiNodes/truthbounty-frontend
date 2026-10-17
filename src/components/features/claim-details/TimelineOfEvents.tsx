@@ -48,8 +48,8 @@ export const TimelineOfEvents = ({ events }: { events: TimelineEvent[] }) => {
                 <span>{event.actor}</span>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
