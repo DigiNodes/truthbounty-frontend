@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { History, ExternalLink, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { History, ExternalLink, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { AdminAuditRecord } from '@/app/types/admin';
 import { CopyableValue } from '@/components/ui/CopyableValue';
 
@@ -41,6 +42,15 @@ export function AdminAuditTrail({
             Retrievable cryptographic audit receipts logged for administrative executions and supervisor reconciliations.
           </p>
         </div>
+
+        <Link
+          href="/admin/audit"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-accent transition-colors self-start sm:self-center shadow-xs"
+          aria-label="View full immutable administrative audit trail"
+        >
+          <span>Full Audit Trail</span>
+          <ArrowRight className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+        </Link>
       </div>
 
       {records.length === 0 ? (

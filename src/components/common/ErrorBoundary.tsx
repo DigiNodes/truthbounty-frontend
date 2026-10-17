@@ -15,8 +15,10 @@
  * TelemetryProvider at application boot.
  */
 
-import React, { createRef, ErrorInfo, ReactNode } from 'react'
-import { getTelemetryClient } from '@/lib/telemetry'
+import React, { createRef, ErrorInfo, ReactNode } from 'react';
+import { getTelemetryClient } from '@/lib/telemetry';
+import { redactError } from '@/lib/security/redaction';
+import { toSafeErrorMessage } from '@/lib/sanitize-error';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;

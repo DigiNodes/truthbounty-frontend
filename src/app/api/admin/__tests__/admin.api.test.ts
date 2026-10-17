@@ -1,4 +1,4 @@
-import { fetchAdminOverview, executeAdminOperation } from '../../admin.api';
+import { fetchAdminOverview, executeAdminOperation, fetchAdminAuditRecords } from '../../admin.api';
 
 describe('Admin Client API (V2-FE-154)', () => {
   const originalFetch = global.fetch;
@@ -106,6 +106,82 @@ describe('Admin Client API (V2-FE-154)', () => {
           operatorAddress: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
         })
       ).rejects.toThrow('Explicit confirmation string "CONFIRM" required');
+    });
+  });
+
+  describe('fetchAdminAuditRecords', () => {
+    it('sends GET request with query params and x-admin-address header', async () => {
+      const mockResponse = {
+        records: [
+          {
+            auditId: 'AUD-001',
+            actor: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+            capability: 'PROTOCOL_OPERATOR',
+            authoritySource: 'Optimism L2 Registry',
+            action: 'Replay Batch',
+            targetResource: 'Indexer Pipeline',
+            requestSummary: 'Replay batch 4408',
+            resultSummary: 'Success',
+            beforeRef: '0x1',
+            afterRef: '0x2',
+            txHash: '0xabc',
+            timestamp: '2026-03-27T08:00:00Z',
+            lifecycleState: 'confirmed',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          totalRecords: 1,
+          totalPages: 1,
+        },
+        fetchedAt: '2026-03-27T08:00:00Z',
+        isStale: false,
+        source: 'Optimism L2 Registry',
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const params = {
+        adminAddress: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+        page: 1,
+        pageSize: 10,
+        capability: 'PROTOCOL_OPERATOR' as const,
+        lifecycleState: 'confirmed' as const,
+        search: 'Replay',
+      };
+
+      const result = await fetchAdminAuditRecords(params);
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/admin/audit?page=1&pageSize=10&capability=PROTOCOL_OPERATOR&lifecycleState=confirmed&search=Replay',
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'x-admin-address': '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+          },
+          cache: 'no-store',
+        }
+      );
+    });
+
+    it('throws error when server responds with 403 unauthorized', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: 'unauthorized',
+          reason: 'Admin role verification failed',
+        }),
+      });
+
+      await expect(
+        fetchAdminAuditRecords({ adminAddress: '0x0000000000000000000000000000000000000000' })
+      ).rejects.toThrow('Admin role verification failed');
     });
   });
 });

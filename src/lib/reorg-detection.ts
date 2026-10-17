@@ -347,7 +347,7 @@ export function generateReorgNotification(
   chainId: number,
 ): ReorgNotificationContent {
   const plausibility = assessReorgPlausibility(confirmations, chainId);
-  const severity = plausibility === 'anomalous' ? 'error' : 'warning';
+  let severity: 'error' | 'warning' = plausibility === 'anomalous' ? 'error' : 'warning';
 
   let title = 'Chain Reorganization Detected';
   let description =

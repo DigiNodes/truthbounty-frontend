@@ -782,3 +782,120 @@ export function formatStatus(status?: string): string {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+export interface FormatDateTimeContextOptions extends FormatDateOptions {
+  includeSeconds?: boolean;
+}
+
+export function formatLocalDateTime(
+  date?: DateInput,
+  options: FormatDateTimeContextOptions = {}
+): string {
+  const { locale = "en-US", includeSeconds = false, fallback = "—" } = options;
+  const d = toValidDate(date);
+  if (!d) return fallback;
+
+  return d.toLocaleString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: includeSeconds ? "2-digit" : undefined,
+    hour12: false,
+  });
+}
+
+export function formatUtcDateTime(
+  date?: DateInput,
+  options: FormatDateTimeContextOptions = {}
+): string {
+  const { locale = "en-US", includeSeconds = false, fallback = "—" } = options;
+  const d = toValidDate(date);
+  if (!d) return fallback;
+
+  const dateStr = d.toLocaleString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: includeSeconds ? "2-digit" : undefined,
+    hour12: false,
+    timeZone: "UTC",
+  });
+
+  return `${dateStr} UTC`;
+}
+
+export function formatRelativeAge(
+  dateInput?: DateInput,
+  nowMs: number = Date.now()
+): string {
+  if (!dateInput) return "—";
+  const d = toValidDate(dateInput);
+  if (!d) return "—";
+
+  const diffMs = nowMs - d.getTime();
+  if (diffMs < 60_000) return "just now";
+
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(diffMs / 86_400_000);
+  return `${days}d ago`;
+}
+
+export function getPaginationWindow(
+  currentPage: number,
+  totalPages: number
+): (number | null)[] {
+  if (
+    typeof totalPages !== "number" ||
+    isNaN(totalPages) ||
+    totalPages <= 1 ||
+    typeof currentPage !== "number" ||
+    isNaN(currentPage)
+  ) {
+    return [1];
+  }
+
+  const page = Math.min(Math.max(1, currentPage), totalPages);
+
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const pages = new Set<number>();
+  pages.add(1);
+  pages.add(totalPages);
+
+  for (let i = page - 1; i <= page + 1; i++) {
+    if (i >= 1 && i <= totalPages) {
+      pages.add(i);
+    }
+  }
+
+  if (page === 3) {
+    pages.add(4);
+  }
+  if (page === totalPages - 2) {
+    pages.add(totalPages - 3);
+  }
+
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+  const result: (number | null)[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+      result.push(null);
+    }
+    result.push(sorted[i]);
+  }
+
+  return result;
+}
+

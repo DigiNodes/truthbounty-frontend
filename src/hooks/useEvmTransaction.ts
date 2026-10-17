@@ -217,9 +217,8 @@ export function useEvmTransaction(
           state.status === 'safe' ||
           state.status === 'indexing')
       ) {
-        const orphaned = observedBlockHashRef.current;
         observedBlockHashRef.current = null;
-        send({ type: 'REORG', orphanedBlockHash: orphaned });
+        send({ type: 'REORG' });
       }
       return;
     }
@@ -238,9 +237,8 @@ export function useEvmTransaction(
         state.status === 'safe' ||
         state.status === 'indexing')
     ) {
-      const orphaned = observedBlockHashRef.current;
       observedBlockHashRef.current = currentBlockHash;
-      send({ type: 'REORG', orphanedBlockHash: orphaned });
+      send({ type: 'REORG' });
       return;
     }
 

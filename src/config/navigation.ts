@@ -8,6 +8,7 @@ import {
   MdCardGiftcard,
   MdAdminPanelSettings,
   MdBadge,
+  MdHistory,
 } from 'react-icons/md';
 import { HiOutlineQuestionMarkCircle } from 'react-icons/hi';
 import type { FeatureFlag } from '@/config/feature-flags';
@@ -28,6 +29,7 @@ export const APP_ROUTES = {
   DISPUTES: '/disputes',
   ANALYTICS: '/analytics',
   ADMIN: '/admin',
+  ADMIN_AUDIT: '/admin/audit',
 } as const;
 
 export type NavigationGroupType = 'public' | 'personal' | 'verifier' | 'admin';
@@ -113,6 +115,16 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
     label: 'Protocol Governance',
     href: APP_ROUTES.ADMIN,
     icon: MdAdminPanelSettings,
+    group: 'admin',
+    exact: true,
+    requiresAuth: true,
+    requiresRole: 'admin',
+  },
+  {
+    id: 'admin-audit',
+    label: 'Audit Trail',
+    href: APP_ROUTES.ADMIN_AUDIT,
+    icon: MdHistory,
     group: 'admin',
     requiresAuth: true,
     requiresRole: 'admin',

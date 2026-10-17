@@ -7,9 +7,6 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  {
-    rules: jsxA11y.flatConfigs.recommended.rules,
-  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     ".next/**",
@@ -21,11 +18,16 @@ const eslintConfig = defineConfig([
     "*.log",
     "src/modules/**",
   ]),
-  // eslint-config-next already registers the jsx-a11y plugin, so only apply
-  // the recommended rules here — re-registering the plugin would throw
-  // "Cannot redefine plugin jsx-a11y".
+  {
+    settings: {
+      react: {
+        version: "19.0.0",
+      },
+    },
+  },
   {
     name: "jsx-a11y/recommended",
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: jsxA11y.flatConfigs.recommended.rules,
   },
   ...storybook.configs["flat/recommended"],
