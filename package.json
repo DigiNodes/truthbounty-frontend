@@ -10,7 +10,7 @@
     "test:production-smoke:unit": "node --test scripts/__tests__/production-smoke.test.mjs",
     "verify-accessibility": "node scripts/verify-accessibility.mjs",
     "verify:fixture-determinism": "node scripts/verify-fixture-determinism.mjs",
-    "prebuild": "node scripts/verify-artifacts.mjs && node scripts/verify-production-boundaries.mjs source && node scripts/verify-fixture-determinism.mjs && node scripts/verify-accessibility.mjs",
+    "prebuild": "node scripts/verify-provider-drift.mjs && node scripts/verify-artifacts.mjs && node scripts/verify-production-boundaries.mjs source && node scripts/verify-fixture-determinism.mjs && node scripts/verify-accessibility.mjs",
     "build": "next build",
     "postbuild": "node scripts/verify-production-boundaries.mjs bundle && node scripts/verify-performance-budgets.mjs && node scripts/verify-staging-smoke.mjs",
     "start": "next start",
@@ -25,7 +25,10 @@
     "verify:accessibility": "node scripts/verify-accessibility.mjs",
     "verify:staging-smoke": "node scripts/verify-staging-smoke.mjs",
     "check:token-drift": "node scripts/check-token-drift.mjs",
-    "check:token-drift:report": "node scripts/check-token-drift.mjs --report-file reports/token-drift-report.json"
+    "check:token-drift:report": "node scripts/check-token-drift.mjs --report-file reports/token-drift-report.json",
+    "verify:providers": "node scripts/verify-provider-drift.mjs",
+    "test:providers": "node --test scripts/__tests__/provider-policy.test.mjs",
+    "test:csp-browser": "playwright test --config e2e/csp.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.3.3",
