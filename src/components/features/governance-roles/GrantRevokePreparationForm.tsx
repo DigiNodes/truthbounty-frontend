@@ -30,6 +30,10 @@ export function GrantRevokePreparationForm({ disabledReason, prepareDraft }: Gra
     setDraft(prepareDraft({ action, roleId: null, address }));
   };
 
+  return (
+    <form
+      onSubmit={handlePreview}
+      className="space-y-4 p-4 rounded-xl border border-border bg-card"
       data-testid="grant-revoke-preparation-form"
     >
       <div className="flex items-center gap-2">
