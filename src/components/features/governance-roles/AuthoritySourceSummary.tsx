@@ -25,10 +25,12 @@ export interface AuthoritySourceSummaryProps {
 
 export function AuthoritySourceSummary({ sources }: AuthoritySourceSummaryProps) {
   return (
-    <div
-      data-testid="authority-source-summary"
       className="rounded-xl border border-border bg-card overflow-x-auto"
     >
+      <table className="w-full text-xs">
+        <caption className="sr-only">Authority source for each role administration field</caption>
+        <thead>
+          <tr className="border-b border-border text-left text-muted-foreground">
             <th scope="col" className="p-3 font-semibold">
               Field
             </th>
