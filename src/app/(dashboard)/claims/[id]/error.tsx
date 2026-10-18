@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { RouteErrorFallback } from '@/components/common/RouteErrorFallback';
 import { classifyRouteError } from '@/lib/routes/errors';
 
@@ -27,10 +26,6 @@ export default function ClaimDetailError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error('Claim detail route error:', error);
-  }, [error]);
-
   const kind = classifyRouteError(error);
 
   return (

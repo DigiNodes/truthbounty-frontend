@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
 import TrustWarningBanner from '@/components/ui/TrustWarningBanner';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import { AppShellProvider, useAppShellContext } from '@/context/AppShellContext';
 import { AccessDeniedState } from '@/components/common/AccessDeniedState';
+import { RouteErrorBoundary, WidgetErrorBoundary } from '@/components/errors/boundaries';
+import { ShellNavigationFallback } from '@/components/errors/ShellNavigationFallback';
 import { DeploymentPreviewBanner } from '@/components/preview/DeploymentPreviewBanner';
 import { DeploymentPreviewGuard } from '@/components/preview/DeploymentPreviewGuard';
 import {
@@ -16,6 +19,8 @@ import {
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const { routeAccess, invalidateProtectedContext } = useAppShellContext();
+  // Boundaries reset on navigation so a failed route never traps the next one.
+  const pathname = usePathname();
 
   // V2-FE-064: verify preview deployment once at the application boundary.
   // Result is memoised — verifyPreviewDeployment reads env vars which are
@@ -33,11 +38,16 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       </a>
 
       {/* Role-aware Sidebar Navigation */}
-      <Sidebar />
+      {/* UI-FE-053: shell widgets fail independently of each other and of page content. */}
+      <WidgetErrorBoundary scope="shell:sidebar" resetKeys={[pathname]} fallback={() => <ShellNavigationFallback />}>
+        <Sidebar />
+      </WidgetErrorBoundary>
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Topbar with network context & actions */}
-        <Topbar />
+        <WidgetErrorBoundary scope="shell:topbar" resetKeys={[pathname]}>
+          <Topbar />
+        </WidgetErrorBoundary>
 
         {/* Network offline and low-bandwidth read notice (V2-FE-129) */}
         <OfflineBanner />
@@ -75,7 +85,11 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
                 onRetry={invalidateProtectedContext}
               />
             ) : (
-              children
+              // A page-content failure is contained here, so the sidebar and
+              // topbar above stay usable (UI-FE-053 / #626).
+              <RouteErrorBoundary scope="route:content" resetKeys={[pathname]}>
+                {children}
+              </RouteErrorBoundary>
             )}
           </main>
         </DeploymentPreviewGuard>
