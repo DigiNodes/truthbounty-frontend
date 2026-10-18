@@ -29,3 +29,33 @@ export function AuthoritySourceSummary({ sources }: AuthoritySourceSummaryProps)
       data-testid="authority-source-summary"
       className="rounded-xl border border-border bg-card overflow-x-auto"
     >
+            <th scope="col" className="p-3 font-semibold">
+              Field
+            </th>
+            <th scope="col" className="p-3 font-semibold">
+              Source
+            </th>
+            <th scope="col" className="p-3 font-semibold">
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sources.map((entry) => (
+            <tr key={entry.field} className="border-b border-border last:border-0">
+              <td className="p-3 font-medium text-foreground">{entry.field}</td>
+              <td className="p-3 text-muted-foreground">{SOURCE_LABEL[entry.source]}</td>
+              <td className="p-3 text-muted-foreground">
+                {entry.unavailableReason ? (
+                  <span className="text-amber-500">{entry.unavailableReason}</span>
+                ) : (
+                  <span>Available</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
