@@ -13,6 +13,7 @@ import {
   FeatureFlagProvider,
   FeatureFlagPanel as _FeatureFlagPanel,
   WalletStateGuard,
+  ReducedDataProvider,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -37,28 +38,30 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider defaultTheme="system">
-      <Web3Provider>
-        <QueryProvider>
-          <RainbowKitThemedProvider>
-            <SiweAuthProvider>
-              <FeatureFlagProvider enablePersistence={true}>
-                <ErrorBoundary>
-                  <IntegrityBoundary>
-                    <WalletStateGuard>
-                      {children}
-                      {/* Feature flag panel is client-only; rendered after
-                          hydration to keep the server shell deterministic. */}
-                      <Suspense fallback={null}>
-                        <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                      </Suspense>
-                    </WalletStateGuard>
-                  </IntegrityBoundary>
-                </ErrorBoundary>
-              </FeatureFlagProvider>
-            </SiweAuthProvider>
-          </RainbowKitThemedProvider>
-        </QueryProvider>
-      </Web3Provider>
+      <ReducedDataProvider>
+        <Web3Provider>
+          <QueryProvider>
+            <RainbowKitThemedProvider>
+              <SiweAuthProvider>
+                <FeatureFlagProvider enablePersistence={true}>
+                  <ErrorBoundary>
+                    <IntegrityBoundary>
+                      <WalletStateGuard>
+                        {children}
+                        {/* Feature flag panel is client-only; rendered after
+                            hydration to keep the server shell deterministic. */}
+                        <Suspense fallback={null}>
+                          <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                        </Suspense>
+                      </WalletStateGuard>
+                    </IntegrityBoundary>
+                  </ErrorBoundary>
+                </FeatureFlagProvider>
+              </SiweAuthProvider>
+            </RainbowKitThemedProvider>
+          </QueryProvider>
+        </Web3Provider>
+      </ReducedDataProvider>
     </ThemeProvider>
   );
 }
