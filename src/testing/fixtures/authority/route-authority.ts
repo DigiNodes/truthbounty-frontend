@@ -397,19 +397,18 @@ export const CANONICAL_ROUTE_EXPECTATIONS: readonly CanonicalRouteExpectation[] 
     },
     {
       path: '/dashboard/verifications',
-      area: 'Verification queue',
-      purpose: 'Available and assigned verification work.',
+      area: 'Verification history',
+      purpose: 'Personal verification history with canonical outcomes and freshness-labelled projections.',
       visibility: 'verifier',
       audience: VERIFIER_CONTEXTS,
       read: capabilityRead(['discover-verification-work']),
       navigationGroup: 'verifier',
       mutationControls: [],
       boardRefs: [
-        board('verifier-dispute', '02-verification-queue.svg'),
         board('verifier-dispute', '07-my-verifications.svg'),
       ],
       boardAuthority: 'route',
-      implementationStatus: 'planned',
+      implementationStatus: 'implemented',
       aliases: ['/verifier'],
     },
     {
@@ -886,6 +885,12 @@ export const DISCOVERED_ROUTE_CLASSIFICATIONS: readonly DiscoveredRouteClassific
       kind: 'canonical',
       canonicalPath: '/dashboard/rewards',
       note: 'Rewards',
+    },
+    {
+      pattern: '/dashboard/verifications',
+      kind: 'canonical',
+      canonicalPath: '/dashboard/verifications',
+      note: 'Verification history',
     },
     {
       pattern: '/dashboard/transactions',

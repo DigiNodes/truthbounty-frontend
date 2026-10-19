@@ -27,6 +27,7 @@ export const APP_ROUTES = {
   IDENTITY: '/identity',
   REWARDS: '/dashboard/rewards',
   TRANSACTIONS: '/dashboard/transactions',
+  VERIFICATIONS: '/dashboard/verifications',
   VERIFIER: '/verifier',
   DISPUTES: '/disputes',
   ANALYTICS: '/analytics',
@@ -100,6 +101,16 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
     requiresAuth: true,
   },
   // Verifier Group
+  {
+    id: 'verifications',
+    label: 'My Verifications',
+    href: APP_ROUTES.VERIFICATIONS,
+    icon: MdReceiptLong,
+    group: 'verifier',
+    requiresAuth: true,
+    requiresRole: 'verifier',
+    featureFlag: 'CLAIM_VERIFICATION',
+  },
   {
     id: 'transactions',
     label: 'Transactions',
@@ -213,6 +224,23 @@ export function isRouteAllowed(
   if (pathname === APP_ROUTES.DISPUTES || pathname.startsWith('/disputes/')) {
     if (!isEnabled('CLAIM_DISPUTES')) {
       return { isAllowed: false, denialReason: 'feature_disabled', requiredRole: null };
+    }
+    return { isAllowed: true, denialReason: null, requiredRole: null };
+  }
+
+  // Verifications route (verifier personal history)
+  if (pathname === APP_ROUTES.VERIFICATIONS || pathname.startsWith('/dashboard/verifications')) {
+    if (!isEnabled('CLAIM_VERIFICATION')) {
+      return { isAllowed: false, denialReason: 'feature_disabled', requiredRole: 'verifier' };
+    }
+    if (!isConnected) {
+      return { isAllowed: false, denialReason: 'wallet_disconnected', requiredRole: 'verifier' };
+    }
+    if (!isSupportedChain) {
+      return { isAllowed: false, denialReason: 'wrong_chain', requiredRole: 'verifier' };
+    }
+    if (!roles.isVerifier) {
+      return { isAllowed: false, denialReason: 'verifier_role_required', requiredRole: 'verifier' };
     }
     return { isAllowed: true, denialReason: null, requiredRole: null };
   }

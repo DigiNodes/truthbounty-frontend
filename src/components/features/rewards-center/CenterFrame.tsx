@@ -33,28 +33,33 @@ export function CenterFrame({
   refreshingDisabled,
   children,
 }: {
-  page: 'rewards' | 'transactions';
+  page: 'rewards' | 'transactions' | 'verifications';
   state: CenterState;
   onRefresh?: () => void;
   refreshingDisabled?: boolean;
   children: ReactNode;
 }) {
   const refreshReasonId = useId();
+  const isVerifications = page === 'verifications';
   return (
     <section
       className={styles.center}
-      aria-label={page === 'rewards' ? 'Rewards center' : 'Transaction center'}
+      aria-label={isVerifications ? 'Verification history' : page === 'rewards' ? 'Rewards center' : 'Transaction center'}
     >
       <header className={styles.header}>
         <div>
-          <p className="tb-small font-semibold text-info">Claimant finances</p>
+          <p className="tb-small font-semibold text-info">{isVerifications ? 'Verifier history' : 'Claimant finances'}</p>
           <h1 className="tb-title mt-2">
-            {page === 'rewards'
-              ? 'Rewards and transaction recovery'
-              : 'Transaction center'}
+            {isVerifications
+              ? 'My verifications'
+              : page === 'rewards'
+                ? 'Rewards and transaction recovery'
+                : 'Transaction center'}
           </h1>
           <p className="tb-small mt-2 text-ink-secondary">
-            Balances and mutations remain separated by canonical state.
+            {isVerifications
+              ? 'Canonical outcomes and freshness-labelled projections.'
+              : 'Balances and mutations remain separated by canonical state.'}
           </p>
         </div>
         {onRefresh && (
@@ -75,7 +80,7 @@ export function CenterFrame({
           pending. Saved recovery references are preserved.
         </p>
       )}
-      <nav aria-label="Rewards and transactions" className={styles.navigation}>
+      <nav aria-label="Rewards, transactions and verifications" className={styles.navigation}>
         <Link
           href={APP_ROUTES.REWARDS}
           aria-current={page === 'rewards' ? 'page' : undefined}
@@ -87,6 +92,12 @@ export function CenterFrame({
           aria-current={page === 'transactions' ? 'page' : undefined}
         >
           Transactions
+        </Link>
+        <Link
+          href={APP_ROUTES.VERIFICATIONS}
+          aria-current={page === 'verifications' ? 'page' : undefined}
+        >
+          My Verifications
         </Link>
       </nav>
       {state !== 'ready' && (
