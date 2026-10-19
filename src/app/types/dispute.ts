@@ -58,6 +58,9 @@ export interface ChallengeBond {
   // Bond amount required to open dispute
   bondAmount: string; // Wei amount as string
   
+  // Bond token address (undefined/null for native ETH)
+  bondToken?: string;
+  
   // Slashing risk if challenge fails
   slashAmount: string; // Wei amount as string
   slashPercentage: number; // e.g., 10 for 10%
