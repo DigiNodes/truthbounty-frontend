@@ -187,7 +187,28 @@ export function validateEnv(
 }
 
 export function loadEnv(): Env {
+  // During test runs, next/jest loads this module before test env is set up.
+  // Return a safe default for test environment to avoid failing the config load.
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      target: 'test',
+      isProduction: false,
+      chainId: 11155420,
+      rpcUrl: 'https://sepolia.optimism.io',
+      apiBaseUrl: 'http://localhost:3000',
+      walletConnectProjectId: '00000000000000000000000000000000',
+      explorerBaseUrl: 'https://sepolia.etherscan.io',
+    };
+  }
   return validateEnv();
 }
 
 export const env: Env = loadEnv();
+
+export function assertProductionEnv(source: Record<string, string | undefined> = process.env as Record<string, string | undefined>): void {
+  const target = resolveTarget(source);
+  if (target === 'production') {
+    validateEnv(source);
+  }
+  // For test, development, preview - allow missing/placeholder values
+}
