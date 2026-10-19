@@ -25,6 +25,8 @@ export interface AuthoritySourceSummaryProps {
 
 export function AuthoritySourceSummary({ sources }: AuthoritySourceSummaryProps) {
   return (
+<div
+      data-testid="authority-source-summary"
     <div
       data-testid="authority-source-summary"
       className="rounded-xl border border-border bg-card overflow-x-auto"
