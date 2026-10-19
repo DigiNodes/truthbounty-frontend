@@ -22,20 +22,12 @@
 
 import React, { createRef, ErrorInfo, ReactNode } from 'react'
 import { getTelemetryClient } from '@/lib/telemetry'
-import { redactError } from '@/lib/telemetry/redact'
-import { toSafeErrorMessage } from '@/lib/telemetry/redact'
+import { redactError } from '@/lib/security/redaction'
+import { toSafeErrorMessage } from '@/lib/sanitize-error'
+import { classifyRouteError, type RouteBoundaryKind } from '@/lib/routes/errors'
 
-/**
- * Route boundary failure classification. Mirrors the approved route contract
- * (UI-FE-008): route errors must distinguish authorization, configuration,
- * dependency, and missing-resource failures.
- */
-export type RouteBoundaryKind =
-  | 'authorization'
-  | 'configuration'
-  | 'dependency'
-  | 'missing-resource'
-  | 'unknown';
+export { classifyRouteError }
+export type { RouteBoundaryKind }
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -61,36 +53,12 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Infer the route boundary kind from a caught error. Never inspects user
- * data — only well-known status codes and error names produced by adapters.
- */
-export function classifyRouteError(error: unknown): RouteBoundaryKind {
-  if (!error || typeof error !== 'object') return 'unknown';
-  const anyErr = error as { name?: string; status?: number; code?: string | number };
-  const status = typeof anyErr.status === 'number' ? anyErr.status : undefined;
-  const code = anyErr.code !== undefined ? String(anyErr.code) : undefined;
-  const name = typeof anyErr.name === 'string' ? anyErr.name : '';
-
-  if (status === 401 || status === 403) return 'authorization';
-  if (status === 404) return 'missing-resource';
-  if (status === 502 || status === 503 || status === 504) return 'dependency';
-  if (status === 500 || status === 0) return 'dependency';
-
-  if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN') return 'authorization';
-  if (code === 'NOT_FOUND') return 'missing-resource';
-  if (code === 'CONFIG_MISSING' || code === 'CONFIG_INVALID') return 'configuration';
-  if (code === 'DEPENDENCY_UNAVAILABLE' || code === 'NETWORK_ERROR') return 'dependency';
-
-  if (name === 'AuthorizationError' || name === 'ForbiddenError') return 'authorization';
-  if (name === 'ConfigurationError' || name === 'ConfigError') return 'configuration';
-  if (name === 'NotFoundError') return 'missing-resource';
-  if (name === 'DependencyError' || name === 'NetworkError') return 'dependency';
-
-  return 'unknown';
-}
-
-/**
  * Shared route/feature error boundary.
+ *
+ * @deprecated Prefer the leveled boundaries in `@/components/errors`
+ * (RouteErrorBoundary / CompositionErrorBoundary / WidgetErrorBoundary), which
+ * add error classification, correlation references and bounded recovery
+ * (UI-FE-053 / #626). Kept for existing call sites and its regression tests.
  *
  * - Isolates rendering/data faults to its subtree.
  * - Never clears pending-transaction recovery keys
@@ -130,6 +98,16 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.error('[ErrorBoundary] Caught unhandled error:', error, errorInfo)
+    }
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps) {
+    // Documented contract: when any reset key changes, clear a caught error.
+    if (!this.state.hasError) return;
+    const prev = prevProps.resetKeys ?? [];
+    const next = this.props.resetKeys ?? [];
+    if (prev.length !== next.length || prev.some((item, i) => !Object.is(item, next[i]))) {
+      this.setState({ hasError: false, error: null });
     }
   }
 
@@ -190,17 +168,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               type="button"
               onClick={this.handleRetry}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
-              aria-label={
-                kind === 'authorization'
-                  ? 'Retry after access denied error'
-                  : kind === 'configuration'
-                    ? 'Retry after configuration failure'
-                    : kind === 'dependency'
-                      ? 'Retry after dependency failure'
-                      : kind === 'missing-resource'
-                        ? 'Retry after not found error'
-                        : 'Retry after error'
-              }
             >
               Try again
             </button>

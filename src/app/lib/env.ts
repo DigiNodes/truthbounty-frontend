@@ -148,20 +148,20 @@ export function validateEnv(
     }
   }
 
-  const chainId = parseChainId(NEXT_PUBLIC_CHAIN_ID, resolved[NEXT_PUBLIC_CHAIN_ID]);
-  const rpcUrl = parseUrl(NEXT_PUBLIC_RPC_URL, resolved[NEXT_PUBLIC_RPC_URL], isProduction);
+  const chainId = parseChainId("NEXT_PUBLIC_CHAIN_ID", resolved["NEXT_PUBLIC_CHAIN_ID"]);
+  const rpcUrl = parseUrl("NEXT_PUBLIC_RPC_URL", resolved["NEXT_PUBLIC_RPC_URL"], isProduction);
   const apiBaseUrl = parseUrl(
-    NEXT_PUBLIC_API_BASE_URL,
-    resolved[NEXT_PUBLIC_API_BASE_URL],
+    "NEXT_PUBLIC_API_BASE_URL",
+    resolved["NEXT_PUBLIC_API_BASE_URL"],
     isProduction,
   );
   const walletConnectProjectId = parseWalletConnectProjectId(
-    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
-    resolved[NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID],
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
+    resolved["NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID"],
   );
   const explorerBaseUrl = parseUrl(
-    NEXT_PUBLIC_EXPLORER_BASE_URL,
-    resolved[NEXT_PUBLIC_EXPLORER_BASE_URL],
+    "NEXT_PUBLIC_EXPLORER_BASE_URL",
+    resolved["NEXT_PUBLIC_EXPLORER_BASE_URL"],
     isProduction,
   );
 
@@ -169,7 +169,7 @@ export function validateEnv(
     const knownChainIds = new Set(Object.values(wagmiChains).map((chain) => chain.id));
     if (!knownChainIds.has(chainId)) {
       throw new EnvValidationError(
-        NEXT_PUBLIC_CHAIN_ID,
+        "NEXT_PUBLIC_CHAIN_ID",
         `unknown chain id "${chainId}"; must match a supported network configuration`,
       );
     }
@@ -184,6 +184,18 @@ export function validateEnv(
     walletConnectProjectId,
     explorerBaseUrl,
   };
+}
+
+/**
+ * Fail closed on invalid configuration for production targets. Local, preview
+ * and test targets use the explicit non-production defaults and are not asserted.
+ * Called from next.config.ts and the e2e fixtures.
+ */
+export function assertProductionEnv(
+  source: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+): void {
+  if (resolveTarget(source) !== "production") return;
+  validateEnv(source);
 }
 
 export function loadEnv(): Env {

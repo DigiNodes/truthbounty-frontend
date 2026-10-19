@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { RouteErrorFallback } from '@/components/common/RouteErrorFallback';
 
 /**
@@ -13,9 +12,5 @@ export default function RootError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error('Root route error:', error);
-  }, [error]);
-
   return <RouteErrorFallback error={error} reset={reset} scope="Application" />;
 }

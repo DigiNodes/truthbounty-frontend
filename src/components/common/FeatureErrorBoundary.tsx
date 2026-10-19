@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { CompositionErrorBoundary } from '@/components/errors/boundaries';
 
 export interface FeatureErrorBoundaryProps {
   children: ReactNode;
@@ -13,12 +13,13 @@ export interface FeatureErrorBoundaryProps {
 /**
  * Feature-scoped boundary for claim/verification/dispute/reward/wallet UI.
  * Isolates feature faults without unmounting sibling routes or clearing
- * pending-transaction recovery state.
+ * pending-transaction recovery state. Delegates to the shared
+ * CompositionErrorBoundary (UI-FE-053 / #626).
  */
 export function FeatureErrorBoundary({ children, scope, resetKeys }: FeatureErrorBoundaryProps) {
   return (
-    <ErrorBoundary scope={`feature:${scope}`} resetKeys={resetKeys}>
+    <CompositionErrorBoundary scope={`feature:${scope}`} resetKeys={resetKeys}>
       {children}
-    </ErrorBoundary>
+    </CompositionErrorBoundary>
   );
 }
