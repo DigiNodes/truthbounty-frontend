@@ -14,6 +14,7 @@ import {
   FeatureFlagPanel as _FeatureFlagPanel,
   WalletStateGuard,
   ReducedDataProvider,
+  CrossTabSyncProvider,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -47,12 +48,14 @@ export function Providers({ children }: ProvidersProps) {
                   <ErrorBoundary>
                     <IntegrityBoundary>
                       <WalletStateGuard>
-                        {children}
-                        {/* Feature flag panel is client-only; rendered after
-                            hydration to keep the server shell deterministic. */}
-                        <Suspense fallback={null}>
-                          <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                        </Suspense>
+                        <CrossTabSyncProvider>
+                          {children}
+                          {/* Feature flag panel is client-only; rendered after
+                              hydration to keep the server shell deterministic. */}
+                          <Suspense fallback={null}>
+                            <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                          </Suspense>
+                        </CrossTabSyncProvider>
                       </WalletStateGuard>
                     </IntegrityBoundary>
                   </ErrorBoundary>
