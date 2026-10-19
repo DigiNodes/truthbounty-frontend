@@ -1,11 +1,11 @@
 /**
  * V2-FE-070 — i18n Utility Functions
- * 
+ *
  * Type-safe utilities for working with translations.
  * Preserves technical identifiers and handles formatting.
  */
 
-import type { Locale } from './config';
+import type { Locale } from "./config";
 
 /**
  * Format a number according to locale conventions.
@@ -14,7 +14,7 @@ import type { Locale } from './config';
 export function formatNumber(
   value: number | bigint,
   locale: Locale,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ): string {
   return new Intl.NumberFormat(locale, options).format(value);
 }
@@ -25,7 +25,7 @@ export function formatNumber(
 export function formatDate(
   date: Date | number,
   locale: Locale,
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   return new Intl.DateTimeFormat(locale, options).format(date);
 }
@@ -36,21 +36,21 @@ export function formatDate(
 export function formatRelativeTime(
   date: Date | number,
   locale: Locale,
-  baseDate: Date = new Date()
+  baseDate: Date = new Date(),
 ): string {
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  const timestamp = typeof date === 'number' ? date : date.getTime();
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const timestamp = typeof date === "number" ? date : date.getTime();
   const baseTimestamp = baseDate.getTime();
   const diffInSeconds = Math.floor((timestamp - baseTimestamp) / 1000);
 
   const units: Array<{ unit: Intl.RelativeTimeFormatUnit; seconds: number }> = [
-    { unit: 'year', seconds: 31536000 },
-    { unit: 'month', seconds: 2592000 },
-    { unit: 'week', seconds: 604800 },
-    { unit: 'day', seconds: 86400 },
-    { unit: 'hour', seconds: 3600 },
-    { unit: 'minute', seconds: 60 },
-    { unit: 'second', seconds: 1 },
+    { unit: "year", seconds: 31536000 },
+    { unit: "month", seconds: 2592000 },
+    { unit: "week", seconds: 604800 },
+    { unit: "day", seconds: 86400 },
+    { unit: "hour", seconds: 3600 },
+    { unit: "minute", seconds: 60 },
+    { unit: "second", seconds: 1 },
   ];
 
   for (const { unit, seconds } of units) {
@@ -60,13 +60,13 @@ export function formatRelativeTime(
     }
   }
 
-  return rtf.format(0, 'second');
+  return rtf.format(0, "second");
 }
 
 /**
  * Shorten an Ethereum address for display.
  * Technical identifier - never translated.
- * 
+ *
  * @example
  * shortenAddress("0x1234567890123456789012345678901234567890")
  * // => "0x1234...7890"
@@ -87,7 +87,7 @@ export function shortenHash(hash: string, chars = 6): string {
 
 /**
  * Format a token amount with proper decimals.
- * 
+ *
  * @param amount - Raw token amount (as bigint)
  * @param decimals - Token decimals (e.g., 18 for most ERC20)
  * @param locale - Display locale
@@ -97,7 +97,7 @@ export function formatTokenAmount(
   amount: bigint,
   decimals: number,
   locale: Locale,
-  maxDecimals = 4
+  maxDecimals = 4,
 ): string {
   const divisor = 10n ** BigInt(decimals);
   const integerPart = amount / divisor;
@@ -107,14 +107,19 @@ export function formatTokenAmount(
     return formatNumber(integerPart, locale);
   }
 
-  const fractionalString = fractionalPart.toString().padStart(decimals, '0');
-  const trimmed = fractionalString.slice(0, maxDecimals).replace(/0+$/, '');
-  
-  if (trimmed === '') {
+  const fractionalString = fractionalPart.toString().padStart(decimals, "0");
+  const trimmed = fractionalString.slice(0, maxDecimals).replace(/0+$/, "");
+
+  if (trimmed === "") {
     return formatNumber(integerPart, locale);
   }
 
-  return `${formatNumber(integerPart, locale)}.${trimmed}`;
+  const decimalSeparator =
+    new Intl.NumberFormat(locale)
+      .formatToParts(1.1)
+      .find((part) => part.type === "decimal")?.value ?? ".";
+
+  return `${formatNumber(integerPart, locale)}${decimalSeparator}${trimmed}`;
 }
 
 /**
@@ -124,7 +129,7 @@ export function formatTokenAmount(
 export function pluralize(
   count: number,
   singular: string,
-  plural?: string
+  plural?: string,
 ): string {
   if (count === 1) return singular;
   return plural ?? `${singular}s`;
@@ -136,10 +141,10 @@ export function pluralize(
  */
 export function getNetworkName(chainId: number): string {
   const networks: Record<number, string> = {
-    1: 'Ethereum Mainnet',
-    10: 'Optimism',
-    11155420: 'OP Sepolia',
-    31337: 'Hardhat Local',
+    1: "Ethereum Mainnet",
+    10: "Optimism",
+    11155420: "OP Sepolia",
+    31337: "Hardhat Local",
   };
 
   return networks[chainId] ?? `Chain ${chainId}`;
@@ -151,22 +156,22 @@ export function getNetworkName(chainId: number): string {
  */
 export function getExplorerUrl(
   chainId: number,
-  type: 'tx' | 'address' | 'block',
-  value: string
+  type: "tx" | "address" | "block",
+  value: string,
 ): string {
   const explorers: Record<number, string> = {
-    1: 'https://etherscan.io',
-    10: 'https://optimistic.etherscan.io',
-    11155420: 'https://sepolia-optimism.etherscan.io',
+    1: "https://etherscan.io",
+    10: "https://optimistic.etherscan.io",
+    11155420: "https://sepolia-optimism.etherscan.io",
   };
 
   const baseUrl = explorers[chainId];
-  if (!baseUrl) return '';
+  if (!baseUrl) return "";
 
   const paths = {
-    tx: 'tx',
-    address: 'address',
-    block: 'block',
+    tx: "tx",
+    address: "address",
+    block: "block",
   };
 
   return `${baseUrl}/${paths[type]}/${value}`;

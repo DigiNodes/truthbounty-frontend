@@ -1,14 +1,14 @@
 /**
  * V2-FE-070 — Advanced Formatting Utilities
- * 
+ *
  * Protocol-specific formatters for blockchain data, token amounts,
  * timestamps, and other domain-specific values.
- * 
+ *
  * Security: All formatters preserve technical accuracy.
  * No fabrication of addresses, hashes, or protocol values.
  */
 
-import type { Locale } from './config';
+import type { Locale } from "./config";
 
 // ---------------------------------------------------------------------------
 // Blockchain-specific Formatters
@@ -17,32 +17,32 @@ import type { Locale } from './config';
 /**
  * Format a blockchain address for display.
  * Technical identifier - never translated, only formatted.
- * 
+ *
  * @param address - Full Ethereum address
  * @param format - Display format: 'short', 'medium', 'full'
  * @returns Formatted address string
- * 
+ *
  * @example
  * formatAddress('0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E', 'short')
  * // => "0x742d...0eB1E"
  */
 export function formatAddress(
   address: string,
-  format: 'short' | 'medium' | 'full' = 'short'
+  format: "short" | "medium" | "full" = "short",
 ): string {
-  if (typeof address !== 'string') {
+  if (typeof address !== "string") {
     return String(address);
   }
-  if (!address || !address.startsWith('0x')) {
+  if (!address || !address.startsWith("0x")) {
     return address;
   }
 
   switch (format) {
-    case 'short':
+    case "short":
       return `${address.slice(0, 6)}...${address.slice(-5)}`;
-    case 'medium':
+    case "medium":
       return `${address.slice(0, 12)}...${address.slice(-8)}`;
-    case 'full':
+    case "full":
       return address;
     default:
       return address;
@@ -52,28 +52,28 @@ export function formatAddress(
 /**
  * Format a transaction hash for display.
  * Technical identifier - never translated.
- * 
+ *
  * @example
  * formatTxHash('0x1234567890abcdef...', 'short')
  * // => "0x1234...cdef"
  */
 export function formatTxHash(
   hash: string,
-  format: 'short' | 'medium' | 'full' = 'short'
+  format: "short" | "medium" | "full" = "short",
 ): string {
-  if (typeof hash !== 'string') {
+  if (typeof hash !== "string") {
     return String(hash);
   }
-  if (!hash || !hash.startsWith('0x')) {
+  if (!hash || !hash.startsWith("0x")) {
     return hash;
   }
 
   switch (format) {
-    case 'short':
+    case "short":
       return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
-    case 'medium':
+    case "medium":
       return `${hash.slice(0, 10)}...${hash.slice(-8)}`;
-    case 'full':
+    case "full":
       return hash;
     default:
       return hash;
@@ -82,53 +82,100 @@ export function formatTxHash(
 
 /**
  * Format a block number with locale-appropriate number formatting.
- * 
+ *
  * @example
  * formatBlockNumber(12345678, 'en') // => "12,345,678"
  * formatBlockNumber(12345678, 'de') // => "12.345.678"
  */
 export function formatBlockNumber(
   blockNumber: bigint | number,
-  locale: Locale
+  locale: Locale,
 ): string {
   return new Intl.NumberFormat(locale).format(blockNumber);
 }
 
 /**
  * Format gas amount with locale-appropriate formatting.
- * 
+ *
  * @example
  * formatGas(21000n, 'en') // => "21,000"
  */
-export function formatGas(
-  gas: bigint | number,
-  locale: Locale
-): string {
+export function formatGas(gas: bigint | number, locale: Locale): string {
   return new Intl.NumberFormat(locale).format(gas);
 }
 
 /**
- * Format gas price in Gwei.
- * 
+ * Format a gas price in Gwei without floating-point conversion.
+ *
  * @param gasPriceWei - Gas price in Wei (bigint)
  * @param locale - Display locale
  * @param decimals - Number of decimal places to show
  * @returns Formatted gas price string
- * 
+ *
  * @example
  * formatGasPrice(50000000000n, 'en') // => "50 Gwei"
  */
 export function formatGasPrice(
   gasPriceWei: bigint,
   locale: Locale,
-  decimals = 2
+  decimals = 2,
 ): string {
-  const gwei = Number(gasPriceWei) / 1e9;
-  const formatted = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: decimals,
-  }).format(gwei);
-  return `${formatted} Gwei`;
+  if (!Number.isSafeInteger(decimals) || decimals < 0 || decimals > 100) {
+    throw new RangeError("Invalid gas price formatting precision");
+  }
+
+  const negative = gasPriceWei < 0n;
+  const absoluteWei = negative ? -gasPriceWei : gasPriceWei;
+
+  // 1 Gwei = 1,000,000,000 wei.
+  const gweiDivisor = 1_000_000_000n;
+  const wholeGwei = absoluteWei / gweiDivisor;
+  const fractionalWei = absoluteWei % gweiDivisor;
+
+  // Round to the requested number of decimal places using integer arithmetic.
+  const scale = 10n ** BigInt(decimals);
+  const roundedFraction =
+    (fractionalWei * scale + gweiDivisor / 2n) / gweiDivisor;
+
+  let roundedWhole = wholeGwei;
+  let fraction = roundedFraction;
+
+  if (fraction >= scale) {
+    roundedWhole += 1n;
+    fraction -= scale;
+  }
+
+  const numberFormatter = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 0,
+    useGrouping: true,
+  });
+
+  let result = numberFormatter.format(roundedWhole);
+
+  if (decimals > 0 && fraction > 0n) {
+    const fractionText = fraction
+      .toString()
+      .padStart(decimals, "0")
+      .replace(/0+$/, "");
+
+    if (fractionText) {
+      result += `${getLocaleDecimalSeparator(locale)}${localizeDigits(
+        fractionText,
+        locale,
+      )}`;
+    }
+  }
+
+  if (negative) {
+    const minusSign =
+      new Intl.NumberFormat(locale)
+        .formatToParts(-1)
+        .find((part) => part.type === "minusSign")?.value ?? "-";
+
+    result = `${minusSign}${result}`;
+  }
+
+  return `${result} Gwei`;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,68 +184,153 @@ export function formatGasPrice(
 
 /**
  * Format a token amount with proper decimals and locale formatting.
- * 
+ *
  * @param amount - Raw token amount (as bigint)
  * @param decimals - Token decimals (e.g., 18 for most ERC20)
  * @param locale - Display locale
  * @param options - Additional formatting options
  * @returns Formatted token amount string
- * 
+ *
  * @example
  * formatTokenAmount(1500000000000000000n, 18, 'en')
  * // => "1.5"
- * 
+ *
  * formatTokenAmount(1500000000000000000n, 18, 'en', { symbol: 'ETH' })
  * // => "1.5 ETH"
  */
+
 export function formatTokenAmount(
-  amount: bigint,
+  amount: bigint | number | string,
   decimals: number,
-  locale: Locale,
+  locale: string = 'en',
   options: {
-    symbol?: string;
     maxDecimals?: number;
     minDecimals?: number;
     compact?: boolean;
-  } = {}
+    symbol?: string;
+  } = {},
 ): string {
-  const { symbol, maxDecimals = 4, minDecimals = 0, compact = false } = options;
+  const {
+    maxDecimals = 4,
+    minDecimals = 0,
+    compact = false,
+    symbol,
+  } = options;
 
-  // Convert bigint to decimal number
-  const divisor = 10n ** BigInt(decimals);
-  const integerPart = amount / divisor;
-  const fractionalPart = amount % divisor;
-
-  // Handle integer-only amounts
-  if (fractionalPart === 0n) {
-    const formatted = compact
-      ? formatCompactNumber(Number(integerPart), locale)
-      : new Intl.NumberFormat(locale, {
-          minimumFractionDigits: minDecimals,
-          maximumFractionDigits: minDecimals,
-        }).format(integerPart);
-    return symbol ? `${formatted} ${symbol}` : formatted;
+  if (
+    !Number.isSafeInteger(decimals) ||
+    decimals < 0 ||
+    decimals > 100 ||
+    !Number.isSafeInteger(maxDecimals) ||
+    maxDecimals < 0 ||
+    maxDecimals > 100 ||
+    !Number.isSafeInteger(minDecimals) ||
+    minDecimals < 0 ||
+    minDecimals > 100 ||
+    minDecimals > maxDecimals
+  ) {
+    return '0';
   }
 
-  // Format with fractional part
-  const fractionalString = fractionalPart.toString().padStart(decimals, '0');
-  const trimmed = fractionalString.slice(0, maxDecimals).replace(/0+$/, '');
+  let rawAmount: bigint;
 
-  const fullNumber = trimmed
-    ? `${integerPart}.${trimmed}`
-    : integerPart.toString();
+  if (typeof amount === 'bigint') {
+    rawAmount = amount;
+  } else if (typeof amount === 'number') {
+    if (!Number.isSafeInteger(amount)) {
+      return '0';
+    }
+    rawAmount = BigInt(amount);
+  } else {
+    const trimmedAmount = amount.trim();
+    if (!/^-?\d+$/.test(trimmedAmount)) {
+      return '0';
+    }
+    rawAmount = BigInt(trimmedAmount);
+  }
 
-  const formatted = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: minDecimals,
-    maximumFractionDigits: maxDecimals,
-  }).format(parseFloat(fullNumber));
+  const negative = rawAmount < 0n;
+  const absoluteAmount = negative ? -rawAmount : rawAmount;
+  const divisor = 10n ** BigInt(decimals);
+  const scale = 10n ** BigInt(maxDecimals);
+
+  // Round half-up using integer arithmetic before splitting the result.
+  const roundedScaled = (absoluteAmount * scale + divisor / 2n) / divisor;
+
+  const integerPart = roundedScaled / scale;
+  const fractionalPart = roundedScaled % scale;
+
+  const numberFormatter = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 0,
+    useGrouping: true,
+  });
+
+  let formatted: string;
+
+  if (compact && fractionalPart === 0n) {
+    const compactFormatter = new Intl.NumberFormat(locale, {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    });
+
+    const compactValue =
+      integerPart <= BigInt(Number.MAX_SAFE_INTEGER)
+        ? compactFormatter.format(Number(integerPart))
+        : numberFormatter.format(integerPart);
+
+    formatted = compactValue;
+  } else {
+    formatted = numberFormatter.format(integerPart);
+  }
+
+  if (maxDecimals > 0) {
+    const fraction = fractionalPart
+      .toString()
+      .padStart(maxDecimals, '0')
+      .replace(/0+$/, '');
+    const paddedFraction = fraction.padEnd(minDecimals, "0");
+
+    if (paddedFraction) {
+      formatted +=
+        getLocaleDecimalSeparator(locale) +
+        localizeDigits(paddedFraction, locale);
+    }
+  }
+
+  if (negative && absoluteAmount !== 0n) {
+    const minusSign =
+      new Intl.NumberFormat(locale)
+        .formatToParts(-1)
+        .find((part) => part.type === 'minusSign')?.value ?? '-';
+
+    formatted = minusSign + formatted;
+  }
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
 
+function getLocaleDecimalSeparator(locale: string): string {
+  return (
+    new Intl.NumberFormat(locale)
+      .formatToParts(1.1)
+      .find((part) => part.type === "decimal")?.value ?? "."
+  );
+}
+
+function localizeDigits(value: string, locale: string): string {
+  const digitFormatter = new Intl.NumberFormat(locale, {
+    useGrouping: false,
+  });
+  const digits = Array.from({ length: 10 }, (_, digit) =>
+    digitFormatter.format(digit),
+  );
+
+  return value.replace(/\d/g, (digit) => digits[Number(digit)]);
+}
+
 /**
  * Format a percentage value with locale-appropriate formatting.
- * 
+ *
  * @example
  * formatPercentage(0.875, 'en') // => "87.5%"
  * formatPercentage(0.875, 'en', { decimals: 1 }) // => "87.5%"
@@ -206,12 +338,12 @@ export function formatTokenAmount(
 export function formatPercentage(
   value: number,
   locale: Locale,
-  options: { decimals?: number } = {}
+  options: { decimals?: number } = {},
 ): string {
   const { decimals = 1 } = options;
-  
+
   return new Intl.NumberFormat(locale, {
-    style: 'percent',
+    style: "percent",
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(value);
@@ -219,7 +351,7 @@ export function formatPercentage(
 
 /**
  * Format a number in compact notation (K, M, B).
- * 
+ *
  * @example
  * formatCompactNumber(1500, 'en') // => "1.5K"
  * formatCompactNumber(1500000, 'en') // => "1.5M"
@@ -227,11 +359,11 @@ export function formatPercentage(
 export function formatCompactNumber(
   value: number,
   locale: Locale,
-  decimals = 1
+  decimals = 1,
 ): string {
   return new Intl.NumberFormat(locale, {
-    notation: 'compact',
-    compactDisplay: 'short',
+    notation: "compact",
+    compactDisplay: "short",
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   }).format(value);
@@ -243,7 +375,7 @@ export function formatCompactNumber(
 
 /**
  * Format a duration in milliseconds to human-readable string.
- * 
+ *
  * @example
  * formatDuration(65000, 'en') // => "1 minute 5 seconds"
  * formatDuration(3600000, 'en') // => "1 hour"
@@ -251,10 +383,10 @@ export function formatCompactNumber(
 export function formatDuration(
   milliseconds: number,
   locale: Locale,
-  options: { style?: 'long' | 'short' | 'narrow' } = {}
+  options: { style?: "long" | "short" | "narrow" } = {},
 ): string {
-  const { style = 'long' } = options;
-  
+  const { style = "long" } = options;
+
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -263,25 +395,45 @@ export function formatDuration(
   const parts: string[] = [];
 
   if (days > 0) {
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style });
-    parts.push(rtf.format(days, 'day').replace(/^in |ago$/, '').trim());
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style });
+    parts.push(
+      rtf
+        .format(days, "day")
+        .replace(/^in |ago$/, "")
+        .trim(),
+    );
   } else if (hours > 0) {
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style });
-    parts.push(rtf.format(hours, 'hour').replace(/^in |ago$/, '').trim());
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style });
+    parts.push(
+      rtf
+        .format(hours, "hour")
+        .replace(/^in |ago$/, "")
+        .trim(),
+    );
   } else if (minutes > 0) {
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style });
-    parts.push(rtf.format(minutes, 'minute').replace(/^in |ago$/, '').trim());
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style });
+    parts.push(
+      rtf
+        .format(minutes, "minute")
+        .replace(/^in |ago$/, "")
+        .trim(),
+    );
   } else {
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style });
-    parts.push(rtf.format(seconds, 'second').replace(/^in |ago$/, '').trim());
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style });
+    parts.push(
+      rtf
+        .format(seconds, "second")
+        .replace(/^in |ago$/, "")
+        .trim(),
+    );
   }
 
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 /**
  * Format a timestamp to a relative time string ("2 hours ago").
- * 
+ *
  * @example
  * const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
  * formatRelativeTime(twoHoursAgo, 'en') // => "2 hours ago"
@@ -289,23 +441,24 @@ export function formatDuration(
 export function formatRelativeTime(
   timestamp: number | Date,
   locale: Locale,
-  baseTime: number | Date = Date.now()
+  baseTime: number | Date = Date.now(),
 ): string {
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  
-  const timestampMs = typeof timestamp === 'number' ? timestamp : timestamp.getTime();
-  const baseMs = typeof baseTime === 'number' ? baseTime : baseTime.getTime();
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  const timestampMs =
+    typeof timestamp === "number" ? timestamp : timestamp.getTime();
+  const baseMs = typeof baseTime === "number" ? baseTime : baseTime.getTime();
   const diffMs = timestampMs - baseMs;
   const diffSeconds = Math.round(diffMs / 1000);
 
   const units: Array<{ unit: Intl.RelativeTimeFormatUnit; seconds: number }> = [
-    { unit: 'year', seconds: 31536000 },
-    { unit: 'month', seconds: 2592000 },
-    { unit: 'week', seconds: 604800 },
-    { unit: 'day', seconds: 86400 },
-    { unit: 'hour', seconds: 3600 },
-    { unit: 'minute', seconds: 60 },
-    { unit: 'second', seconds: 1 },
+    { unit: "year", seconds: 31536000 },
+    { unit: "month", seconds: 2592000 },
+    { unit: "week", seconds: 604800 },
+    { unit: "day", seconds: 86400 },
+    { unit: "hour", seconds: 3600 },
+    { unit: "minute", seconds: 60 },
+    { unit: "second", seconds: 1 },
   ];
 
   for (const { unit, seconds } of units) {
@@ -315,12 +468,12 @@ export function formatRelativeTime(
     }
   }
 
-  return rtf.format(0, 'second');
+  return rtf.format(0, "second");
 }
 
 /**
  * Format a timestamp to an absolute date/time string.
- * 
+ *
  * @example
  * formatAbsoluteTime(Date.now(), 'en')
  * // => "Jan 15, 2024, 3:45 PM"
@@ -328,14 +481,14 @@ export function formatRelativeTime(
 export function formatAbsoluteTime(
   timestamp: number | Date,
   locale: Locale,
-  options: Intl.DateTimeFormatOptions = {}
+  options: Intl.DateTimeFormatOptions = {},
 ): string {
   const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
     ...options,
   };
 
@@ -344,7 +497,7 @@ export function formatAbsoluteTime(
 
 /**
  * Format a Unix timestamp (seconds) to a readable date.
- * 
+ *
  * @example
  * formatUnixTimestamp(1705334700, 'en')
  * // => "Jan 15, 2024, 3:45 PM"
@@ -352,7 +505,7 @@ export function formatAbsoluteTime(
 export function formatUnixTimestamp(
   unixSeconds: number,
   locale: Locale,
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   return formatAbsoluteTime(unixSeconds * 1000, locale, options);
 }
@@ -364,17 +517,17 @@ export function formatUnixTimestamp(
 /**
  * Get human-readable network name from chain ID.
  * Technical mapping - conventional names, not translated.
- * 
+ *
  * @example
  * getNetworkName(10) // => "Optimism"
  * getNetworkName(1) // => "Ethereum Mainnet"
  */
 export function getNetworkName(chainId: number): string {
   const networks: Record<number, string> = {
-    1: 'Ethereum Mainnet',
-    10: 'Optimism',
-    11155420: 'OP Sepolia',
-    31337: 'Hardhat Local',
+    1: "Ethereum Mainnet",
+    10: "Optimism",
+    11155420: "OP Sepolia",
+    31337: "Hardhat Local",
     // Add more networks as needed
   };
 
@@ -384,30 +537,30 @@ export function getNetworkName(chainId: number): string {
 /**
  * Get block explorer URL for an address, transaction, or block.
  * Technical URL - never translated.
- * 
+ *
  * @example
  * getExplorerUrl(10, 'tx', '0x123...')
  * // => "https://optimistic.etherscan.io/tx/0x123..."
  */
 export function getExplorerUrl(
   chainId: number,
-  type: 'tx' | 'address' | 'block' | 'token',
-  value: string
+  type: "tx" | "address" | "block" | "token",
+  value: string,
 ): string {
   const explorers: Record<number, string> = {
-    1: 'https://etherscan.io',
-    10: 'https://optimistic.etherscan.io',
-    11155420: 'https://sepolia-optimism.etherscan.io',
+    1: "https://etherscan.io",
+    10: "https://optimistic.etherscan.io",
+    11155420: "https://sepolia-optimism.etherscan.io",
   };
 
   const baseUrl = explorers[chainId];
-  if (!baseUrl) return '';
+  if (!baseUrl) return "";
 
   const paths = {
-    tx: 'tx',
-    address: 'address',
-    block: 'block',
-    token: 'token',
+    tx: "tx",
+    address: "address",
+    block: "block",
+    token: "token",
   };
 
   return `${baseUrl}/${paths[type]}/${value}`;
@@ -415,7 +568,7 @@ export function getExplorerUrl(
 
 /**
  * Format chain ID with network name.
- * 
+ *
  * @example
  * formatChainId(10, 'en') // => "Optimism (10)"
  */
@@ -465,22 +618,22 @@ export const formatters = {
   formatGas,
   formatGasPrice,
   formatChainId,
-  
+
   // Tokens
   formatTokenAmount,
   formatPercentage,
   formatCompactNumber,
-  
+
   // Time
   formatDuration,
   formatRelativeTime,
   formatAbsoluteTime,
   formatUnixTimestamp,
-  
+
   // Network
   getNetworkName,
   getExplorerUrl,
-  
+
   // Validation
   isValidAddress,
   isValidTxHash,

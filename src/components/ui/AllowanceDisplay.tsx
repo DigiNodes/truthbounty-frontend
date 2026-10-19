@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * V2-FE-016 — AllowanceDisplay
@@ -17,9 +17,10 @@
  *  - The component meets WCAG 2.1 AA contrast in both light and dark modes.
  */
 
-import React from 'react';
-import { cn } from '@/lib/utils';
-import type { AllowanceStatus } from '@/hooks/useERC20Allowance';
+import React from "react";
+import { cn } from "@/lib/utils";
+import type { AllowanceStatus } from "@/hooks/useERC20Allowance";
+import { formatTokenAmount } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -51,26 +52,22 @@ export interface AllowanceDisplayProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Format a raw wei bigint to a human-readable string with decimals. */
-function formatTokenAmount(
+/** Format raw token base units through the shared exact formatter. */
+function formatAllowanceAmount(
   amount: bigint,
   decimals: number,
   symbol: string,
+  displayDecimals = 4,
 ): string {
-  if (decimals === 0) return `${amount.toString()} ${symbol}`;
-
-  const divisor = 10n ** BigInt(decimals);
-  const whole = amount / divisor;
-  const fractional = amount % divisor;
-
-  if (fractional === 0n) {
-    return `${whole.toString()} ${symbol}`;
-  }
-
-  // Show up to 4 significant fractional digits
-  const fracStr = fractional.toString().padStart(decimals, '0');
-  const trimmed = fracStr.replace(/0+$/, '').slice(0, 4);
-  return `${whole.toString()}.${trimmed} ${symbol}`;
+  return formatTokenAmount(amount, {
+    decimals,
+    displayDecimals,
+    minDisplayDecimals: 0,
+    isRawUnits: true,
+    symbol,
+    showSymbol: true,
+    compact: false,
+  });
 }
 
 // Spinner used for loading state
@@ -78,7 +75,7 @@ function Spinner({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className={cn('animate-spin size-4 flex-shrink-0', className)}
+      className={cn("animate-spin size-4 flex-shrink-0", className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -105,7 +102,7 @@ function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className={cn('size-4 flex-shrink-0', className)}
+      className={cn("size-4 flex-shrink-0", className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -122,7 +119,7 @@ function WarningIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className={cn('size-4 flex-shrink-0', className)}
+      className={cn("size-4 flex-shrink-0", className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -143,7 +140,7 @@ function ErrorIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className={cn('size-4 flex-shrink-0', className)}
+      className={cn("size-4 flex-shrink-0", className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -151,7 +148,11 @@ function ErrorIcon({ className }: { className?: string }) {
       strokeWidth={2}
     >
       <circle cx="12" cy="12" r="10" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6M9 9l6 6" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 9l-6 6M9 9l6 6"
+      />
     </svg>
   );
 }
@@ -164,7 +165,7 @@ export function AllowanceDisplay({
   status,
   allowance,
   requiredAmount,
-  tokenSymbol = 'token',
+  tokenSymbol = "token",
   tokenDecimals = 18,
   error,
   className,
@@ -181,26 +182,56 @@ export function AllowanceDisplay({
   // Format amounts for display
   const allowanceText =
     allowance !== undefined
-      ? formatTokenAmount(allowance, tokenDecimals, tokenSymbol)
+      ? formatAllowanceAmount(allowance, tokenDecimals, tokenSymbol)
       : undefined;
 
   const requiredText =
     requiredAmount !== undefined
-      ? formatTokenAmount(requiredAmount, tokenDecimals, tokenSymbol)
+      ? formatAllowanceAmount(requiredAmount, tokenDecimals, tokenSymbol)
       : undefined;
+
+  const exactAllowanceText =
+    allowance !== undefined
+      ? formatAllowanceAmount(
+          allowance,
+          tokenDecimals,
+          tokenSymbol,
+          tokenDecimals,
+        )
+      : undefined;
+
+  const exactRequiredText =
+    requiredAmount !== undefined
+      ? formatAllowanceAmount(
+          requiredAmount,
+          tokenDecimals,
+          tokenSymbol,
+          tokenDecimals,
+        )
+      : undefined;
+
+  const allowanceIsRounded =
+    allowanceText !== undefined &&
+    exactAllowanceText !== undefined &&
+    allowanceText !== exactAllowanceText;
+
+  const requiredAmountIsRounded =
+    requiredText !== undefined &&
+    exactRequiredText !== undefined &&
+    requiredText !== exactRequiredText;
 
   // ---------------------------------------------------------------------------
   // Loading state
   // ---------------------------------------------------------------------------
 
-  if (status === 'loading' || status === 'idle') {
+  if (status === "loading" || status === "idle") {
     return (
       <div
         role="status"
         aria-busy="true"
         aria-label="Loading token allowance"
         className={cn(
-          'flex items-center gap-2 text-sm text-muted-foreground',
+          "flex items-center gap-2 text-sm text-muted-foreground",
           className,
         )}
         data-testid="allowance-display"
@@ -217,13 +248,13 @@ export function AllowanceDisplay({
   // Error states
   // ---------------------------------------------------------------------------
 
-  if (status === 'error') {
+  if (status === "error") {
     return (
       <div
         role="alert"
         aria-live="assertive"
         className={cn(
-          'flex items-center gap-2 text-sm text-destructive',
+          "flex items-center gap-2 text-sm text-destructive",
           className,
         )}
         data-testid="allowance-display"
@@ -233,19 +264,19 @@ export function AllowanceDisplay({
         <span>
           {error?.message
             ? `Could not read allowance: ${error.message}`
-            : 'Could not read token allowance. Please try again.'}
+            : "Could not read token allowance. Please try again."}
         </span>
       </div>
     );
   }
 
-  if (status === 'unsupported-chain') {
+  if (status === "unsupported-chain") {
     return (
       <div
         role="alert"
         aria-live="assertive"
         className={cn(
-          'flex items-center gap-2 text-sm text-destructive',
+          "flex items-center gap-2 text-sm text-destructive",
           className,
         )}
         data-testid="allowance-display"
@@ -257,13 +288,13 @@ export function AllowanceDisplay({
     );
   }
 
-  if (status === 'invalid-params') {
+  if (status === "invalid-params") {
     return (
       <div
         role="alert"
         aria-live="assertive"
         className={cn(
-          'flex items-center gap-2 text-sm text-destructive',
+          "flex items-center gap-2 text-sm text-destructive",
           className,
         )}
         data-testid="allowance-display"
@@ -279,26 +310,30 @@ export function AllowanceDisplay({
   // Success state — render allowance value
   // ---------------------------------------------------------------------------
 
-  if (status === 'success') {
+  if (status === "success") {
     if (compact) {
       return (
         <span
           role="status"
           className={cn(
-            'inline-flex items-center gap-1 text-sm font-medium rounded-full px-2 py-0.5',
+            "inline-flex items-center gap-1 text-sm font-medium rounded-full px-2 py-0.5",
             isSufficient
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
               : isZero
-                ? 'bg-muted text-muted-foreground'
-                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                ? "bg-muted text-muted-foreground"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
             className,
           )}
           data-testid="allowance-display"
           data-allowance-status={status}
           aria-label={
             allowanceText
-              ? `Current allowance: ${allowanceText}${isSufficient ? ' (sufficient)' : ' (insufficient)'}`
-              : 'Allowance not set'
+              ? `Current allowance: ${allowanceIsRounded ? "approximately " : ""}${allowanceText}. ${
+                  allowanceIsRounded
+                    ? `Exact amount: ${exactAllowanceText}. `
+                    : ""
+                }${isSufficient ? "Sufficient" : "Insufficient"}`
+              : "Allowance not set"
           }
         >
           {isSufficient ? (
@@ -306,7 +341,17 @@ export function AllowanceDisplay({
           ) : !isZero ? (
             <WarningIcon className="text-yellow-700 dark:text-yellow-300" />
           ) : null}
-          <span aria-hidden="true">{allowanceText ?? '0 ' + tokenSymbol}</span>
+          <span
+            aria-hidden="true"
+            title={
+              allowanceIsRounded
+                ? `Exact amount: ${exactAllowanceText}`
+                : undefined
+            }
+          >
+            {allowanceIsRounded ? "~" : ""}
+            {allowanceText ?? "0 " + tokenSymbol}
+          </span>
         </span>
       );
     }
@@ -315,7 +360,7 @@ export function AllowanceDisplay({
     return (
       <div
         role="status"
-        className={cn('flex flex-col gap-1 text-sm', className)}
+        className={cn("flex flex-col gap-1 text-sm", className)}
         data-testid="allowance-display"
         data-allowance-status={status}
       >
@@ -325,22 +370,51 @@ export function AllowanceDisplay({
           ) : !isZero ? (
             <WarningIcon className="text-yellow-600 dark:text-yellow-400" />
           ) : null}
-          <span className="font-medium">
+          <span
+            className="font-medium"
+            title={
+              allowanceIsRounded
+                ? `Exact amount: ${exactAllowanceText}`
+                : undefined
+            }
+          >
             {isZero
               ? `No ${tokenSymbol} allowance`
-              : `Allowance: ${allowanceText}`}
+              : `Allowance: ${allowanceIsRounded ? "~" : ""}${allowanceText}`}
+            {allowanceIsRounded && (
+              <span className="sr-only">
+                {" "}
+                Exact amount: {exactAllowanceText}.
+              </span>
+            )}
           </span>
         </div>
 
         {requiredText && !isSufficient && (
           <p className="text-muted-foreground pl-6">
-            Required: {requiredText}. You need to approve more {tokenSymbol}.
+            Required: {requiredAmountIsRounded ? "~" : ""}
+            {requiredText}.
+            {requiredAmountIsRounded && (
+              <span className="sr-only">
+                {" "}
+                Exact required amount: {exactRequiredText}.
+              </span>
+            )}{" "}
+            You need to approve more {tokenSymbol}.
           </p>
         )}
 
         {requiredText && isSufficient && (
           <p className="text-muted-foreground pl-6">
-            Required: {requiredText}. ✓ Sufficient
+            Required: {requiredAmountIsRounded ? "~" : ""}
+            {requiredText}.
+            {requiredAmountIsRounded && (
+              <span className="sr-only">
+                {" "}
+                Exact required amount: {exactRequiredText}.
+              </span>
+            )}{" "}
+            ✓ Sufficient
           </p>
         )}
       </div>
