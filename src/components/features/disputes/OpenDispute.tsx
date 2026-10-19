@@ -46,9 +46,15 @@ function submitLabel(phase: DisputeSubmissionPhase): string {
   }
 }
 
-export const OpenDispute = ({
+export const OpenDispute = (props: OpenDisputeProps) => {
+  // Mount the dialog (and its on-chain reads) only while open so the closed
+  // state never needs a wallet/RPC context.
+  if (!props.isOpen) return null;
+  return <OpenDisputeDialog {...props} />;
+};
+
+const OpenDisputeDialog = ({
   claimId,
-  isOpen,
   onClose,
   onSuccess,
   onError,
@@ -58,7 +64,6 @@ export const OpenDispute = ({
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLTextAreaElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
 
   const {
     artifact,
@@ -70,24 +75,13 @@ export const OpenDispute = ({
     isLoading,
     isWrongNetwork,
     submitDispute,
-  } = useDisputeSubmission({ claimId, isOpen, enabled: isOpen, pollInterval: isOpen ? 15_000 : 0 });
+  } = useDisputeSubmission({ claimId, pollInterval: 15_000 });
 
   useEffect(() => {
-    if (isOpen) setFormError(null);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-    }
-    return () => {
-      if (!isOpen) previousActiveElement.current?.focus();
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) firstFocusableRef.current?.focus();
-  }, [isOpen]);
+    const previous = document.activeElement as HTMLElement | null;
+    firstFocusableRef.current?.focus();
+    return () => previous?.focus();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -184,8 +178,6 @@ export const OpenDispute = ({
       onError?.(message);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div
