@@ -8,9 +8,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useState } from "react";
-import { Dispute } from "@/app/types/dispute";
 import { OpenDispute } from "../disputes/OpenDispute";
-import { DisputeVoting } from "../disputes/DisputeVoting";
 import { MainClaimCardSkeleton } from "@/components/skeletons";
 
 interface MainClaimCardProps {
@@ -19,8 +17,6 @@ interface MainClaimCardProps {
 }
 
 export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) => {
-  const [dispute, setDispute] = useState<Dispute | null>(null);
-
   const [isDisputeModalOpen, setDisputeModalOpen] = useState(false);
 
   if (isLoading || !data) {
@@ -30,25 +26,6 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
   const totalVotes = data.votesFor + data.votesAgainst;
   const forPercentage = (data.votesFor / totalVotes) * 100;
   const againstPercentage = (data.votesAgainst / totalVotes) * 100;
-
-  const handleOpenDispute = async (payload: { reason: string; initialStake: number }) => {
-    console.log("Opening dispute:", payload);
-
-    setDispute({
-      id: "dsp_1",
-      claimId: "claim_123",
-      reason: payload.reason,
-      status: "VOTING",
-      proVotes: 0,
-      conVotes: 0,
-      totalStaked: payload.initialStake,
-      createdAt: new Date().toISOString(),
-    });
-  };
-
-  const handleVote = async (id: string, side: string, amount: number) => {
-    console.log(`Voting ${side} with ${amount}`);
-  };
 
   return (
     <div className="bg-[#13141b] border border-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
@@ -128,11 +105,9 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         </div>
 
         <div className="flex space-x-3 sm:space-x-4 pt-4">
-          {!dispute && (
-            <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base" aria-label="Verify claim - stake and vote">
-              <ThumbsUp size={18} className="mr-2 flex-shrink-0" aria-hidden="true" /> <span className="truncate">Verify (Stake + Vote)</span>
-            </button>
-          )}
+          <button className="flex-1 bg-green-600 hover:bg-green-600 text-white py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base" aria-label="Verify claim - stake and vote">
+            <ThumbsUp size={18} className="mr-2 flex-shrink-0" aria-hidden="true" /> <span className="truncate">Verify (Stake + Vote)</span>
+          </button>
 
           <button
             className="flex-1 border border-red-900 text-red-500 hover:bg-red-950/30 py-3 sm:py-3 px-4 rounded-lg font-medium flex items-center justify-center transition-colors min-h-[44px] touch-manipulation text-sm sm:text-base"
@@ -144,30 +119,11 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
         </div>
       </div>
 
-      {dispute && (
-        <DisputeVoting
-          disputeId={dispute.id}
-          currentStaked={dispute.totalStaked}
-          onVote={handleVote}
-        />
-      )}
-
       <OpenDispute
-        claimId="claim_123"
+        claimId={data.id}
         isOpen={isDisputeModalOpen}
         onClose={() => setDisputeModalOpen(false)}
-        onSuccess={(disputeId) => {
-          setDispute({
-            id: disputeId,
-            claimId: "claim_123",
-            reason: "Disputed",
-            status: "VOTING",
-            proVotes: 0,
-            conVotes: 0,
-            totalStaked: 0,
-            createdAt: new Date().toISOString(),
-          });
-        }}
+        onSuccess={() => setDisputeModalOpen(false)}
       />
     </div>
   );

@@ -200,3 +200,46 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
     expect(content).not.toContain('from "@stellar/freighter-api"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. V2-FE-014 — fabricated dispute hooks and placeholders are gone
+// ---------------------------------------------------------------------------
+
+describe('dispute opening — fabricated implementations removed', () => {
+  const read = (relative: string) =>
+    fs.readFileSync(path.resolve(__dirname, relative), 'utf-8');
+
+  it('removes the mock dispute context/reconciliation hooks', () => {
+    expect(fs.existsSync(path.resolve(__dirname, '../../hooks/useDisputeContext.ts'))).toBe(false);
+    expect(
+      fs.existsSync(path.resolve(__dirname, '../../hooks/useDisputeReconciliation.ts')),
+    ).toBe(false);
+  });
+
+  it('useDisputeSubmission does not fabricate selectors, gas, or hashes', () => {
+    const content = read('../../hooks/useDisputeSubmission.ts');
+    // The old mock used a hand-rolled OPENDISPUTE selector + a hardcoded gas estimate.
+    expect(content).not.toMatch(/0x9a8a0592/);
+    expect(content).not.toMatch(/gasEstimate/);
+    expect(content).not.toMatch(/Math\.random/);
+    expect(content).not.toContain('dsp_1');
+  });
+
+  it('the dispute UI does not import legacy wallet/simulator runtimes', () => {
+    const content = read('../../components/features/disputes/OpenDispute.tsx');
+    for (const banned of [
+      '@stellar/freighter-api',
+      'transaction-simulator',
+      'mock-wallet',
+      'soroban',
+    ]) {
+      expect(content.toLowerCase()).not.toContain(banned.toLowerCase());
+    }
+  });
+
+  it('MainClaimCard no longer fabricates a dispute record', () => {
+    const content = read('../../components/features/claim-details/MainClaimCard.tsx');
+    expect(content).not.toContain('dsp_1');
+    expect(content).not.toContain('console.log');
+  });
+});

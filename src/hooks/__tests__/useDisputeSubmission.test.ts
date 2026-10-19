@@ -1,510 +1,322 @@
-/**
- * Unit tests for useDisputeSubmission hook
- * Tests validation, simulation, and encoding for dispute opening transactions
- */
-
-import { renderHook, waitFor } from '@testing-library/react';
-import { useAccount, useChainId } from 'wagmi';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import {
-  useDisputeSubmission,
-  canSubmitDispute,
-  getPrimaryError,
-  formatBondAmount,
-} from '../useDisputeSubmission';
-import type {
-  DisputeContext,
-  DisputeSubmissionPayload,
-  DisputeValidation,
-} from '@/app/types/dispute';
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useReadContract,
+  useWriteContract,
+} from 'wagmi';
+import { useDisputeSubmission } from '@/hooks/useDisputeSubmission';
 
-// Mock Wagmi hooks
 jest.mock('wagmi', () => ({
   useAccount: jest.fn(),
   useChainId: jest.fn(),
+  usePublicClient: jest.fn(),
+  useReadContract: jest.fn(),
+  useWriteContract: jest.fn(),
 }));
 
-// Mock contract registry
-jest.mock('@/lib/contracts/registry', () => ({
-  getContractAddress: jest.fn(() => '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E'),
-  getContractAbi: jest.fn(() => []),
-  getProtocolVersion: jest.fn(() => 'v2.1.0'),
-}));
+const WALLET = '0x0000000000000000000000000000000000000001';
+const DISPUTE_CONTRACT = '0x1111111111111111111111111111111111111111';
+const STAKING_TOKEN = '0x3333333333333333333333333333333333333333';
+const CHAIN = 11155420;
+const TX_HASH = `0x${'ab'.repeat(32)}` as `0x${string}`;
+const MAX_UINT256 = 2n ** 256n - 1n;
 
-const mockUseAccount = useAccount as jest.MockedFunction<typeof useAccount>;
-const mockUseChainId = useChainId as jest.MockedFunction<typeof useChainId>;
+const BOND = 5n * 10n ** 18n;
+const BALANCE = 50n * 10n ** 18n;
+const NOW = BigInt(Math.floor(Date.now() / 1000));
+const FUTURE_DEADLINE = NOW + 86_400n;
+
+const mockedUseAccount = useAccount as jest.Mock;
+const mockedUseChainId = useChainId as jest.Mock;
+const mockedUsePublicClient = usePublicClient as jest.Mock;
+const mockedUseReadContract = useReadContract as jest.Mock;
+const mockedUseWriteContract = useWriteContract as jest.Mock;
+
+const mockWriteContractAsync = jest.fn();
+const mockSimulateContract = jest.fn();
+const mockGetTransactionReceipt = jest.fn();
+const readRefetch = jest.fn(async () => undefined);
+
+let allowanceValue = 100n * 10n ** 18n;
+let openChallengeValue = false;
+
+function createReadStore() {
+  return {
+    getChallengeBond: () => ({ data: BOND, isLoading: false, refetch: readRefetch }),
+    getChallengeDeadline: () => ({
+      data: FUTURE_DEADLINE,
+      isLoading: false,
+      refetch: readRefetch,
+    }),
+    hasOpenChallenge: () => ({
+      get data() {
+        return openChallengeValue;
+      },
+      isLoading: false,
+      refetch: readRefetch,
+    }),
+    allowance: () => ({
+      get data() {
+        return allowanceValue;
+      },
+      isLoading: false,
+      refetch: readRefetch,
+    }),
+    balanceOf: () => ({ data: BALANCE, isLoading: false, refetch: readRefetch }),
+  };
+}
+
+let readStore = createReadStore();
+
+function installMocks() {
+  mockedUseReadContract.mockImplementation(({ functionName }: { functionName: string }) => {
+    const factory = (readStore as Record<string, () => unknown>)[functionName];
+    return factory
+      ? factory()
+      : { data: undefined, isLoading: false, refetch: readRefetch };
+  });
+
+  mockWriteContractAsync.mockImplementation(({ functionName }: { functionName: string }) => {
+    if (functionName === 'approve') {
+      // Simulate the approval tx updating on-chain allowance.
+      allowanceValue = MAX_UINT256;
+      return Promise.resolve(`0x${'aa'.repeat(32)}`);
+    }
+    // openChallenge: the contract records an open challenge.
+    openChallengeValue = true;
+    return Promise.resolve(TX_HASH);
+  });
+  mockedUseWriteContract.mockReturnValue({ writeContractAsync: mockWriteContractAsync });
+
+  mockSimulateContract.mockResolvedValue({ request: {} });
+  mockGetTransactionReceipt.mockResolvedValue({
+    transactionHash: TX_HASH,
+    status: '0x1',
+    blockNumber: 999n,
+  });
+  mockedUsePublicClient.mockReturnValue({
+    simulateContract: mockSimulateContract,
+    getTransactionReceipt: mockGetTransactionReceipt,
+  });
+
+  mockedUseAccount.mockReturnValue({ address: WALLET, isConnected: true });
+  mockedUseChainId.mockReturnValue(CHAIN);
+}
+
+function pinEnv() {
+  process.env.NEXT_PUBLIC_TRUTHBOUNTY_PROTOCOL_RELEASE_TAG = 'v2-sc-014@v0.1.0';
+  process.env.NEXT_PUBLIC_TRUTHBOUNTY_DISPUTE_ADDRESS = DISPUTE_CONTRACT;
+  process.env.NEXT_PUBLIC_TRUTHBOUNTY_STAKING_TOKEN_ADDRESS = STAKING_TOKEN;
+}
+
+function clearEnv() {
+  delete process.env.NEXT_PUBLIC_TRUTHBOUNTY_PROTOCOL_RELEASE_TAG;
+  delete process.env.NEXT_PUBLIC_TRUTHBOUNTY_DISPUTE_ADDRESS;
+  delete process.env.NEXT_PUBLIC_TRUTHBOUNTY_STAKING_TOKEN_ADDRESS;
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  allowanceValue = 100n * 10n ** 18n;
+  openChallengeValue = false;
+  readStore = createReadStore();
+  pinEnv();
+  installMocks();
+});
+
+afterEach(() => {
+  clearEnv();
+});
+
+async function renderReady(
+  config: Parameters<typeof useDisputeSubmission>[0] = { claimId: '123', chainId: CHAIN }
+) {
+  const rendered = renderHook(() => useDisputeSubmission(config));
+  await waitFor(() => {
+    expect(rendered.result.current.challengeWindow?.isOpen).toBe(true);
+  });
+  return rendered;
+}
+
+const REASON = 'the verification signature is invalid';
 
 describe('useDisputeSubmission', () => {
-  const mockContext: DisputeContext = {
-    provisionalOutcome: {
-      claimId: 'claim-123',
-      decision: 'VERIFIED',
-      votesFor: 7,
-      votesAgainst: 3,
-      totalStake: '5000000000000000000',
-      outcomeAt: new Date().toISOString(),
-      outcomeBlock: 12345600,
-      isProvisional: true,
-      isFinalized: false,
-    },
-    deadline: {
-      claimId: 'claim-123',
-      windowStartTime: new Date(Date.now() - 3600000).toISOString(),
-      windowEndTime: new Date(Date.now() + 82800000).toISOString(),
-      timeRemaining: 82800,
-      windowEndBlock: 12387000,
-      currentBlock: 12345678,
-      blocksRemaining: 41322,
-      isWindowOpen: true,
-      isWindowClosed: false,
-      hasActiveDispute: false,
-    },
-    bond: {
-      claimId: 'claim-123',
-      bondAmount: '1000000000000000000', // 1 ETH
-      slashAmount: '100000000000000000', // 0.1 ETH
-      slashPercentage: 10,
-      potentialReward: '1500000000000000000', // 1.5 ETH
-      rewardMultiplier: 1.5,
-    },
-    walletPosition: {
-      claimId: 'claim-123',
-      userAddress: '0x1234567890123456789012345678901234567890',
-      canChallenge: true,
-      hasParticipatedInFirstRound: false,
-      hasOpenedDispute: false,
-      currentBalance: '5000000000000000000', // 5 ETH
-      hasSufficientBalance: true,
-      balanceAfterBond: '4000000000000000000', // 4 ETH
-    },
-    isEligible: true,
-  };
+  it('fails closed with PROTOCOL_DISABLED when the artifact is not pinned', async () => {
+    clearEnv();
+    const { result } = renderHook(() =>
+      useDisputeSubmission({ claimId: '123', chainId: CHAIN })
+    );
+    await waitFor(() => expect(result.current.artifact.isDeployed).toBe(false));
 
-  const mockPayload: DisputeSubmissionPayload = {
-    claimId: 'claim-123',
-    reason: 'The verification process was flawed and biased.',
-    bondAmount: '1000000000000000000', // 1 ETH
-    userAddress: '0x1234567890123456789012345678901234567890',
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    mockUseAccount.mockReturnValue({
-      address: '0x1234567890123456789012345678901234567890',
-      isConnected: true,
-    } as any);
-
-    mockUseChainId.mockReturnValue(10); // Optimism mainnet
-  });
-
-  describe('Validation', () => {
-    it('should validate successfully when all conditions met', () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-
-      expect(validation.isValid).toBe(true);
-      expect(validation.errors).toHaveLength(0);
-      expect(validation.checks.windowOpen).toBe(true);
-      expect(validation.checks.noActiveDispute).toBe(true);
-      expect(validation.checks.walletConnected).toBe(true);
-      expect(validation.checks.correctChain).toBe(true);
-      expect(validation.checks.sufficientBalance).toBe(true);
-      expect(validation.checks.bondAmountValid).toBe(true);
-      expect(validation.checks.reasonProvided).toBe(true);
-    });
-
-    it('should reject when dispute window closed', () => {
-      const closedContext = {
-        ...mockContext,
-        deadline: {
-          ...mockContext.deadline,
-          isWindowOpen: false,
-          isWindowClosed: true,
-          timeRemaining: 0,
-        },
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(closedContext, mockPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain(
-        'Dispute window has closed or has not opened yet'
-      );
-      expect(validation.checks.windowOpen).toBe(false);
-    });
-
-    it('should reject when dispute already opened', () => {
-      const disputedContext = {
-        ...mockContext,
-        deadline: {
-          ...mockContext.deadline,
-          hasActiveDispute: true,
-        },
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(disputedContext, mockPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain(
-        'A dispute has already been opened for this claim'
-      );
-      expect(validation.checks.noActiveDispute).toBe(false);
-    });
-
-    it('should reject when wallet not connected', () => {
-      mockUseAccount.mockReturnValue({
-        address: undefined,
-        isConnected: false,
-      } as any);
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Wallet not connected');
-      expect(validation.checks.walletConnected).toBe(false);
-    });
-
-    it('should reject on wrong network', () => {
-      mockUseChainId.mockReturnValue(1); // Ethereum mainnet
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors.some((e) => e.includes('Wrong network'))).toBe(true);
-      expect(validation.checks.correctChain).toBe(false);
-    });
-
-    it('should reject insufficient balance', () => {
-      const poorContext = {
-        ...mockContext,
-        walletPosition: {
-          ...mockContext.walletPosition,
-          currentBalance: '500000000000000000', // 0.5 ETH (need 1 ETH)
-          hasSufficientBalance: false,
-        },
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(poorContext, mockPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Insufficient balance for challenge bond');
-      expect(validation.checks.sufficientBalance).toBe(false);
-    });
-
-    it('should reject when bond amount does not match required', () => {
-      const wrongBondPayload = {
-        ...mockPayload,
-        bondAmount: '500000000000000000', // 0.5 ETH instead of 1 ETH
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, wrongBondPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors.some((e) => e.includes('Bond amount must be exactly'))).toBe(
-        true
-      );
-      expect(validation.checks.bondAmountValid).toBe(false);
-    });
-
-    it('should reject when reason is empty', () => {
-      const noReasonPayload = {
-        ...mockPayload,
-        reason: '',
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, noReasonPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Dispute reason is required');
-      expect(validation.checks.reasonProvided).toBe(false);
-    });
-
-    it('should warn when reason is too short', () => {
-      const shortReasonPayload = {
-        ...mockPayload,
-        reason: 'Bad',
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, shortReasonPayload);
-
-      expect(validation.warnings.length).toBeGreaterThan(0);
-      expect(validation.warnings.some((w) => w.includes('more descriptive'))).toBe(true);
-    });
-
-    it('should warn when user participated in first round', () => {
-      const participatedContext = {
-        ...mockContext,
-        walletPosition: {
-          ...mockContext.walletPosition,
-          hasParticipatedInFirstRound: true,
-        },
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(
-        participatedContext,
-        mockPayload
-      );
-
-      expect(validation.warnings.length).toBeGreaterThan(0);
-      expect(
-        validation.warnings.some((w) => w.includes('participated in first-round'))
-      ).toBe(true);
-    });
-
-    it('should handle invalid bond amount format', () => {
-      const invalidBondPayload = {
-        ...mockPayload,
-        bondAmount: 'not-a-number',
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const validation = result.current.validateDispute(mockContext, invalidBondPayload);
-
-      expect(validation.isValid).toBe(false);
-      expect(validation.errors.some((e) => e.includes('Invalid'))).toBe(true);
-    });
-  });
-
-  describe('Simulation', () => {
-    it('should simulate dispute successfully', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      const simulation = await result.current.simulateDispute(mockContext, mockPayload);
-
-      expect(simulation.success).toBe(true);
-      expect(simulation.gasEstimate).toBe('200000');
-      expect(simulation.projectedState).toBeDefined();
-      expect(simulation.projectedState?.disputeId).toBeDefined();
-      expect(simulation.projectedState?.bondLocked).toBe('1000000000000000000');
-      expect(simulation.projectedState?.newStatus).toBe('DISPUTED');
-      expect(simulation.data).toBeDefined();
-      expect(simulation.data?.from).toBe('0x1234567890123456789012345678901234567890');
-      expect(simulation.data?.to).toBe('0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E');
-      expect(simulation.data?.value).toBe('1000000000000000000');
-    });
-
-    it('should fail simulation with validation errors', async () => {
-      const invalidContext = {
-        ...mockContext,
-        deadline: {
-          ...mockContext.deadline,
-          isWindowOpen: false,
-          isWindowClosed: true,
-        },
-      };
-
-      const { result } = renderHook(() => useDisputeSubmission());
-      const simulation = await result.current.simulateDispute(
-        invalidContext,
-        mockPayload
-      );
-
-      expect(simulation.success).toBe(false);
-      expect(simulation.error).toBeDefined();
-      expect(simulation.error).toContain('Dispute window');
-    });
-
-    it('should set isSimulating state during simulation', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      expect(result.current.isSimulating).toBe(false);
-
-      const simulationPromise = result.current.simulateDispute(mockContext, mockPayload);
-
-      // Note: In real async scenario, isSimulating would be true during execution
-      // For this test, we just verify the final state
-      await simulationPromise;
-
-      expect(result.current.isSimulating).toBe(false);
-    });
-
-    it('should generate predicted dispute ID', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      const simulation = await result.current.simulateDispute(mockContext, mockPayload);
-
-      expect(simulation.projectedState?.disputeId).toMatch(/^dispute-/);
-      expect(simulation.projectedState?.disputeId).toContain('claim-123');
-    });
-
-    it('should encode calldata', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      const simulation = await result.current.simulateDispute(mockContext, mockPayload);
-
-      expect(simulation.data?.calldata).toBeDefined();
-      expect(simulation.data?.calldata).toMatch(/^0x9a8a0592/); // OPEN_DISPUTE_SELECTOR
-    });
-  });
-
-  describe('Submission', () => {
-    it('should throw error requiring wallet integration', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
+    await act(async () => {
       await expect(
-        result.current.submitDispute(mockContext, mockPayload)
-      ).rejects.toThrow('Dispute submission requires wallet writeContract integration');
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'PROTOCOL_DISABLED' });
     });
+    expect(result.current.phase).toBe('error');
+  });
 
-    it('should validate before submission', async () => {
-      const invalidContext = {
-        ...mockContext,
-        deadline: {
-          ...mockContext.deadline,
-          isWindowOpen: false,
-        },
-      };
+  it('rejects UNCONNECTED wallets', async () => {
+    mockedUseAccount.mockReturnValue({ address: undefined, isConnected: false });
+    const { result } = await renderReady();
 
-      const { result } = renderHook(() => useDisputeSubmission());
-
+    await act(async () => {
       await expect(
-        result.current.submitDispute(invalidContext, mockPayload)
-      ).rejects.toThrow();
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'UNCONNECTED' });
+    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects a WRONG_NETWORK submission', async () => {
+    mockedUseChainId.mockReturnValue(1);
+    const { result } = await renderReady();
+
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'WRONG_NETWORK' });
+    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects an INVALID_CLAIM id', async () => {
+    const { result } = renderHook(() =>
+      useDisputeSubmission({ claimId: 'not-a-claim', chainId: CHAIN })
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'INVALID_CLAIM' });
+    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
+  });
+
+  it('prevents a duplicate CHALLENGE_EXISTS submission', async () => {
+    openChallengeValue = true;
+    const { result } = renderHook(() =>
+      useDisputeSubmission({ claimId: '123', chainId: CHAIN })
+    );
+    await waitFor(() => {
+      expect(result.current.challengeWindow?.hasOpenChallenge).toBe(true);
     });
 
-    it('should simulate before submission', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      // Since submission throws, we can't test full flow
-      // But we can verify validation is called
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-      expect(validation.isValid).toBe(true);
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'CHALLENGE_EXISTS' });
     });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
   });
 
-  describe('State management', () => {
-    it('should track error state', async () => {
-      const invalidContext = {
-        ...mockContext,
-        deadline: {
-          ...mockContext.deadline,
-          isWindowOpen: false,
-        },
-      };
+  it('rejects an INVALID_REASON before spending gas', async () => {
+    const { result } = await renderReady();
 
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      await result.current.simulateDispute(invalidContext, mockPayload);
-
-      expect(result.current.error).toBeDefined();
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: 'bad' })
+      ).rejects.toMatchObject({ code: 'INVALID_REASON' });
     });
-
-    it('should clear error on successful simulation', async () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      await result.current.simulateDispute(mockContext, mockPayload);
-
-      expect(result.current.error).toBeNull();
-    });
-
-    it('should expose artifact version', () => {
-      const { result } = renderHook(() => useDisputeSubmission());
-
-      expect(result.current.artifactVersion).toBe('v2.1.0');
-    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
   });
 
-  describe('Configuration', () => {
-    it('should accept custom contract address', () => {
-      const customAddress = '0xCustomAddress000000000000000000000000000';
-      const { result } = renderHook(() =>
-        useDisputeSubmission({ contractAddress: customAddress })
-      );
+  it('rejects an INSUFFICIENT_BALANCE submission', async () => {
+    readStore.balanceOf = () => ({ data: 1n, isLoading: false, refetch: readRefetch });
+    const { result } = await renderReady();
 
-      // Validation will use custom address
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-      expect(validation).toBeDefined();
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'INSUFFICIENT_BALANCE' });
+    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
+  });
+
+  it('runs the full submission flow to confirmed', async () => {
+    const { result } = await renderReady();
+
+    let outcome: Awaited<ReturnType<typeof result.current.submitDispute>>;
+    await act(async () => {
+      outcome = await result.current.submitDispute({ reason: REASON });
     });
 
-    it('should accept custom expected chain ID', () => {
-      mockUseChainId.mockReturnValue(11155420); // Optimism Sepolia
+    expect(outcome!.phase).toBe('confirmed');
+    expect(result.current.lastTxHash).toBe(TX_HASH);
+    expect(result.current.reconciliation?.status).toBe('confirmed');
 
-      const { result } = renderHook(() =>
-        useDisputeSubmission({ expectedChainId: 11155420 })
-      );
+    // No approval needed when allowance already covers the bond.
+    expect(mockWriteContractAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'openChallenge' })
+    );
+    expect(mockWriteContractAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'approve' })
+    );
+    expect(mockSimulateContract).toHaveBeenCalled();
+    expect(mockGetTransactionReceipt).toHaveBeenCalledWith({ hash: TX_HASH });
+  });
 
-      const validation = result.current.validateDispute(mockContext, mockPayload);
-      expect(validation.checks.correctChain).toBe(true);
+  it('approves max allowance first when the allowance is insufficient', async () => {
+    allowanceValue = 0n;
+    const { result } = await renderReady();
+
+    await act(async () => {
+      await result.current.submitDispute({ reason: REASON });
     });
-  });
-});
 
-describe('canSubmitDispute utility', () => {
-  it('should return true for valid validation', () => {
-    const validation: DisputeValidation = {
-      isValid: true,
-      errors: [],
-      warnings: [],
-      checks: {} as any,
-    };
-
-    expect(canSubmitDispute(validation)).toBe(true);
+    const calls = mockWriteContractAsync.mock.calls.map(
+      (call: [{ functionName: string }]) => call[0].functionName
+    );
+    expect(calls).toEqual(['approve', 'openChallenge']);
+    expect(mockWriteContractAsync.mock.calls[0][0].args[1]).toBe(MAX_UINT256);
+    expect(result.current.reconciliation?.status).toBe('confirmed');
   });
 
-  it('should return false for invalid validation', () => {
-    const validation: DisputeValidation = {
-      isValid: false,
-      errors: ['Window closed'],
-      warnings: [],
-      checks: {} as any,
-    };
+  it('fails with APPROVAL_REJECTED when the wallet rejects approve', async () => {
+    allowanceValue = 0n;
+    mockWriteContractAsync.mockImplementation(({ functionName }: { functionName: string }) => {
+      if (functionName === 'approve') return Promise.reject(new Error('user rejected'));
+      return Promise.resolve(TX_HASH);
+    });
+    const { result } = await renderReady();
 
-    expect(canSubmitDispute(validation)).toBe(false);
-  });
-});
-
-describe('getPrimaryError utility', () => {
-  it('should return first error', () => {
-    const validation: DisputeValidation = {
-      isValid: false,
-      errors: ['Window closed', 'Insufficient balance'],
-      warnings: [],
-      checks: {} as any,
-    };
-
-    expect(getPrimaryError(validation)).toBe('Window closed');
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'APPROVAL_REJECTED' });
+    });
+    expect(result.current.phase).toBe('error');
   });
 
-  it('should return null when no errors', () => {
-    const validation: DisputeValidation = {
-      isValid: true,
-      errors: [],
-      warnings: [],
-      checks: {} as any,
-    };
+  it('surfaces SIMULATION_REVERTED when eth_call fails', async () => {
+    mockSimulateContract.mockRejectedValue(new Error('Challenge window closed'));
+    const { result } = await renderReady();
 
-    expect(getPrimaryError(validation)).toBeNull();
-  });
-});
-
-describe('formatBondAmount utility', () => {
-  it('should format 1 ETH correctly', () => {
-    expect(formatBondAmount('1000000000000000000')).toBe('1.0000');
+    await act(async () => {
+      await expect(
+        result.current.submitDispute({ reason: REASON })
+      ).rejects.toMatchObject({ code: 'SIMULATION_REVERTED' });
+    });
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
   });
 
-  it('should format 0.5 ETH correctly', () => {
-    expect(formatBondAmount('500000000000000000')).toBe('0.5000');
-  });
+  it('returns rejected when the receipt is a revert', async () => {
+    mockGetTransactionReceipt.mockResolvedValue({
+      transactionHash: TX_HASH,
+      status: '0x0',
+      blockNumber: 999n,
+    });
+    const { result } = await renderReady();
 
-  it('should format 0.1234 ETH correctly', () => {
-    expect(formatBondAmount('123400000000000000')).toBe('0.1234');
-  });
+    let outcome: Awaited<ReturnType<typeof result.current.submitDispute>>;
+    await act(async () => {
+      outcome = await result.current.submitDispute({ reason: REASON });
+    });
 
-  it('should handle invalid input', () => {
-    expect(formatBondAmount('invalid')).toBe('0.0000');
-  });
-
-  it('should handle zero', () => {
-    expect(formatBondAmount('0')).toBe('0.0000');
+    expect(outcome!.phase).toBe('rejected');
+    expect(outcome!.reconciliation?.status).toBe('rejected');
+    expect(result.current.phase).toBe('rejected');
   });
 });

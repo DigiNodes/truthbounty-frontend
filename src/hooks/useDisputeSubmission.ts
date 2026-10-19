@@ -1,429 +1,569 @@
 /**
- * Hook for encoding and submitting dispute opening transactions
- * Handles challenge submission with bond lock, validation, and simulation
+ * V2-FE-014 — Challenge / dispute opening hook (useDisputeSubmission).
+ *
+ * Orchestrates the full canonical challenge flow on Optimism/EVM:
+ *
+ *   1. validate   — connection, chain, deployment release, challenge window,
+ *                   deadline, duplicate-prevention (hasOpenChallenge)
+ *   2. allowance  — read ERC-20 allowance; approve (max uint256) when short
+ *   3. simulating — eth_call simulation via the public client
+ *   4. confirming — write `openChallenge` and await the receipt
+ *   5. reconciling— read effective on-chain challenge state and reconcile it
+ *                   with the confirmed receipt
+ *
+ * The bond is pulled by the contract via `transferFrom`, so it requires an
+ * allowance — it is never attached as payable value.
+ *
+ * The hook fails closed: when the dispute artifact is not pinned for the active
+ * chain (`getDisputeArtifact(...).isDeployed === false`), every submission path
+ * returns `PROTOCOL_DISABLED` and no calldata is produced.
  */
 
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useAccount, useChainId } from 'wagmi';
-import { encodeFunctionData } from 'viem';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { maxUint256 } from 'viem';
 import {
-  DisputeContext,
-  DisputeSubmissionPayload,
-  DisputeTransaction,
-  DisputeSimulationResult,
-  DisputeValidation,
-  DisputeSubmissionStatus,
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useReadContract,
+  useWriteContract,
+} from 'wagmi';
+import {
+  DisputeArtifact,
+  disputeAbi,
+  erc20Abi,
+  getDisputeArtifact,
+} from '@/config/protocol/dispute-artifact';
+import {
+  ChallengeWindow,
+  DisputeReconciliation,
+  DisputeSubmissionError,
+  DisputeSubmissionPhase,
+  EffectiveChallengeState,
 } from '@/app/types/dispute';
 import {
-  getContractAbi,
-  getContractAddress,
-  getProtocolVersion,
-} from '@/lib/contracts/registry';
+  buildChallengeWindow,
+  encodeOpenChallenge,
+  nowInSeconds,
+  parseClaimIdToBigInt,
+  validateDisputeOpening,
+} from '@/lib/dispute/encoding';
+import {
+  ReceiptLike,
+  reconcileChallengeState,
+} from '@/app/lib/dispute-reconcile';
 
-interface UseDisputeSubmissionConfig {
-  contractAddress?: string;
-  abi?: readonly unknown[];
-  expectedChainId?: number;
-  artifactVersion?: string;
+export interface UseDisputeSubmissionConfig {
+  /** On-chain claim id (uint256), or a "claim-<n>" style id. */
+  claimId: string;
+  /** Expected chain id; defaults to the active wallet chain. */
+  chainId?: number;
+  /** Poll interval for refreshing protocol state (ms). Default 15s. */
+  pollInterval?: number;
+  /** When false, protocol reads are skipped (e.g. the modal is closed). */
+  enabled?: boolean;
 }
 
-interface DisputeSubmissionResult {
-  validateDispute: (
-    context: DisputeContext,
-    payload: DisputeSubmissionPayload
-  ) => DisputeValidation;
-
-  simulateDispute: (
-    context: DisputeContext,
-    payload: DisputeSubmissionPayload
-  ) => Promise<DisputeSimulationResult>;
-
-  submitDispute: (
-    context: DisputeContext,
-    payload: DisputeSubmissionPayload
-  ) => Promise<DisputeTransaction>;
-
-  isSimulating: boolean;
-  isSubmitting: boolean;
-  error: string | null;
-  lastTransaction: DisputeTransaction | null;
-  artifactVersion: string;
+export interface SubmitDisputeInput {
+  /** Human-readable reason for challenging the claim. */
+  reason: string;
 }
 
-const OPTIMISM_MAINNET_CHAIN_ID = 10;
-const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
-const EXPECTED_ARTIFACT_VERSION = 'v2.1.0';
+export interface DisputeSubmissionOutcome {
+  transactionHash: string;
+  phase: DisputeSubmissionPhase;
+  reconciliation: DisputeReconciliation | null;
+}
 
-// Function selector for openDispute(bytes32 claimId, string reason, uint256 bond)
-const OPEN_DISPUTE_SELECTOR = '0x9a8a0592';
+export interface UseDisputeSubmissionResult {
+  artifact: DisputeArtifact;
+  phase: DisputeSubmissionPhase;
+  error: DisputeSubmissionError | null;
+  challengeWindow: ChallengeWindow | null;
+  effectiveChallenge: EffectiveChallengeState | null;
+  allowance: bigint | null;
+  balance: bigint | null;
+  reconciliation: DisputeReconciliation | null;
+  lastTxHash: string | null;
+  isLoading: boolean;
+  isConnected: boolean;
+  isWrongNetwork: boolean;
+  submitDispute: (input: SubmitDisputeInput) => Promise<DisputeSubmissionOutcome>;
+  refreshState: () => Promise<void>;
+}
 
-/**
- * Hook for encoding and submitting dispute opening transactions
- */
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+interface PollableReceipt {
+  status: '0x1' | '0x0' | string;
+  transactionHash: string;
+  blockNumber?: bigint;
+  [key: string]: unknown;
+}
+
+interface PollableClient {
+  getTransactionReceipt(args: {
+    hash: `0x${string}`;
+  }): Promise<PollableReceipt | null>;
+  simulateContract?(args: unknown): Promise<unknown>;
+}
+
+const DEFAULT_RECEIPT_TIMEOUT_MS = 300_000;
+
+async function waitForReceipt(
+  txHash: `0x${string}`,
+  client: PollableClient,
+  pollInterval: number,
+  timeoutMs = DEFAULT_RECEIPT_TIMEOUT_MS
+): Promise<PollableReceipt | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const receipt = await client.getTransactionReceipt({ hash: txHash });
+      if (receipt) return receipt;
+    } catch {
+      // Not mined yet — keep polling.
+    }
+    await sleep(pollInterval);
+  }
+  return null;
+}
+
+function extractRevertReason(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const candidate = err as { shortMessage?: unknown; message?: unknown };
+    if (typeof candidate.shortMessage === 'string') return candidate.shortMessage;
+    if (typeof candidate.message === 'string') return candidate.message;
+  }
+  return 'Transaction failed';
+}
+
+function asDisputeError(
+  code: DisputeSubmissionError['code'],
+  message: string
+): DisputeSubmissionError {
+  return { code, message };
+}
+
 export function useDisputeSubmission(
-  config: UseDisputeSubmissionConfig = {}
-): DisputeSubmissionResult {
-  const contractAddress =
-    config.contractAddress ?? getContractAddress('TruthBountyWeighted');
-  const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
-  const expectedChainId = config.expectedChainId ?? OPTIMISM_MAINNET_CHAIN_ID;
-  const artifactVersion = config.artifactVersion ?? getProtocolVersion();
+  config: UseDisputeSubmissionConfig
+): UseDisputeSubmissionResult {
+  const {
+    claimId,
+    chainId,
+    pollInterval = 15_000,
+    enabled = true,
+  } = config;
 
-  const { address: userAddress, isConnected } = useAccount();
-  const currentChainId = useChainId();
+  const { address, isConnected } = useAccount();
+  const activeChainId = useChainId();
+  const publicClient = usePublicClient() as PollableClient | undefined;
+  const { writeContractAsync } = useWriteContract();
 
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastTransaction, setLastTransaction] = useState<DisputeTransaction | null>(
+  const expectedChainId = chainId ?? activeChainId;
+  const artifact = useMemo(
+    () => getDisputeArtifact(expectedChainId),
+    [expectedChainId]
+  );
+  const isDeployed = artifact.isDeployed;
+  /** Reads only run while enabled (modal open) and the artifact is pinned. */
+  const readsEnabled = enabled && isDeployed;
+
+  const contractAddress = readsEnabled ? artifact.addresses.dispute : undefined;
+  const tokenAddress = readsEnabled
+    ? artifact.addresses.stakingToken
+    : undefined;
+
+  const claimIdBigInt = useMemo(
+    () => parseClaimIdToBigInt(claimId),
+    [claimId]
+  );
+
+  const [phase, setPhase] = useState<DisputeSubmissionPhase>('idle');
+  const [error, setError] = useState<DisputeSubmissionError | null>(null);
+  const [reconciliation, setReconciliation] =
+    useState<DisputeReconciliation | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [challengeWindow, setChallengeWindow] = useState<ChallengeWindow | null>(
     null
   );
+  const [effectiveChallenge, setEffectiveChallenge] =
+    useState<EffectiveChallengeState | null>(null);
 
-  /**
-   * Encode dispute opening call data
-   */
-  const encodeDisputeCall = useCallback(
-    (claimId: string, reason: string, bondAmount: string): string => {
-      // In production, this would use Viem to encode:
-      // const data = encodeFunctionData({
-      //   abi: contractAbi,
-      //   functionName: 'openDispute',
-      //   args: [claimId, reason, BigInt(bondAmount)]
-      // })
+  // -------------------------------------------------------------------------
+  // On-chain reads (fail closed when the artifact is not deployed)
+  // -------------------------------------------------------------------------
 
-      // Mock encoding for now
-      const selector = OPEN_DISPUTE_SELECTOR;
+  const bondRead = useReadContract({
+    address: contractAddress,
+    abi: disputeAbi,
+    functionName: 'getChallengeBond',
+    args: claimIdBigInt !== null ? [claimIdBigInt] : undefined,
+    query: { enabled: readsEnabled && claimIdBigInt !== null },
+  });
 
-      // Encode: claimId (bytes32) + reason (string) + bondAmount (uint256)
-      const encodedClaimId = claimId.replace(/[^0-9a-fA-F]/g, '').padStart(64, '0');
-      const encodedReason = Buffer.from(reason).toString('hex').padEnd(64, '0');
-      const encodedBond = BigInt(bondAmount).toString(16).padStart(64, '0');
+  const deadlineRead = useReadContract({
+    address: contractAddress,
+    abi: disputeAbi,
+    functionName: 'getChallengeDeadline',
+    args: claimIdBigInt !== null ? [claimIdBigInt] : undefined,
+    query: { enabled: readsEnabled && claimIdBigInt !== null },
+  });
 
-      return selector + encodedClaimId + encodedReason + encodedBond;
+  const hasOpenChallengeRead = useReadContract({
+    address: contractAddress,
+    abi: disputeAbi,
+    functionName: 'hasOpenChallenge',
+    args: claimIdBigInt !== null ? [claimIdBigInt] : undefined,
+    query: { enabled: readsEnabled && claimIdBigInt !== null },
+  });
+
+  const allowanceRead = useReadContract({
+    address: tokenAddress,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args:
+      address && contractAddress
+        ? [address as `0x${string}`, contractAddress]
+        : undefined,
+    query: {
+      enabled: readsEnabled && Boolean(address) && Boolean(contractAddress),
     },
-    []
-  );
+  });
 
-  /**
-   * Check if contract is paused (in production)
-   */
-  const checkContractPaused = useCallback(async (): Promise<boolean> => {
-    // In production, this would:
-    // const isPaused = await contract.paused()
-    // return isPaused
+  const balanceRead = useReadContract({
+    address: tokenAddress,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address as `0x${string}`] : undefined,
+    query: { enabled: readsEnabled && Boolean(address) },
+  });
 
-    // Mock implementation
-    return false;
-  }, []);
+  // Re-derive the challenge window whenever a canonical input changes. When
+  // the protocol is not deployed or reads are still loading, the window stays
+  // `null` so validation fails closed instead of guessing.
+  useEffect(() => {
+    if (
+      !readsEnabled ||
+      claimIdBigInt === null ||
+      bondRead.data === undefined ||
+      deadlineRead.data === undefined ||
+      hasOpenChallengeRead.data === undefined
+    ) {
+      setChallengeWindow(null);
+      return;
+    }
+    setChallengeWindow(
+      buildChallengeWindow({
+        claimId: claimIdBigInt,
+        challengeBond: bondRead.data as bigint,
+        challengeDeadline: deadlineRead.data as bigint,
+        hasOpenChallenge: Boolean(hasOpenChallengeRead.data),
+        nowSeconds: nowInSeconds(),
+      })
+    );
+  }, [
+    readsEnabled,
+    claimIdBigInt,
+    bondRead.data,
+    deadlineRead.data,
+    hasOpenChallengeRead.data,
+  ]);
 
-  /**
-   * Validate dispute submission
-   */
-  const validateDispute = useCallback(
-    (
-      context: DisputeContext,
-      payload: DisputeSubmissionPayload
-    ): DisputeValidation => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+  useEffect(() => {
+    if (!readsEnabled || claimIdBigInt === null) {
+      setEffectiveChallenge(null);
+      return;
+    }
+    setEffectiveChallenge({
+      claimId: claimIdBigInt.toString(),
+      challenger: null,
+      exists: Boolean(hasOpenChallengeRead.data),
+      bond: (bondRead.data as bigint | undefined) ?? 0n,
+    });
+  }, [readsEnabled, claimIdBigInt, hasOpenChallengeRead.data, bondRead.data]);
 
-      // Check dispute window open
-      const windowOpen = context.deadline.isWindowOpen && !context.deadline.isWindowClosed;
-      if (!windowOpen) {
-        errors.push('Dispute window has closed or has not opened yet');
-      }
+  const refreshState = useCallback(async () => {
+    await Promise.all([
+      bondRead.refetch(),
+      deadlineRead.refetch(),
+      hasOpenChallengeRead.refetch(),
+      allowanceRead.refetch(),
+      balanceRead.refetch(),
+    ]);
+  }, [
+    bondRead.refetch,
+    deadlineRead.refetch,
+    hasOpenChallengeRead.refetch,
+    allowanceRead.refetch,
+    balanceRead.refetch,
+  ]);
 
-      // Check no active dispute
-      const noActiveDispute = !context.deadline.hasActiveDispute;
-      if (!noActiveDispute) {
-        errors.push('A dispute has already been opened for this claim');
-      }
+  // -------------------------------------------------------------------------
+  // Poll protocol state while connected & deployed
+  // -------------------------------------------------------------------------
 
-      // Check wallet connected
-      const walletConnected = isConnected && !!userAddress;
-      if (!walletConnected) {
-        errors.push('Wallet not connected');
-      }
+  useEffect(() => {
+    if (!isConnected || !readsEnabled || claimIdBigInt === null) return;
+    void refreshState();
+    if (pollInterval <= 0) return;
+    const interval = setInterval(() => void refreshState(), pollInterval);
+    return () => clearInterval(interval);
+  }, [isConnected, readsEnabled, claimIdBigInt, refreshState, pollInterval]);
 
-      // Check correct chain
-      const correctChain = currentChainId === expectedChainId;
-      if (!correctChain) {
-        errors.push(
-          `Wrong network. Expected chain ${expectedChainId}, got ${currentChainId}`
-        );
-      }
+  // -------------------------------------------------------------------------
+  // Submission state machine
+  // -------------------------------------------------------------------------
 
-      // Check contract address valid
-      const contractAddressValid =
-        contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null;
-      if (!contractAddressValid) {
-        errors.push('Invalid contract address format');
-      }
+  const submitDispute = useCallback(
+    async (input: SubmitDisputeInput): Promise<DisputeSubmissionOutcome> => {
+      setError(null);
+      setReconciliation(null);
 
-      // Check artifact version (in production, query from contract)
-      const artifactVersionValid = true; // In production: contract.version() === artifactVersion
-      if (!artifactVersionValid) {
-        errors.push(`Contract version mismatch. Expected ${artifactVersion}`);
-      }
-
-      // Check sufficient balance
-      let sufficientBalance = false;
-      try {
-        const bondBigInt = BigInt(payload.bondAmount);
-        const balanceBigInt = BigInt(context.walletPosition.currentBalance);
-        sufficientBalance = balanceBigInt >= bondBigInt;
-        if (!sufficientBalance) {
-          errors.push('Insufficient balance for challenge bond');
-        }
-      } catch (err) {
-        errors.push('Invalid bond amount format');
-      }
-
-      // Validate bond amount matches required bond
-      let bondAmountValid = false;
-      try {
-        const payloadBond = BigInt(payload.bondAmount);
-        const requiredBond = BigInt(context.bond.bondAmount);
-        bondAmountValid = payloadBond === requiredBond;
-        if (!bondAmountValid) {
-          errors.push(
-            `Bond amount must be exactly ${context.bond.bondAmount} wei`
-          );
-        }
-      } catch (err) {
-        errors.push('Invalid bond amount');
-      }
-
-      // Check reason provided
-      const reasonProvided = Boolean(payload.reason && payload.reason.trim().length > 0);
-      if (!reasonProvided) {
-        errors.push('Dispute reason is required');
-      } else if (payload.reason.length < 10) {
-        warnings.push('Dispute reason should be more descriptive (at least 10 characters)');
-      }
-
-      // Check not participated in first round (some protocols disallow)
-      const notParticipatedInFirstRound = !context.walletPosition.hasParticipatedInFirstRound;
-      // Note: This check is protocol-specific. Some protocols allow, others don't.
-      // For now, we only warn if participated
-      if (!notParticipatedInFirstRound) {
-        warnings.push(
-          'You participated in first-round verification. Some protocols may disallow disputes from verifiers.'
-        );
-      }
-
-      // Check contract not paused (will be checked async in simulation)
-      const contractNotPaused = true; // Checked in simulateDispute
-
-      const validation: DisputeValidation = {
-        isValid: errors.length === 0,
-        errors,
-        warnings,
-        checks: {
-          windowOpen,
-          noActiveDispute,
-          walletConnected,
-          correctChain,
-          sufficientBalance,
-          notParticipatedInFirstRound,
-          bondAmountValid,
-          reasonProvided,
-          contractAddressValid,
-          artifactVersionValid,
-          contractNotPaused,
-        },
+      const fail = (
+        code: DisputeSubmissionError['code'],
+        message: string
+      ): never => {
+        const err = asDisputeError(code, message);
+        setPhase('error');
+        setError(err);
+        throw err;
       };
 
-      return validation;
+      if (!isConnected || !address) {
+        return fail('UNCONNECTED', 'Wallet not connected.');
+      }
+
+      if (expectedChainId !== activeChainId) {
+        return fail(
+          'WRONG_NETWORK',
+          `Wrong network. Expected chain ${expectedChainId}, got ${activeChainId}.`
+        );
+      }
+
+      if (!isDeployed) {
+        const reason = artifact.disabledReasons[0] ?? 'deployment not pinned';
+        return fail(
+          'PROTOCOL_DISABLED',
+          `Challenge protocol is not available: ${reason}.`
+        );
+      }
+
+      if (claimIdBigInt === null) {
+        return fail(
+          'INVALID_CLAIM',
+          `Claim id "${claimId}" is not a valid on-chain claim id.`
+        );
+      }
+
+      if (!contractAddress || !tokenAddress) {
+        return fail(
+          'PROTOCOL_DISABLED',
+          'Challenge protocol addresses are not pinned for this chain.'
+        );
+      }
+
+      setPhase('validating');
+
+      const validation = validateDisputeOpening({
+        reason: input.reason,
+        challengeWindow,
+        balance: (balanceRead.data as bigint | undefined) ?? null,
+        nowSeconds: nowInSeconds(),
+      });
+      if (!validation.ok) {
+        setPhase('error');
+        setError(validation.error);
+        throw validation.error;
+      }
+
+      const bond = challengeWindow!.bond;
+      const encoded = encodeOpenChallenge({
+        claimId: claimIdBigInt,
+        reason: input.reason,
+      });
+
+      // ------------------------------------------------------------------
+      // Allowance + approval
+      // ------------------------------------------------------------------
+      setPhase('allowance');
+      let currentAllowance = allowanceRead.data as bigint | undefined;
+      if (currentAllowance === undefined || currentAllowance < bond) {
+        setPhase('approving');
+        try {
+          await writeContractAsync({
+            address: tokenAddress,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [contractAddress, maxUint256],
+          });
+        } catch (err) {
+          return fail(
+            'APPROVAL_REJECTED',
+            `Bond approval was rejected: ${extractRevertReason(err)}`
+          );
+        }
+        await allowanceRead.refetch();
+        currentAllowance = allowanceRead.data as bigint | undefined;
+        if (currentAllowance === undefined || currentAllowance < bond) {
+          return fail(
+            'APPROVAL_REJECTED',
+            'Bond allowance did not update after approval.'
+          );
+        }
+      }
+
+      // ------------------------------------------------------------------
+      // Simulation (eth_call) — catch reverts before spending gas
+      // ------------------------------------------------------------------
+      setPhase('simulating');
+      if (!publicClient?.simulateContract) {
+        return fail(
+          'SIMULATION_REVERTED',
+          'Public client is unavailable for simulation.'
+        );
+      }
+      try {
+        await publicClient.simulateContract({
+          address: contractAddress,
+          abi: disputeAbi,
+          functionName: 'openChallenge',
+          args: encoded.args,
+          account: address as `0x${string}`,
+        });
+      } catch (err) {
+        return fail(
+          'SIMULATION_REVERTED',
+          `Simulation reverted: ${extractRevertReason(err)}`
+        );
+      }
+
+      // ------------------------------------------------------------------
+      // Confirmation
+      // ------------------------------------------------------------------
+      setPhase('confirming');
+      let txHash: `0x${string}`;
+      try {
+        txHash = await writeContractAsync({
+          address: contractAddress,
+          abi: disputeAbi,
+          functionName: 'openChallenge',
+          args: encoded.args,
+        });
+      } catch (err) {
+        return fail(
+          'SUBMISSION_REJECTED',
+          `Challenge submission was rejected by the wallet: ${extractRevertReason(err)}`
+        );
+      }
+      setLastTxHash(txHash);
+
+      const receipt = await waitForReceipt(
+        txHash,
+        publicClient,
+        Math.min(pollInterval, 2_000)
+      );
+
+      if (!receipt || receipt.status === '0x0') {
+        setPhase('rejected');
+        const err = asDisputeError(
+          'SUBMISSION_REJECTED',
+          'The challenge transaction was reverted on-chain.'
+        );
+        setError(err);
+        const rejected = reconcileChallengeState({
+          chainId: activeChainId,
+          claimId: claimIdBigInt.toString(),
+          receipt: { transactionHash: txHash, status: receipt?.status ?? '0x0' },
+        });
+        setReconciliation(rejected);
+        return { transactionHash: txHash, phase: 'rejected', reconciliation: rejected };
+      }
+
+      // ------------------------------------------------------------------
+      // Reconcile the confirmed receipt with the effective on-chain state
+      // ------------------------------------------------------------------
+      await hasOpenChallengeRead.refetch();
+      setPhase('reconciling');
+
+      const receiptLike: ReceiptLike = {
+        transactionHash: txHash,
+        status: receipt.status,
+        chainId: activeChainId,
+      };
+      const result = reconcileChallengeState({
+        chainId: activeChainId,
+        claimId: claimIdBigInt.toString(),
+        receipt: receiptLike,
+        onChain: {
+          claimId: claimIdBigInt.toString(),
+          challenger: address as `0x${string}`,
+          exists: Boolean(hasOpenChallengeRead.data),
+          bond,
+        },
+        expectedBond: bond,
+      });
+
+      setReconciliation(result);
+      const resolvedPhase: DisputeSubmissionPhase =
+        result.status === 'confirmed'
+          ? 'confirmed'
+          : result.status === 'mismatch'
+            ? 'mismatch'
+            : 'stale';
+      setPhase(resolvedPhase);
+      return { transactionHash: txHash, phase: resolvedPhase, reconciliation: result };
     },
     [
+      address,
       isConnected,
-      userAddress,
-      currentChainId,
       expectedChainId,
+      activeChainId,
+      isDeployed,
+      artifact.disabledReasons,
+      claimId,
+      claimIdBigInt,
       contractAddress,
-      artifactVersion,
+      tokenAddress,
+      challengeWindow,
+      allowanceRead.data,
+      allowanceRead.refetch,
+      balanceRead.data,
+      hasOpenChallengeRead.data,
+      hasOpenChallengeRead.refetch,
+      publicClient,
+      writeContractAsync,
+      pollInterval,
     ]
   );
 
-  /**
-   * Simulate dispute opening transaction
-   */
-  const simulateDispute = useCallback(
-    async (
-      context: DisputeContext,
-      payload: DisputeSubmissionPayload
-    ): Promise<DisputeSimulationResult> => {
-      setIsSimulating(true);
-      setError(null);
+  const isWrongNetwork =
+    isConnected && typeof chainId === 'number' && chainId !== activeChainId;
 
-      try {
-        // Validate first
-        const validation = validateDispute(context, payload);
-        if (!validation.isValid) {
-          return {
-            success: false,
-            error: validation.errors.join('; '),
-          };
-        }
-
-        // Check if contract is paused
-        const isPaused = await checkContractPaused();
-        if (isPaused) {
-          return {
-            success: false,
-            error: 'Contract is paused. Disputes cannot be opened at this time.',
-          };
-        }
-
-        // Encode call data
-        const calldata = encodeDisputeCall(
-          payload.claimId,
-          payload.reason,
-          payload.bondAmount
-        );
-
-        // In production, this would:
-        // 1. Use Viem's simulateContract to test the transaction
-        // 2. Estimate gas with proper buffer (dispute opening is ~200k gas)
-        // 3. Validate the dispute will be accepted
-        // 4. Return projected dispute ID
-
-        // Mock simulation
-        const gasEstimate = '200000'; // Estimated gas for dispute opening
-
-        // Generate predicted dispute ID (in production, from contract event)
-        const predictedDisputeId = `dispute-${payload.claimId}-${Date.now()}`;
-
-        return {
-          success: true,
-          gasEstimate,
-          projectedState: {
-            disputeId: predictedDisputeId,
-            bondLocked: payload.bondAmount,
-            newStatus: 'DISPUTED',
-          },
-          data: {
-            from: userAddress as string,
-            to: contractAddress,
-            value: payload.bondAmount, // Bond sent as value
-            calldata,
-          },
-        };
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : 'Simulation failed';
-        setError(errorMsg);
-        return {
-          success: false,
-          error: errorMsg,
-        };
-      } finally {
-        setIsSimulating(false);
-      }
-    },
-    [
-      validateDispute,
-      checkContractPaused,
-      encodeDisputeCall,
-      userAddress,
-      contractAddress,
-    ]
-  );
-
-  /**
-   * Submit dispute opening transaction
-   */
-  const submitDispute = useCallback(
-    async (
-      context: DisputeContext,
-      payload: DisputeSubmissionPayload
-    ): Promise<DisputeTransaction> => {
-      setIsSubmitting(true);
-      setError(null);
-
-      try {
-        // Validate first
-        const validation = validateDispute(context, payload);
-        if (!validation.isValid) {
-          throw new Error(validation.errors.join('; '));
-        }
-
-        // Simulate to catch errors early
-        const simulation = await simulateDispute(context, payload);
-        if (!simulation.success) {
-          throw new Error(simulation.error || 'Simulation failed');
-        }
-
-        // In production, this would:
-        // 1. Call writeContract via Wagmi
-        // 2. Return transaction hash immediately
-        // 3. Transaction will be mined asynchronously
-        // 4. Bond will be locked on confirmation
-        //
-        // const hash = await writeContract({
-        //   address: contractAddress,
-        //   abi: contractAbi,
-        //   functionName: 'openDispute',
-        //   args: [payload.claimId, payload.reason, BigInt(payload.bondAmount)],
-        //   value: BigInt(payload.bondAmount),
-        //   chainId: expectedChainId,
-        // })
-
-        // Submission requires a wallet writeContract call; do not fabricate hashes.
-        throw new Error(
-          'Dispute submission requires wallet writeContract integration; no synthetic transaction hash is emitted.'
-        );
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : 'Submission failed';
-        setError(errorMsg);
-        throw err;
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [validateDispute, simulateDispute]
-  );
+  const isLoading =
+    bondRead.isLoading ||
+    deadlineRead.isLoading ||
+    hasOpenChallengeRead.isLoading ||
+    allowanceRead.isLoading ||
+    balanceRead.isLoading;
 
   return {
-    validateDispute,
-    simulateDispute,
-    submitDispute,
-    isSimulating,
-    isSubmitting,
+    artifact,
+    phase,
     error,
-    lastTransaction,
-    artifactVersion,
+    challengeWindow,
+    effectiveChallenge,
+    allowance: (allowanceRead.data as bigint | undefined) ?? null,
+    balance: (balanceRead.data as bigint | undefined) ?? null,
+    reconciliation,
+    lastTxHash,
+    isLoading,
+    isConnected,
+    isWrongNetwork,
+    submitDispute,
+    refreshState,
   };
-}
-
-/**
- * Utility: Check if dispute can be submitted
- */
-export function canSubmitDispute(validation: DisputeValidation): boolean {
-  return validation.isValid;
-}
-
-/**
- * Utility: Get primary error message from validation
- */
-export function getPrimaryError(validation: DisputeValidation): string | null {
-  if (validation.errors.length === 0) return null;
-  return validation.errors[0];
-}
-
-/**
- * Utility: Calculate bond in ETH (for display)
- */
-export function formatBondAmount(bondWei: string): string {
-  try {
-    const bondBigInt = BigInt(bondWei);
-    const ethValue = Number(bondBigInt) / 1e18;
-    return ethValue.toFixed(4);
-  } catch {
-    return '0.0000';
-  }
 }
