@@ -21,6 +21,14 @@ export const NEXT_PUBLIC_VARS = [
 
 export type PublicEnvVar = (typeof NEXT_PUBLIC_VARS)[number];
 
+// Identifier aliases so the strings above can be used as typed keys throughout
+// this module without magic string repetition.
+const NEXT_PUBLIC_CHAIN_ID = "NEXT_PUBLIC_CHAIN_ID" as const;
+const NEXT_PUBLIC_RPC_URL = "NEXT_PUBLIC_RPC_URL" as const;
+const NEXT_PUBLIC_API_BASE_URL = "NEXT_PUBLIC_API_BASE_URL" as const;
+const NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID" as const;
+const NEXT_PUBLIC_EXPLORER_BASE_URL = "NEXT_PUBLIC_EXPLORER_BASE_URL" as const;
+
 export interface Env {
   readonly target: AppTarget;
   readonly isProduction: boolean;
@@ -149,11 +157,7 @@ export function validateEnv(
   }
 
   const chainId = parseChainId("NEXT_PUBLIC_CHAIN_ID", resolved["NEXT_PUBLIC_CHAIN_ID"]);
-  const rpcUrl = parseUrl(
-    "NEXT_PUBLIC_RPC_URL",
-    resolved["NEXT_PUBLIC_RPC_URL"],
-    isProduction,
-  );
+  const rpcUrl = parseUrl("NEXT_PUBLIC_RPC_URL", resolved["NEXT_PUBLIC_RPC_URL"], isProduction);
   const apiBaseUrl = parseUrl(
     "NEXT_PUBLIC_API_BASE_URL",
     resolved["NEXT_PUBLIC_API_BASE_URL"],
@@ -194,16 +198,18 @@ export function loadEnv(): Env {
   return validateEnv();
 }
 
+export const env: Env = loadEnv();
+
 /**
- * Fail closed on invalid required configuration during production builds.
+ * Called at build time (next.config.ts) to fail the production build when
+ * required environment variables are missing or invalid.
  * Non-production targets keep their explicit local defaults, so this is a
  * no-op for development, preview, and test.
  */
 export function assertProductionEnv(
   source: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
 ): void {
-  if (resolveTarget(source) !== "production") return;
+  const target = resolveTarget(source);
+  if (target !== 'production') return;
   validateEnv(source);
 }
-
-export const env: Env = loadEnv();
