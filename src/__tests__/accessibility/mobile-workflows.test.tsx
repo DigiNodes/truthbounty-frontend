@@ -18,7 +18,7 @@ import {
   makeJsonResponse,
 } from '@/hooks/__tests__/claim-list-fixtures';
 
-import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
+import { ActiveClaimsTableContainer } from '@/components/features/ActiveClaimsTableContainer';
 import ClaimRewardsPanel from '@/components/features/ClaimRewardsPanel';
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
@@ -99,7 +99,7 @@ describe('Accessibility: mobile responsive workflow components', () => {
     });
     const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <ActiveClaimsTable />
+        <ActiveClaimsTableContainer />
       </QueryClientProvider>
     );
     await waitFor(() =>

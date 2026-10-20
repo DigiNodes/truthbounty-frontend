@@ -62,8 +62,8 @@ describe('useClaimsList', () => {
     expect(result.current.viewState).toBe('loading');
 
     await waitFor(() => expect(result.current.viewState).toBe('ready'));
-    expect(result.current.data?.items).toHaveLength(1);
-    expect(result.current.data?.pagination.total).toBe(1);
+    expect(result.current.envelope?.items).toHaveLength(1);
+    expect(result.current.envelope?.pagination.total).toBe(1);
   });
 
   it('reports empty for a validated but page-less projection', async () => {
@@ -133,14 +133,15 @@ describe('useClaimsList', () => {
     const fetchMock = jest.spyOn(global, 'fetch');
 
     const { result } = renderHook(
-      () => useClaimsList({ status: 'NOT_A_STATUS' as never }),
+      // Intentionally bypass the param type to prove unsupported params fail closed.
+      () => useClaimsList({ status: 'NOT_A_STATUS' } as never),
       { wrapper: createWrapper() }
     );
 
     // Invalid query shapes never reach the wire.
     expect(fetchMock).not.toHaveBeenCalled();
     // Invalid + no data surfaces as loading=false with no fabricated rows.
-    expect(result.current.data).toBeUndefined();
+    expect(result.current.envelope).toBeUndefined();
   });
 
   it('builds the query key from canonical params so pages stay cached separately', async () => {

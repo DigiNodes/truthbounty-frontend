@@ -163,12 +163,10 @@ export function ConfidenceMeter({
   }
 
   return (
-    <div
-      className={cn('space-y-2', className)}
-      role="region"
-      aria-label={label}
-      aria-describedby={descId}
-    >
+    // The accessible name lives on the <meter> itself; the wrapper stays a
+    // plain container so repeated meters never register as competing
+    // landmarks (axe `landmark-unique`).
+    <div className={cn('space-y-2', className)}>
       {isInvalid && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-3" role="alert" aria-live="assertive">
           <p className="text-sm text-destructive">Invalid confidence value: {validation.error}</p>

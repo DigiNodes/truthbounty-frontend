@@ -8,7 +8,7 @@
  * This is the single source of truth for claim list fetching in the UI.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { fetchClaimsList } from '@/app/api/claims.api';
@@ -29,7 +29,28 @@ const DEFAULTS = {
 
 export interface UseClaimsListParams {
   initialPage?: number;
+  /** Alias for `initialPage` — canonical 1-based page to start on. */
+  page?: number;
   pageSize?: number;
+  /** Projection age (ms) beyond which the view is reported stale. */
+  staleAfterMs?: number;
+}
+
+const SUPPORTED_PARAMS: ReadonlySet<string> = new Set([
+  'initialPage',
+  'page',
+  'pageSize',
+  'staleAfterMs',
+]);
+
+/**
+ * Map a query failure to the view state it must render. A stale projection is
+ * still renderable (flagged stale); everything else fails closed to `error`.
+ */
+export function classifyClaimsListError(error: unknown): ClaimsListViewState {
+  const code = (error as { code?: string } | null | undefined)?.code;
+  if (code === 'PROJECTION_STALE') return 'ready-stale';
+  return 'error';
 }
 
 export interface UseClaimsListResult {
@@ -64,11 +85,19 @@ function deriveViewState(
   isPending: boolean,
   isError: boolean,
   envelope: ClaimsListEnvelope | undefined,
+  error: ClaimsListError | null,
+  staleAfterMs: number,
 ): ClaimsListViewState {
   if (isPending && !envelope) return 'loading';
-  if (isError && !envelope) return 'error';
+  if (isError) return envelope ? 'ready-stale' : classifyClaimsListError(error);
   if (!envelope) return 'empty';
   if (envelope.projection.freshness === 'stale' || envelope.projection.freshness === 'degraded') {
+    return 'ready-stale';
+  }
+  // A projection generated longer ago than the freshness window is stale,
+  // even when the API did not mark it so.
+  const generatedMs = Date.parse(envelope.projection.generatedAt);
+  if (Number.isFinite(generatedMs) && Date.now() - generatedMs > staleAfterMs) {
     return 'ready-stale';
   }
   if (envelope.items.length === 0) return 'empty';
@@ -79,7 +108,12 @@ export function useClaimsList(params: UseClaimsListParams = {}): UseClaimsListRe
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ClaimStatus | undefined>(undefined);
   const [highImpactFilter, setHighImpactFilter] = useState(false);
-  const [page, setPage] = useState(params.initialPage ?? 1);
+  const [page, setPage] = useState(params.initialPage ?? params.page ?? 1);
+
+  // Unsupported parameters are rejected rather than silently ignored: an
+  // unrecognised filter shape must never reach the wire.
+  const paramsValid = Object.keys(params).every((key) => SUPPORTED_PARAMS.has(key));
+  const staleAfterMs = params.staleAfterMs ?? DEFAULTS.staleAfterMs;
 
   const debouncedSearch = useDebounce(search, DEFAULTS.debounceMs);
 
@@ -103,16 +137,26 @@ export function useClaimsList(params: UseClaimsListParams = {}): UseClaimsListRe
   );
 
   const queryResult = useQuery<ClaimsListEnvelope, ClaimsListError>({
-    queryKey: queryKeys.claims.list(queryParams),
+    // Spread into a fresh object literal so the canonical params object is
+    // assignable to the legacy filter key shape.
+    queryKey: queryKeys.claims.list({ ...queryParams }),
     queryFn: ({ signal }) => fetchClaimsList(queryParams, signal),
+    enabled: paramsValid,
     retry: false,
-    staleTime: DEFAULTS.staleAfterMs,
+    staleTime: staleAfterMs,
+    // Changing search/filter/page starts a new query. Keep the previous
+    // projection visible until the next one resolves so the table does not
+    // collapse into a skeleton (losing focus and filter state) on every
+    // keystroke or chip toggle.
+    placeholderData: keepPreviousData,
   });
 
   const viewState = deriveViewState(
     queryResult.isPending,
     queryResult.isError,
     queryResult.data,
+    queryResult.error ?? null,
+    staleAfterMs,
   );
 
   const hasActiveFilters =

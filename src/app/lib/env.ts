@@ -1,4 +1,4 @@
-import * as wagmiChains from "wagmi/chains";
+import { optimism, optimismSepolia } from "wagmi/chains";
 
 /**
  * Canonical environment contract for the STAB frontend.
@@ -97,7 +97,7 @@ function parseUrl(name: PublicEnvVar, raw: string, requireHttps: boolean): strin
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new EnvValidationError(name, `must use https or http, not "${url.protocol}"`);
   }
-  if (requireHttps && url.protocol !== "https") {
+  if (requireHttps && url.protocol !== "https:") {
     throw new EnvValidationError(name, "must use https in production builds");
   }
   return url.toString().replace(/\/$/, "");
@@ -174,7 +174,7 @@ export function validateEnv(
   );
 
   if (isProduction) {
-    const knownChainIds = new Set(Object.values(wagmiChains).map((chain) => chain.id));
+    const knownChainIds = new Set<number>([optimism.id, optimismSepolia.id]);
     if (!knownChainIds.has(chainId)) {
       throw new EnvValidationError(
         "NEXT_PUBLIC_CHAIN_ID",
@@ -194,12 +194,6 @@ export function validateEnv(
   };
 }
 
-export function assertProductionEnv(
-  source: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
-): Env {
-  return validateEnv(source);
-}
-
 export function loadEnv(): Env {
   return validateEnv();
 }
@@ -209,8 +203,8 @@ export const env: Env = loadEnv();
 /**
  * Called at build time (next.config.ts) to fail the production build when
  * required environment variables are missing or invalid.
- * In non-production environments this is a no-op so local/test builds
- * are not blocked by missing production secrets.
+ * Non-production targets keep their explicit local defaults, so this is a
+ * no-op for development, preview, and test.
  */
 export function assertProductionEnv(
   source: Record<string, string | undefined> = process.env as Record<string, string | undefined>,

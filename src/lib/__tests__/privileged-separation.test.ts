@@ -5,7 +5,6 @@
  * Tests authority verification, fail-closed patterns, and context isolation.
  */
 
-import { describe, it, expect } from 'vitest';
 import {
   evaluateAccessGate,
   normalizeAdminAddress,

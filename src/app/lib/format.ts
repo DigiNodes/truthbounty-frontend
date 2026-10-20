@@ -15,11 +15,10 @@ export * from "@/lib/format";
 import {
   formatDate,
   formatDateTime,
-  formatRelativeTime,
   formatTime,
-  formatTimeZone,
   formatTokenAmount,
-  formatWalletAddress,
+  toValidDate,
+  type DateInput,
 } from "@/lib/format";
 
 /**
@@ -165,16 +164,16 @@ function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
   try {
     const dt = new Intl.DateTimeFormat("en-US", {
       timeZone,
-      hour: "two-digit",
-      minute: "two-digit",
-      second: "two-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hourCycle: "h23",
     });
     const parts = dt.formatToParts(date);
-    const get = (type: Intl.DateTimeFormatPartType): number => {
+    const get = (type: Intl.DateTimeFormatPartTypes): number => {
       const part = parts.find((p) => p.type === type);
       return part ? Number(part.value) : NaN;
     };
@@ -494,15 +493,109 @@ export function deriveActionAvailability(input: {
 }
 
 /**
+ * Compact relative age for projection timestamps ("just now", "5m ago",
+ * "3h ago", "2d ago"). Returns "—" for missing/unparsable input and clamps
+ * future timestamps to "just now" so an age is never negative.
+ */
+export function formatRelativeAge(
+  value: DateInput,
+  nowMs: number = Date.now(),
+): string {
+  const date = toValidDate(value);
+  if (!date) return "—";
+
+  const deltaMs = Math.max(0, nowMs - date.getTime());
+  const minutes = Math.floor(deltaMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/**
+ * Page numbers to render for a paginated list, with `null` standing in for an
+ * ellipsis. Small lists render every page; larger lists keep page 1, the last
+ * page, and a one-page window around the current page.
+ */
+export function getPaginationWindow(
+  page: number,
+  totalPages: number,
+): Array<number | null> {
+  const total = Number.isFinite(totalPages) && totalPages >= 1 ? Math.floor(totalPages) : 0;
+  if (total < 1) return [1];
+  // An unparsable page number fails closed to the first page.
+  if (!Number.isFinite(page)) return [1];
+
+  const current = Math.min(Math.max(Math.floor(page), 1), total);
+
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+
+  const wanted = new Set<number>([1, total, current - 1, current, current + 1]);
+  const ordered = [...wanted]
+    .filter((candidate) => candidate >= 1 && candidate <= total)
+    .sort((a, b) => a - b);
+
+  const window: Array<number | null> = [];
+  ordered.forEach((candidate, index) => {
+    if (index > 0 && candidate - ordered[index - 1] > 1) window.push(null);
+    window.push(candidate);
+  });
+
+  return window;
+}
+
+/**
+ * Format an instant in the viewer's local locale/timezone.
+ * Accepts an ms-epoch, ISO string, or Date. Returns "—" for invalid input.
+ */
+export function formatLocalDateTime(
+  value: DateInput,
+  options: { includeSeconds?: boolean; locale?: string } = {},
+): string {
+  const date = toValidDate(value);
+  if (!date) return "—";
+
+  return date.toLocaleString(options.locale, {
+    dateStyle: "medium",
+    timeStyle: options.includeSeconds ? "medium" : "short",
+  });
+}
+
+/**
+ * Format an instant in absolute UTC. Always labels the value UTC so a
+ * client-local rendering can never be mistaken for canonical time.
+ */
+export function formatUtcDateTime(
+  value: DateInput,
+  options: { includeSeconds?: boolean; locale?: string } = {},
+): string {
+  const date = toValidDate(value);
+  if (!date) return "—";
+
+  const formatted = date.toLocaleString(options.locale ?? "en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(options.includeSeconds ? { second: "2-digit" as const } : {}),
+    hour12: false,
+  });
+
+  return `${formatted} UTC`;
+}
+
+/**
  * Re-exported canonical formatters for convenience within the app
  * directory. These are the same functions exposed by `/lib/format`.
  */
-export {
-  formatDate,
-  formatDateTime,
-  formatRelativeTime,
-  formatTime,
-  formatTimeZone,
-  formatTokenAmount,
-  formatWalletAddress,
-};
+export { formatDate, formatDateTime, formatTime, formatTokenAmount };
+
+export type { DateInput };

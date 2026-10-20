@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+
 import { ClaimHeader } from '@/components/features/claim-detail-canonical/ClaimHeader';
 import { ClaimContent } from '@/components/features/claim-detail-canonical/ClaimContent';
 import { ClaimVerifications } from '@/components/features/claim-detail-canonical/ClaimVerifications';
 import { ClaimSettlement } from '@/components/features/claim-detail-canonical/ClaimSettlement';
 import { ClaimantDashboardContent } from '@/components/features/claimant-dashboard/ClaimantDashboard';
-import ActiveClaimsTable, { type ActiveClaim } from '@/components/features/ActiveClaimsTable';
+import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
+import type { ClaimListItem } from '@/app/types/claim-list';
 import ClaimDetailsStep from '@/components/features/claim-submission/wizard/ClaimDetailsStep';
 import ConfirmationStep from '@/components/features/claim-submission/wizard/ConfirmationStep';
 import ReviewStep from '@/components/features/claim-submission/wizard/ReviewStep';
@@ -55,42 +58,42 @@ export type PublicClaimantScenario =
   | 'unsupported-chain'
   | 'guest';
 
-const ACTIVE_CLAIMS: ActiveClaim[] = [
+const ACTIVE_CLAIMS: ClaimListItem[] = [
   {
-    category: 'Technology',
-    impact: 'High Impact',
+    id: 'claim-639',
     title: 'Optimism Sepolia claimant journey claim',
-    source: 'Public indexer projection',
-    status: 'Under Review',
-    confidence: 67,
-    votes: '12',
-    stake: '500 TBNT',
-    time: '2d 4h',
-    actions: 'Review',
+    category: 'Technology',
+    status: 'UNDER_REVIEW',
+    claimantAddress: TEST_ACCOUNT,
+    confidenceScore: 67,
+    totalStaked: 500,
+    highImpact: true,
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
   },
   {
-    category: 'Environment',
-    impact: 'Medium',
+    id: 'claim-640',
     title: 'Evidence outage recovery claim',
-    source: 'Public indexer projection',
-    status: 'Verified',
-    confidence: 91,
-    votes: '20',
-    stake: '800 TBNT',
-    time: 'Finalized',
-    actions: 'Review',
+    category: 'Environment',
+    status: 'VERIFIED',
+    claimantAddress: TEST_ACCOUNT,
+    confidenceScore: 91,
+    totalStaked: 800,
+    highImpact: false,
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
   },
   {
-    category: 'Finance',
-    impact: 'High Impact',
+    id: 'claim-641',
     title: 'Reorg settlement claim',
-    source: 'Public indexer projection',
-    status: 'Disputed',
-    confidence: null,
-    votes: '8',
-    stake: '300 TBNT',
-    time: '1d 2h',
-    actions: 'Review',
+    category: 'Finance',
+    status: 'DISPUTED',
+    claimantAddress: TEST_ACCOUNT,
+    confidenceScore: 42,
+    totalStaked: 1200,
+    highImpact: true,
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
   },
 ];
 
@@ -570,6 +573,16 @@ export function PublicClaimantJourney({
   scenario?: PublicClaimantScenario;
 }) {
   const config = scenarioConfig(scenario);
+  const [tableSearch, setTableSearch] = useState('');
+  const [tableStatus, setTableStatus] = useState<ClaimStatus | undefined>(undefined);
+  const [tableHighImpact, setTableHighImpact] = useState(false);
+  const clearTableFilters = () => {
+    setTableSearch('');
+    setTableStatus(undefined);
+    setTableHighImpact(false);
+  };
+  const hasTableFilters =
+    tableSearch.trim().length > 0 || tableStatus !== undefined || tableHighImpact;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-4 text-foreground">
@@ -601,7 +614,24 @@ export function PublicClaimantJourney({
           Public claims require no wallet. The index is a projection; contract
           state remains authoritative.
         </p>
-        <ActiveClaimsTable claims={ACTIVE_CLAIMS} />
+        <ActiveClaimsTable
+          items={ACTIVE_CLAIMS}
+          search={tableSearch}
+          onSearchChange={setTableSearch}
+          statusFilter={tableStatus}
+          onStatusFilterChange={setTableStatus}
+          highImpactFilter={tableHighImpact}
+          onHighImpactFilterChange={setTableHighImpact}
+          onClearFilters={clearTableFilters}
+          hasActiveFilters={hasTableFilters}
+          page={1}
+          pageSize={ACTIVE_CLAIMS.length}
+          total={ACTIVE_CLAIMS.length}
+          totalPages={1}
+          onPageChange={() => {}}
+          canGoNext={false}
+          canGoPrevious={false}
+        />
       </section>
 
       <section aria-labelledby="claim-detail-heading" className="space-y-3">

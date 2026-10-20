@@ -29,3 +29,9 @@ export function RoleAdministrationUnavailableState({ reason }: RoleAdministratio
       </div>
       <p className="text-xs text-muted-foreground max-w-prose">{reason}</p>
       <p className="text-xs text-muted-foreground max-w-prose">
+        No fixture, hardcoded role name, or guessed role hash is substituted while canonical
+        role data is unavailable.
+      </p>
+    </div>
+  );
+}
