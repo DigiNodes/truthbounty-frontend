@@ -17,6 +17,7 @@ import {
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { IntegrityBoundary } from '@/components/security/IntegrityBoundary';
+import { ApiLifecycleProvider } from '@/components/providers/ApiLifecycleProvider';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -33,11 +34,15 @@ export function Providers({ children }: ProvidersProps) {
                 <FeatureFlagProvider enablePersistence={true}>
                   <ErrorBoundary>
                     <WalletStateGuard>
-                      <CrossTabSyncProvider>
-                        {children}
-                        {/* Feature flag panel for development debugging */}
-                        <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                      </CrossTabSyncProvider>
+                      <ApiLifecycleProvider>
+                        <CrossTabSyncProvider>
+                          <IntegrityBoundary>
+                            {children}
+                            {/* Feature flag panel for development debugging */}
+                            <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                          </IntegrityBoundary>
+                        </CrossTabSyncProvider>
+                      </ApiLifecycleProvider>
                     </WalletStateGuard>
                   </ErrorBoundary>
                 </FeatureFlagProvider>
