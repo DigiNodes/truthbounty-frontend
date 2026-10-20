@@ -537,7 +537,6 @@ export function useDisputeSubmission(
       allowanceRead.data,
       allowanceRead.refetch,
       balanceRead.data,
-      hasOpenChallengeRead.data,
       hasOpenChallengeRead.refetch,
       publicClient,
       writeContractAsync,
