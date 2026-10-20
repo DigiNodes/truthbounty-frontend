@@ -1,4 +1,4 @@
-import { chains as wagmiChains } from "wagmi";
+import { optimism, optimismSepolia } from "wagmi/chains";
 
 /**
  * Canonical environment contract for the STAB frontend.
@@ -89,7 +89,7 @@ function parseUrl(name: PublicEnvVar, raw: string, requireHttps: boolean): strin
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new EnvValidationError(name, `must use https or http, not "${url.protocol}"`);
   }
-  if (requireHttps && url.protocol !== "https") {
+  if (requireHttps && url.protocol !== "https:") {
     throw new EnvValidationError(name, "must use https in production builds");
   }
   return url.toString().replace(/\/$/, "");
@@ -148,28 +148,32 @@ export function validateEnv(
     }
   }
 
-  const chainId = parseChainId(NEXT_PUBLIC_CHAIN_ID, resolved[NEXT_PUBLIC_CHAIN_ID]);
-  const rpcUrl = parseUrl(NEXT_PUBLIC_RPC_URL, resolved[NEXT_PUBLIC_RPC_URL], isProduction);
+  const chainId = parseChainId("NEXT_PUBLIC_CHAIN_ID", resolved["NEXT_PUBLIC_CHAIN_ID"]);
+  const rpcUrl = parseUrl(
+    "NEXT_PUBLIC_RPC_URL",
+    resolved["NEXT_PUBLIC_RPC_URL"],
+    isProduction,
+  );
   const apiBaseUrl = parseUrl(
-    NEXT_PUBLIC_API_BASE_URL,
-    resolved[NEXT_PUBLIC_API_BASE_URL],
+    "NEXT_PUBLIC_API_BASE_URL",
+    resolved["NEXT_PUBLIC_API_BASE_URL"],
     isProduction,
   );
   const walletConnectProjectId = parseWalletConnectProjectId(
-    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
-    resolved[NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID],
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
+    resolved["NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID"],
   );
   const explorerBaseUrl = parseUrl(
-    NEXT_PUBLIC_EXPLORER_BASE_URL,
-    resolved[NEXT_PUBLIC_EXPLORER_BASE_URL],
+    "NEXT_PUBLIC_EXPLORER_BASE_URL",
+    resolved["NEXT_PUBLIC_EXPLORER_BASE_URL"],
     isProduction,
   );
 
   if (isProduction) {
-    const knownChainIds = new Set(Object.values(wagmiChains).map((chain) => chain.id));
+    const knownChainIds = new Set<number>([optimism.id, optimismSepolia.id]);
     if (!knownChainIds.has(chainId)) {
       throw new EnvValidationError(
-        NEXT_PUBLIC_CHAIN_ID,
+        "NEXT_PUBLIC_CHAIN_ID",
         `unknown chain id "${chainId}"; must match a supported network configuration`,
       );
     }
@@ -188,6 +192,18 @@ export function validateEnv(
 
 export function loadEnv(): Env {
   return validateEnv();
+}
+
+/**
+ * Fail closed on invalid required configuration during production builds.
+ * Non-production targets keep their explicit local defaults, so this is a
+ * no-op for development, preview, and test.
+ */
+export function assertProductionEnv(
+  source: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+): void {
+  if (resolveTarget(source) !== "production") return;
+  validateEnv(source);
 }
 
 export const env: Env = loadEnv();

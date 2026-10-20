@@ -26,11 +26,11 @@ export default function ClaimDetailPage() {
     if (claimId) {
       setIsLoading(true);
       getClaimById(claimId)
-        .then((data) => {
+        .then((_claim: unknown) => {
           setIsLoading(false);
         })
-        .catch((err) => {
-          if (err.message === 'CLAIM_NOT_FOUND') {
+        .catch((err: unknown) => {
+          if (err instanceof Error && err.message === 'CLAIM_NOT_FOUND') {
             setClaimNotFound(true);
           }
           setIsLoading(false);
@@ -199,7 +199,7 @@ export default function ClaimDetailPage() {
             {/* Verification Summary */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-start gap-3">
-                <div className="flex h-ten w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
                   <svg
                     className="h-5 w-5 text-gray-700 dark:text-gray-300"
                     fill="none"
@@ -212,6 +212,7 @@ export default function ClaimDetailPage() {
                       d="M9 12.75L11.25 15 15 9.75M12 3l8.25 4.5v5.25c0 4.485-3.438 7.93-8.25 8.25-4.812-.32-8.25-3.765-8.25-8.25V7.5L12 3z"
                     />
                   </svg>
+                </div>
 
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -287,6 +288,7 @@ export default function ClaimDetailPage() {
                 <FeatureErrorBoundary scope="verification-actions">
                   <VerificationActions
                     claimId={claimId}
+                    stakeAmount={stakeAmount}
                   />
                 </FeatureErrorBoundary>
               </div>

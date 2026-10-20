@@ -28,23 +28,35 @@
 import React, { useRef } from "react";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { ConfidenceMeter } from "@/components/ui/primitives/ConfidenceMeter";
+import type { ClaimStatus } from "@/app/types/claim";
+import type { ClaimListItem } from "@/app/types/claim-list";
 
-export interface ActiveClaim {
-  category: string;
-  impact: string;
-  title: string;
-  source: string;
-  status: string;
-  confidence: number | null; // 0-100, null = unknown
-  votes: string;
-  stake: string;
-  time: string;
-  actions: string;
-}
+export interface ActiveClaimsTableProps {
+  // Data
+  items: ClaimListItem[];
 
-function formatConfidence(score: number | null): string {
-  if (score === null) return '—';
-  return `${score}%`;
+  // Search & filters
+  search: string;
+  onSearchChange: (value: string) => void;
+  statusFilter: ClaimStatus | undefined;
+  onStatusFilterChange: (status: ClaimStatus | undefined) => void;
+  highImpactFilter: boolean;
+  onHighImpactFilterChange: (value: boolean) => void;
+  onClearFilters: () => void;
+  hasActiveFilters: boolean;
+
+  // Pagination
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  canGoNext: boolean;
+  canGoPrevious: boolean;
+
+  // Stale/error states
+  isStale?: boolean;
+  staleReason?: string;
 }
 
 function formatStatus(status: ClaimStatus): string {
@@ -127,9 +139,15 @@ const ActiveClaimsTable = (props: ActiveClaimsTableProps) => {
     }
   };
 
-  const startIndex = (page - 1) * pageSize + 1;
-  const endIndex = Math.min(page * pageSize, total);
-  const rangeText = total > 0 ? `Showing ${startIndex}–${endIndex} of ${total} claims` : 'No claims';
+  // Range is derived from the rows actually rendered, not the requested page
+  // size: canonical projections may return a partial final page.
+  const startIndex = items.length > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIndex =
+    items.length > 0 ? Math.min(startIndex + items.length - 1, total) : 0;
+  const rangeText =
+    total > 0
+      ? `Showing ${startIndex}–${endIndex} of ${total} claims`
+      : 'No claims';
 
   const isEmpty = items.length === 0;
   const isFilteredEmpty = isEmpty && hasActiveFilters;
@@ -163,18 +181,18 @@ const ActiveClaimsTable = (props: ActiveClaimsTableProps) => {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           <label className="sr-only" htmlFor="claims-search">
             Search claims
           </label>
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
             <input
               id="claims-search"
               ref={searchInputRef}
               type="search"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="bg-[#232329] text-white px-2 py-1 pr-7 rounded text-xs"
+              className="w-full rounded bg-[#232329] px-2 py-1 pr-7 text-xs text-white sm:w-auto"
               placeholder="Search claims..."
               aria-label="Search claims"
             />
@@ -195,8 +213,20 @@ const ActiveClaimsTable = (props: ActiveClaimsTableProps) => {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left" aria-label="Active claims">
+      {/* Horizontal scrolling is a documented exception for genuine data tables;
+          the region is labelled and keyboard-focusable so it can be scrolled
+          without a pointer. */}
+      <div
+        role="region"
+        aria-label="Active claims table"
+        // A horizontally scrollable region must be reachable by keyboard
+        // (WCAG 2.1.1); the a11y rule's interactive-only heuristic does not
+        // cover scroll containers.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        className="overflow-x-auto"
+      >
+        <table className="w-full min-w-[640px] text-sm text-left" aria-label="Active claims">
           <thead>
             <tr className="text-[#a1a1aa] border-b border-[#232329]">
               <th scope="col" className="py-2">Claim</th>
@@ -237,9 +267,12 @@ const ActiveClaimsTable = (props: ActiveClaimsTableProps) => {
                       </span>
                     </td>
                     <td className="py-3">
-                      <span title={item.confidenceScore === null ? 'Not yet scored' : undefined}>
-                        {formatConfidence(item.confidenceScore)}
-                      </span>
+                      <ConfidenceMeter
+                        value={item.confidenceScore}
+                        label={`Confidence for ${item.title}`}
+                        showValue={true}
+                        showBandLabel={false}
+                      />
                     </td>
                     <td className="py-3">
                       <span className="text-[#a1a1aa]">{item.totalStaked.toLocaleString()}</span>
@@ -312,74 +345,20 @@ const ActiveClaimsTable = (props: ActiveClaimsTableProps) => {
                           : "bg-[#232329] text-white hover:bg-[#5b5bf6]"
                       }`}
                     >
-                      <td className="py-3">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-[#5b5bf6] font-semibold flex items-center gap-1.5">
-                            <CategoryIcon size={14} />
-                            {claim.category}
-                            <span className="ml-2 bg-[#232329] text-[#5b5bf6] px-2 py-0.5 rounded-full text-[10px]">
-                              {claim.impact}
-                            </span>
-                          </span>
-                          <span className="text-white font-medium leading-tight">
-                            {claim.title}
-                          </span>
-                          <span className="text-xs text-[#a1a1aa]">
-                            {claim.source}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={
-                            claim.status === "Verified"
-                              ? "text-green-400"
-                              : claim.status === "Under Review"
-                              ? "text-yellow-400"
-                              : "text-red-400"
-                          }
-                        >
-                          {claim.status}
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <ConfidenceMeter
-                          value={claim.confidence}
-                          label={`Confidence for ${claim.title}`}
-                          showValue={true}
-                          showBandLabel={false}
-                        />
-                      </td>
-                      <td className="py-3">
-                        {claim.votes}{" "}
-                        <span className="text-[#a1a1aa]">/ {claim.stake}</span>
-                      </td>
-                      <td className="py-3">{claim.time}</td>
-                      <td className="py-3">
-                        <button
-                          className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6]"
-                          aria-label={`${claim.actions} claim: ${claim.title}`}
-                        >
-                          {claim.actions}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-8 text-center text-sm text-[#a1a1aa]"
-                  >
-                    {claims.length === 0
-                      ? "No active claims at the moment."
-                      : "No claims match the current search or filter. Try clearing your search or choosing a different filter."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                      {p}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            <button
+              onClick={() => onPageChange(page + 1)}
+              disabled={!canGoNext}
+              aria-label="Go to next page"
+              className="px-3 py-1 rounded bg-[#232329] text-xs text-white hover:bg-[#5b5bf6] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </nav>
         </div>
       )}
     </div>

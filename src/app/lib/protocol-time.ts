@@ -130,7 +130,7 @@ const EPSILON = Number.EPSILON;
  */
 export function normalizeBlockNumber(
   value: bigint | number | string | null | undefined
-]: bigint | null {
+): bigint | null {
   if (value === null || value === undefined) return null;
 
   try {
@@ -273,7 +273,11 @@ export function deriveDeadlineFromBlocks(
  * expires a live deadline. Returns null (fail closed) when the deadline is
  * unknown. Boundary: deadlineMs == nowMs is treated as expired.
  */
-export function isDeadlineExpired(input: {}): boolean | null {
+export function isDeadlineExpired(input: {
+  deadlineMs: number | null | undefined;
+  nowMs: number;
+  clockSkewMs?: number;
+}): boolean | null {
   const { deadlineMs, nowMs, clockSkewMs = 0 } = input;
 
   if (typeof deadlineMs !== 'number' || !Number.isFinite(deadlineMs)) return null;
@@ -305,7 +309,7 @@ export function isDeadlineWithinHorizon(input: {
   if (expired === true) return false;
   if (expired === null) return null;
 
-  return deadlineMs! - nowMs <= horizonMs + EPSICON;
+  return deadlineMs! - nowMs <= horizonMs + EPSILON;
 }
 
 /**
@@ -331,6 +335,20 @@ export function resolveDeadlineState(input: {
 
   if (expired === null) return 'UNKNOWN';
   return expired ? 'EXPIRED' : 'ACTIVE';
+}
+
+/**
+ * Compact block context for a canonical deadline projection, e.g.
+ * "by block 1005 (+5)". Returns null (fail closed) when the projection's
+ * canonical target block is unknown.
+ */
+export function formatBlockContext(
+  projection: BlockDeadlineProjection
+): string | null {
+  const { projectBlockNumber, blockDelta } = projection;
+  if (projectBlockNumber === null || blockDelta === null) return null;
+  if (blockDelta === 0) return `by block ${projectBlockNumber}`;
+  return `by block ${projectBlockNumber} (+${blockDelta})`;
 }
 
 /**

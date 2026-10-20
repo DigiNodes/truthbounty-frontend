@@ -22,7 +22,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import ActiveClaimsTable from '@/components/features/ActiveClaimsTable';
+import { ActiveClaimsTableContainer } from '@/components/features/ActiveClaimsTableContainer';
 import ClaimRewardsPanel from '@/components/features/ClaimRewardsPanel';
 import { ClaimDetails } from '@/components/features/claim-verification/ClaimDetails';
 import { VerificationActions } from '@/components/features/claim-verification/VerificationActions';
@@ -241,7 +241,7 @@ describe('Claims feed — ActiveClaimsTable mobile layout', () => {
   });
 
   async function renderFeed() {
-    const utils = renderWithQueryClient(<ActiveClaimsTable />);
+    const utils = renderWithQueryClient(<ActiveClaimsTableContainer />);
     await waitFor(() =>
       expect(screen.getByLabelText(/search claims/i)).toBeInTheDocument()
     );

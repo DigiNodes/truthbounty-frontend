@@ -27,6 +27,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "coverage/**",
     "node_modules/**",
+    // Jest snapshots are generated artifacts, not lintable source. Without
+    // this, the `**/__tests__/**/*` config block matches them and reports
+    // jsx-a11y rules with no registered plugin.
+    "**/*.snap",
     "*.log",
     "src/modules/**",
   ]),
@@ -77,6 +81,9 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{js,jsx,ts,tsx,mjs,cjs}"],
     ignores: [
+      // `src/testing` holds test-only harnesses and fixtures; it must not be
+      // treated as production code by the fixture-import boundary.
+      "src/testing/**",
       "src/**/__tests__/**",
       "src/**/__mocks__/**",
       "src/**/fixtures/**",

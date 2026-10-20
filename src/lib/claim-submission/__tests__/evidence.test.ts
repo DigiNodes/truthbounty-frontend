@@ -4,7 +4,6 @@
  * Tests for evidence state management, file hashing, and session storage
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createEvidenceState,
   createFileEvidenceState,

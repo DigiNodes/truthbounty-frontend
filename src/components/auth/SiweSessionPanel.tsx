@@ -17,7 +17,7 @@ import {
   describeSiweFailure,
   siweStatusAnnouncement,
   toSiweSignInIntent,
-  type SiweSignIntent,
+  type SiweSignInIntent,
 } from '@/lib/auth/siwe-presentation';
 import type {
   SiweFailure,
@@ -27,7 +27,7 @@ import type {
 
 export interface SiweSessionPanelViewProps {
   status: SiweStatus;
-  intent: SiweSignIntent | null;
+  intent: SiweSignInIntent | null;
   error: SiweFailure | null;
   session: SiweSession | null;
   address: string | null;
@@ -375,4 +375,32 @@ export function SiweSessionPanel({ className, authOptions }: SiweSessionPanelPro
   const connectedChainId = useChainId();
   const intent = useMemo(
     () =>
-      auth.challenge
+      auth.status === 'ready-to-sign' && auth.challenge
+        ? toSiweSignInIntent(auth.challenge)
+        : null,
+    [auth.status, auth.challenge],
+  );
+
+  const address =
+    authOptions?.accountOverride?.address ?? connectedAddress ?? auth.address ?? null;
+  const chainId =
+    authOptions?.accountOverride?.chainId ?? connectedChainId ?? auth.chainId ?? null;
+
+  return (
+    <SiweSessionPanelView
+      status={auth.status}
+      intent={intent}
+      error={auth.error}
+      session={auth.session}
+      address={address}
+      chainId={chainId}
+      isBusy={auth.isBusy}
+      onBegin={() => void auth.begin()}
+      onSign={() => void auth.signAndSubmit()}
+      onLogout={() => void auth.clear()}
+      onReset={auth.resetError}
+      connectSlot={<ConnectButton />}
+      className={className}
+    />
+  );
+}

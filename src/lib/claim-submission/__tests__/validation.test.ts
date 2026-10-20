@@ -8,7 +8,6 @@
  * - Sanitization utilities
  */
 
-import { describe, it, expect } from 'vitest';
 import {
   validateTitle,
   validateCategory,
