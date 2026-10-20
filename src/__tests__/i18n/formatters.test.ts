@@ -1,6 +1,6 @@
 /**
  * V2-FE-070 — i18n Formatters Tests
- * 
+ *
  * Unit tests for blockchain and protocol-specific formatters.
  * Ensures technical accuracy and locale-aware formatting.
  */
@@ -23,229 +23,359 @@ import {
   isValidAddress,
   isValidTxHash,
   isValidBytes32,
-} from '@/i18n/formatters';
+} from "@/i18n/formatters";
+import { formatTokenAmount as formatUtilsTokenAmount } from "@/i18n/utils";
 
-describe('Address Formatting', () => {
-  const testAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+describe("Address Formatting", () => {
+  const testAddress = "0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E";
 
-  test('formats address in short format', () => {
-    expect(formatAddress(testAddress, 'short')).toBe('0x742d...0eB1E');
+  test("formats address in short format", () => {
+    expect(formatAddress(testAddress, "short")).toBe("0x742d...0eB1E");
   });
 
-  test('formats address in medium format', () => {
-    expect(formatAddress(testAddress, 'medium')).toBe('0x742d35Cc66...95f0eB1E');
+  test("formats address in medium format", () => {
+    expect(formatAddress(testAddress, "medium")).toBe(
+      "0x742d35Cc66...95f0eB1E",
+    );
   });
 
-  test('formats address in full format', () => {
-    expect(formatAddress(testAddress, 'full')).toBe(testAddress);
+  test("formats address in full format", () => {
+    expect(formatAddress(testAddress, "full")).toBe(testAddress);
   });
 
-  test('handles invalid address gracefully', () => {
-    expect(formatAddress('invalid')).toBe('invalid');
-    expect(formatAddress('')).toBe('');
-  });
-});
-
-describe('Transaction Hash Formatting', () => {
-  const testHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-
-  test('formats hash in short format', () => {
-    expect(formatTxHash(testHash, 'short')).toBe('0x1234...cdef');
-  });
-
-  test('formats hash in medium format', () => {
-    expect(formatTxHash(testHash, 'medium')).toBe('0x12345678...90abcdef');
-  });
-
-  test('formats hash in full format', () => {
-    expect(formatTxHash(testHash, 'full')).toBe(testHash);
+  test("handles invalid address gracefully", () => {
+    expect(formatAddress("invalid")).toBe("invalid");
+    expect(formatAddress("")).toBe("");
   });
 });
 
-describe('Block Number Formatting', () => {
-  test('formats block number with en locale', () => {
-    expect(formatBlockNumber(12345678, 'en')).toBe('12,345,678');
+describe("Transaction Hash Formatting", () => {
+  const testHash =
+    "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+
+  test("formats hash in short format", () => {
+    expect(formatTxHash(testHash, "short")).toBe("0x1234...cdef");
   });
 
-  test('formats block number with de locale', () => {
-    expect(formatBlockNumber(12345678, 'de')).toBe('12.345.678');
+  test("formats hash in medium format", () => {
+    expect(formatTxHash(testHash, "medium")).toBe("0x12345678...90abcdef");
   });
 
-  test('formats bigint block numbers', () => {
-    expect(formatBlockNumber(BigInt(12345678), 'en')).toBe('12,345,678');
-  });
-});
-
-describe('Gas Formatting', () => {
-  test('formats gas amount', () => {
-    expect(formatGas(21000, 'en')).toBe('21,000');
-  });
-
-  test('formats gas price in Gwei', () => {
-    expect(formatGasPrice(50000000000n, 'en', 2)).toContain('50');
-    expect(formatGasPrice(50000000000n, 'en', 2)).toContain('Gwei');
+  test("formats hash in full format", () => {
+    expect(formatTxHash(testHash, "full")).toBe(testHash);
   });
 });
 
-describe('Token Amount Formatting', () => {
-  test('formats whole token amounts', () => {
+describe("Block Number Formatting", () => {
+  test("formats block number with en locale", () => {
+    expect(formatBlockNumber(12345678, "en")).toBe("12,345,678");
+  });
+
+  test("formats block number with de locale", () => {
+    expect(formatBlockNumber(12345678, "de")).toBe("12.345.678");
+  });
+
+  test("formats bigint block numbers", () => {
+    expect(formatBlockNumber(BigInt(12345678), "en")).toBe("12,345,678");
+  });
+});
+
+describe("Gas Formatting", () => {
+  test("formats gas amount", () => {
+    expect(formatGas(21000, "en")).toBe("21,000");
+  });
+
+  test("formats gas price in Gwei", () => {
+    expect(formatGasPrice(50000000000n, "en", 2)).toContain("50");
+    expect(formatGasPrice(50000000000n, "en", 2)).toContain("Gwei");
+  });
+});
+
+describe("Token Amount Formatting", () => {
+  test("formats whole token amounts", () => {
     const oneEth = 1000000000000000000n; // 1 ETH
-    expect(formatTokenAmount(oneEth, 18, 'en')).toBe('1');
+    expect(formatTokenAmount(oneEth, 18, "en")).toBe("1");
   });
 
-  test('formats fractional token amounts', () => {
+  test("formats fractional token amounts", () => {
     const halfEth = 500000000000000000n; // 0.5 ETH
-    expect(formatTokenAmount(halfEth, 18, 'en')).toBe('0.5');
+    expect(formatTokenAmount(halfEth, 18, "en")).toBe("0.5");
   });
 
-  test('includes symbol when provided', () => {
+  test("includes symbol when provided", () => {
     const oneEth = 1000000000000000000n;
-    expect(formatTokenAmount(oneEth, 18, 'en', { symbol: 'ETH' })).toBe('1 ETH');
+    expect(formatTokenAmount(oneEth, 18, "en", { symbol: "ETH" })).toBe(
+      "1 ETH",
+    );
   });
 
-  test('respects maxDecimals option', () => {
+  test("respects maxDecimals option", () => {
     const amount = 1234567890123456789n; // 1.234567890123456789 ETH
-    const formatted = formatTokenAmount(amount, 18, 'en', { maxDecimals: 4 });
-    expect(formatted).toBe('1.2345');
+    const formatted = formatTokenAmount(amount, 18, "en", { maxDecimals: 4 });
+    expect(formatted).toBe("1.2346");
   });
 
-  test('handles compact notation', () => {
+  test("preserves minDecimals compatibility", () => {
+    expect(
+      formatTokenAmount(1000000000000000000n, 18, "en", {
+        minDecimals: 2,
+        maxDecimals: 4,
+      }),
+    ).toBe("1.00");
+  });
+
+  test("rejects invalid precision settings", () => {
+    expect(
+      formatTokenAmount(1000000000000000000n, 18, "en", {
+        minDecimals: 3,
+        maxDecimals: 2,
+      }),
+    ).toBe("0");
+    expect(
+      formatTokenAmount(1000000000000000000n, 18, "en", {
+        maxDecimals: 1.5,
+      }),
+    ).toBe("0");
+  });
+
+  test("handles compact notation", () => {
     const largeAmount = 1500000000000000000000n; // 1500 ETH
-    const formatted = formatTokenAmount(largeAmount, 18, 'en', { compact: true });
-    expect(formatted).toContain('1');
+    const formatted = formatTokenAmount(largeAmount, 18, "en", {
+      compact: true,
+    });
+    expect(formatted).toContain("1");
+  });
+
+  test("falls back to exact formatting for unsafe compact values", () => {
+    const amount = 9007199254740992n;
+
+    expect(formatTokenAmount(amount, 0, "en", { compact: true })).toBe(
+      "9,007,199,254,740,992",
+    );
+  });
+
+  test("falls back to exact formatting for fractional compact values", () => {
+    const amount = 1500500000000000000000n; // 1500.5 ETH
+
+    expect(formatTokenAmount(amount, 18, "en", { compact: true })).toBe(
+      "1,500.5",
+    );
+  });
+
+  test("preserves exact large token amounts without floating-point conversion", () => {
+    const amount = 123456789012345678901234567890n;
+
+    expect(formatTokenAmount(amount, 18, "en", { maxDecimals: 6 })).toBe(
+      "123,456,789,012.345679",
+    );
+  });
+
+  test("uses locale-specific decimal separators", () => {
+    const amount = 1234500000000000000n;
+
+    expect(formatTokenAmount(amount, 18, "de", { maxDecimals: 4 })).toBe(
+      "1,2345",
+    );
+  });
+
+  test("uses locale-specific fractional digits", () => {
+    const amount = 1234500000000000000n;
+
+    expect(formatTokenAmount(amount, 18, "ar-EG", { maxDecimals: 4 })).toBe(
+      "١٫٢٣٤٥",
+    );
+  });
+
+  test("preserves exact whole-token values above the safe integer limit", () => {
+    const amount = 9007199254740993000000000000000000000n;
+
+    expect(formatTokenAmount(amount, 0, "en")).toBe(
+      "9,007,199,254,740,993,000,000,000,000,000,000,000",
+    );
+  });
+
+  test("preserves precision for very large gas prices", () => {
+    expect(formatGasPrice(1234567890123456789n, "en", 9)).toBe(
+      "1,234,567,890.123456789 Gwei",
+    );
+  });
+
+  test("carries gas price rounding into the whole Gwei value", () => {
+    expect(formatGasPrice(1999999999n, "de", 0)).toBe("2 Gwei");
+    expect(formatGasPrice(1234500000n, "ar-EG", 4)).toContain("١٫٢٣٤٥");
+  });
+
+  test("uses locale-specific decimal separators in the utility formatter", () => {
+    expect(formatUtilsTokenAmount(1234500000000000000n, 18, "de", 4)).toBe(
+      "1,2345",
+    );
+  });
+
+  test('rounds token amounts instead of truncating', () => {
+    expect(
+      formatTokenAmount(1234567890123456789n, 18, 'en', {
+        maxDecimals: 2,
+      }),
+  ).toBe('1.23');
+
+  expect(
+    formatTokenAmount(1999000000000000000n, 18, 'en', {
+      maxDecimals: 2,
+    }),
+  ).toBe('2');
+});
+
+test('formats negative compact token amounts with one minus sign', () => {
+  expect(
+    formatTokenAmount(-1500000000000000000000n, 18, 'en', {
+      compact: true,
+    }),
+  ).toBe('-1.5K');
+});
+
+test('rounds gas prices using integer arithmetic', () => {
+  expect(formatGasPrice(1499999999n, 'en', 0)).toBe('1 Gwei');
+  expect(formatGasPrice(1500000000n, 'en', 0)).toBe('2 Gwei');
+  expect(formatGasPrice(999999999n, 'en', 0)).toBe('1 Gwei');
+});
+});
+
+describe("Percentage Formatting", () => {
+  test("formats percentage with default decimals", () => {
+    expect(formatPercentage(0.875, "en")).toBe("87.5%");
+  });
+
+  test("formats percentage with custom decimals", () => {
+    expect(formatPercentage(0.12345, "en", { decimals: 2 })).toBe("12.35%");
   });
 });
 
-describe('Percentage Formatting', () => {
-  test('formats percentage with default decimals', () => {
-    expect(formatPercentage(0.875, 'en')).toBe('87.5%');
+describe("Compact Number Formatting", () => {
+  test("formats thousands", () => {
+    expect(formatCompactNumber(1500, "en")).toBe("1.5K");
   });
 
-  test('formats percentage with custom decimals', () => {
-    expect(formatPercentage(0.12345, 'en', { decimals: 2 })).toBe('12.35%');
-  });
-});
-
-describe('Compact Number Formatting', () => {
-  test('formats thousands', () => {
-    expect(formatCompactNumber(1500, 'en')).toBe('1.5K');
+  test("formats millions", () => {
+    expect(formatCompactNumber(2500000, "en")).toBe("2.5M");
   });
 
-  test('formats millions', () => {
-    expect(formatCompactNumber(2500000, 'en')).toBe('2.5M');
-  });
-
-  test('formats billions', () => {
-    expect(formatCompactNumber(3500000000, 'en')).toBe('3.5B');
+  test("formats billions", () => {
+    expect(formatCompactNumber(3500000000, "en")).toBe("3.5B");
   });
 });
 
-describe('Duration Formatting', () => {
-  test('formats seconds', () => {
-    const result = formatDuration(5000, 'en');
-    expect(result).toContain('5');
-    expect(result).toContain('second');
+describe("Duration Formatting", () => {
+  test("formats seconds", () => {
+    const result = formatDuration(5000, "en");
+    expect(result).toContain("5");
+    expect(result).toContain("second");
   });
 
-  test('formats minutes', () => {
-    const result = formatDuration(65000, 'en');
-    expect(result).toContain('1');
-    expect(result).toContain('minute');
+  test("formats minutes", () => {
+    const result = formatDuration(65000, "en");
+    expect(result).toContain("1");
+    expect(result).toContain("minute");
   });
 
-  test('formats hours', () => {
-    const result = formatDuration(3600000, 'en');
-    expect(result).toContain('1');
-    expect(result).toContain('hour');
-  });
-});
-
-describe('Chain and Network Utilities', () => {
-  test('gets network name for known chains', () => {
-    expect(getNetworkName(1)).toBe('Ethereum Mainnet');
-    expect(getNetworkName(10)).toBe('Optimism');
-    expect(getNetworkName(11155420)).toBe('OP Sepolia');
-  });
-
-  test('formats unknown chain ID', () => {
-    expect(getNetworkName(999999)).toBe('Chain 999999');
-  });
-
-  test('formats chain ID with network name', () => {
-    const result = formatChainId(10, 'en');
-    expect(result).toContain('Optimism');
-    expect(result).toContain('10');
-  });
-
-  test('generates explorer URLs', () => {
-    const txUrl = getExplorerUrl(10, 'tx', '0x123');
-    expect(txUrl).toContain('optimistic.etherscan.io');
-    expect(txUrl).toContain('/tx/');
-    expect(txUrl).toContain('0x123');
-  });
-
-  test('generates address explorer URLs', () => {
-    const addressUrl = getExplorerUrl(10, 'address', '0xabc');
-    expect(addressUrl).toContain('/address/');
-    expect(addressUrl).toContain('0xabc');
-  });
-
-  test('returns empty string for unknown chain', () => {
-    expect(getExplorerUrl(999999, 'tx', '0x123')).toBe('');
+  test("formats hours", () => {
+    const result = formatDuration(3600000, "en");
+    expect(result).toContain("1");
+    expect(result).toContain("hour");
   });
 });
 
-describe('Validation Functions', () => {
-  test('validates Ethereum addresses', () => {
-    expect(isValidAddress('0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E')).toBe(true);
-    expect(isValidAddress('0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E'.toLowerCase())).toBe(true);
-    expect(isValidAddress('invalid')).toBe(false);
-    expect(isValidAddress('0x123')).toBe(false);
+describe("Chain and Network Utilities", () => {
+  test("gets network name for known chains", () => {
+    expect(getNetworkName(1)).toBe("Ethereum Mainnet");
+    expect(getNetworkName(10)).toBe("Optimism");
+    expect(getNetworkName(11155420)).toBe("OP Sepolia");
   });
 
-  test('validates transaction hashes', () => {
-    const validHash = '0x' + 'a'.repeat(64);
+  test("formats unknown chain ID", () => {
+    expect(getNetworkName(999999)).toBe("Chain 999999");
+  });
+
+  test("formats chain ID with network name", () => {
+    const result = formatChainId(10, "en");
+    expect(result).toContain("Optimism");
+    expect(result).toContain("10");
+  });
+
+  test("generates explorer URLs", () => {
+    const txUrl = getExplorerUrl(10, "tx", "0x123");
+    expect(txUrl).toContain("optimistic.etherscan.io");
+    expect(txUrl).toContain("/tx/");
+    expect(txUrl).toContain("0x123");
+  });
+
+  test("generates address explorer URLs", () => {
+    const addressUrl = getExplorerUrl(10, "address", "0xabc");
+    expect(addressUrl).toContain("/address/");
+    expect(addressUrl).toContain("0xabc");
+  });
+
+  test("returns empty string for unknown chain", () => {
+    expect(getExplorerUrl(999999, "tx", "0x123")).toBe("");
+  });
+});
+
+describe("Validation Functions", () => {
+  test("validates Ethereum addresses", () => {
+    expect(isValidAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E")).toBe(
+      true,
+    );
+    expect(
+      isValidAddress(
+        "0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E".toLowerCase(),
+      ),
+    ).toBe(true);
+    expect(isValidAddress("invalid")).toBe(false);
+    expect(isValidAddress("0x123")).toBe(false);
+  });
+
+  test("validates transaction hashes", () => {
+    const validHash = "0x" + "a".repeat(64);
     expect(isValidTxHash(validHash)).toBe(true);
-    expect(isValidTxHash('0x123')).toBe(false);
-    expect(isValidTxHash('invalid')).toBe(false);
+    expect(isValidTxHash("0x123")).toBe(false);
+    expect(isValidTxHash("invalid")).toBe(false);
   });
 
-  test('validates bytes32 values', () => {
-    const validBytes = '0x' + 'b'.repeat(64);
+  test("validates bytes32 values", () => {
+    const validBytes = "0x" + "b".repeat(64);
     expect(isValidBytes32(validBytes)).toBe(true);
-    expect(isValidBytes32('0x123')).toBe(false);
+    expect(isValidBytes32("0x123")).toBe(false);
   });
 });
 
-describe('Locale-specific Formatting', () => {
-  test('respects locale for number formatting', () => {
-    expect(formatBlockNumber(1234567, 'en')).toBe('1,234,567');
-    expect(formatBlockNumber(1234567, 'de')).toBe('1.234.567');
+describe("Locale-specific Formatting", () => {
+  test("respects locale for number formatting", () => {
+    expect(formatBlockNumber(1234567, "en")).toBe("1,234,567");
+    expect(formatBlockNumber(1234567, "de")).toBe("1.234.567");
   });
 
-  test('respects locale for percentage formatting', () => {
-    const enResult = formatPercentage(0.5, 'en');
-    const deResult = formatPercentage(0.5, 'de');
-    expect(enResult).toContain('50');
-    expect(deResult).toContain('50');
+  test("respects locale for percentage formatting", () => {
+    const enResult = formatPercentage(0.5, "en");
+    const deResult = formatPercentage(0.5, "de");
+    expect(enResult).toContain("50");
+    expect(deResult).toContain("50");
   });
 });
 
-describe('Edge Cases', () => {
-  test('handles zero values', () => {
-    expect(formatBlockNumber(0, 'en')).toBe('0');
-    expect(formatGas(0, 'en')).toBe('0');
-    expect(formatTokenAmount(0n, 18, 'en')).toBe('0');
+describe("Edge Cases", () => {
+  test("handles zero values", () => {
+    expect(formatBlockNumber(0, "en")).toBe("0");
+    expect(formatGas(0, "en")).toBe("0");
+    expect(formatTokenAmount(0n, 18, "en")).toBe("0");
   });
 
-  test('handles very large numbers', () => {
+  test("handles very large numbers", () => {
     const largeNumber = 999999999999999n;
-    expect(() => formatBlockNumber(largeNumber, 'en')).not.toThrow();
-    expect(() => formatTokenAmount(largeNumber, 18, 'en')).not.toThrow();
+    expect(() => formatBlockNumber(largeNumber, "en")).not.toThrow();
+    expect(() => formatTokenAmount(largeNumber, 18, "en")).not.toThrow();
   });
 
-  test('handles empty strings gracefully', () => {
-    expect(formatAddress('')).toBe('');
-    expect(formatTxHash('')).toBe('');
+  test("handles empty strings gracefully", () => {
+    expect(formatAddress("")).toBe("");
+    expect(formatTxHash("")).toBe("");
   });
 });

@@ -11,6 +11,146 @@
 
 import { formatUnits } from "viem";
 
+/**
+ * Formats a decimal string without floating-point arithmetic.
+ * Uses half-up rounding at the requested display precision.
+ */
+function numberToDecimalString(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new TypeError("Invalid numeric amount");
+  }
+
+  const stringValue = String(value);
+
+  if (!/[eE]/.test(stringValue)) {
+    return stringValue;
+  }
+
+  const match = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(stringValue);
+
+  if (!match) {
+    throw new TypeError("Invalid numeric amount");
+  }
+
+  const [, sign, integerPart, fractionPart = "", exponentText] = match;
+  const digits = integerPart + fractionPart;
+  const decimalPosition = integerPart.length + Number(exponentText);
+
+  if (decimalPosition <= 0) {
+    return `${sign}0.${"0".repeat(-decimalPosition)}${digits}`;
+  }
+
+  if (decimalPosition >= digits.length) {
+    return `${sign}${digits}${"0".repeat(decimalPosition - digits.length)}`;
+  }
+
+  return `${sign}${digits.slice(0, decimalPosition)}.${digits.slice(decimalPosition)}`;
+}
+
+function isPositiveBelowDisplayThreshold(
+  value: string,
+  displayDecimals: number,
+): boolean {
+  const match = /^(\d+)(?:\.(\d*))?$/.exec(value);
+
+  if (!match || displayDecimals <= 0) {
+    return false;
+  }
+
+  const [, integerPart, fractionPart = ""] = match;
+
+  if (BigInt(integerPart) !== 0n) {
+    return false;
+  }
+
+  const retainedFraction = fractionPart
+    .slice(0, displayDecimals)
+    .padEnd(displayDecimals, "0");
+
+  const firstDiscardedDigit = fractionPart[displayDecimals] ?? "0";
+
+  // Half-up rounding would produce a non-zero displayed amount.
+  if (firstDiscardedDigit >= "5") {
+    return false;
+  }
+
+  // Only mark as dust when rounding to the requested precision yields zero.
+  return /^0*$/.test(retainedFraction) && /[1-9]/.test(fractionPart);
+}
+
+function formatExactDecimal(
+  value: string,
+  locale: string,
+  minDecimals: number,
+  maxDecimals: number,
+  useGrouping = true,
+): string {
+  if (
+    !Number.isInteger(minDecimals) ||
+    !Number.isInteger(maxDecimals) ||
+    minDecimals < 0 ||
+    maxDecimals < minDecimals ||
+    maxDecimals > 100
+  ) {
+    throw new RangeError("Invalid decimal formatting options");
+  }
+
+  const match = /^(-?)(\d+)(?:\.(\d*))?$/.exec(value);
+
+  if (!match) {
+    throw new TypeError("Invalid decimal amount");
+  }
+
+  const [, sign, integerPart, fractionPart = ""] = match;
+  const scale = 10n ** BigInt(maxDecimals);
+  const retainedFraction = fractionPart
+    .slice(0, maxDecimals)
+    .padEnd(maxDecimals, "0");
+
+  let scaled = BigInt(integerPart) * scale + BigInt(retainedFraction || "0");
+
+  if (fractionPart.length > maxDecimals && fractionPart[maxDecimals] >= "5") {
+    scaled += 1n;
+  }
+
+  const roundedInteger = scaled / scale;
+  let trimmedFraction = (scaled % scale).toString().padStart(maxDecimals, "0");
+
+  while (
+    trimmedFraction.length > minDecimals &&
+    trimmedFraction.endsWith("0")
+  ) {
+    trimmedFraction = trimmedFraction.slice(0, -1);
+  }
+
+  const integerFormatter = new Intl.NumberFormat(locale, {
+    useGrouping,
+    maximumFractionDigits: 0,
+  });
+
+  const parts = new Intl.NumberFormat(locale).formatToParts(-1.1);
+  const decimalSeparator =
+    parts.find((part) => part.type === "decimal")?.value ?? ".";
+  const minusSign =
+    parts.find((part) => part.type === "minusSign")?.value ?? "-";
+
+  const digitFormatter = new Intl.NumberFormat(locale, {
+    useGrouping: false,
+    maximumFractionDigits: 0,
+  });
+
+  const localizedFraction = trimmedFraction.replace(/\d/g, (digit) =>
+    digitFormatter.format(Number(digit)),
+  );
+
+  const formattedInteger = integerFormatter.format(roundedInteger);
+  const formatted = localizedFraction
+    ? `${formattedInteger}${decimalSeparator}${localizedFraction}`
+    : formattedInteger;
+
+  return sign === "-" && scaled !== 0n ? `${minusSign}${formatted}` : formatted;
+}
+
 // ============================================================================
 // Types & Options
 // ============================================================================
@@ -215,12 +355,12 @@ export function toValidDate(input: DateInput): Date | null {
 /**
  * Formats token amounts (such as TBNT, ETH, USDC) with EVM accuracy.
  * Handles both raw base units (wei / BigInt) and already-scaled numbers/strings.
- * 
+ *
  * Backwards compatible with legacy formatTokenAmount(amount, decimals)
  */
 export function formatTokenAmount(
   amount: NumericValue,
-  optionsOrDecimals?: number | FormatTokenOptions
+  optionsOrDecimals?: number | FormatTokenOptions,
 ): string {
   const options: FormatTokenOptions =
     typeof optionsOrDecimals === "number"
@@ -247,9 +387,19 @@ export function formatTokenAmount(
 
   try {
     if (typeof amount === "bigint" || isRawUnits) {
+      if (
+        typeof amount === "number" &&
+        (!Number.isSafeInteger(amount) || !Number.isFinite(amount))
+      ) {
+        throw new TypeError("Raw token units must be a safe integer");
+      }
+
       const rawBigInt =
         typeof amount === "bigint" ? amount : BigInt(String(amount).trim());
+
       decimalString = formatUnits(rawBigInt, decimals);
+    } else if (typeof amount === "number") {
+      decimalString = numberToDecimalString(amount);
     } else {
       decimalString = String(amount).trim();
     }
@@ -257,36 +407,66 @@ export function formatTokenAmount(
     return showSymbol && symbol ? `${fallback} ${symbol}` : fallback;
   }
 
-  const num = Number(decimalString);
-  if (Number.isNaN(num) || !Number.isFinite(num)) {
+  const validDecimal = /^-?\d+(?:\.\d+)?$/.test(decimalString);
+
+  if (!validDecimal) {
     return showSymbol && symbol ? `${fallback} ${symbol}` : fallback;
   }
 
-  // Handle compact notation (e.g. 1.2M)
-  if (compact && Math.abs(num) >= 1000) {
-    const compactFormatter = new Intl.NumberFormat(locale, {
-      notation: "compact",
-      compactDisplay: "short",
-      minimumFractionDigits: minDisplayDecimals,
-      maximumFractionDigits: displayDecimals,
-    });
-    const formattedCompact = compactFormatter.format(num);
-    return showSymbol && symbol ? `${formattedCompact} ${symbol}` : formattedCompact;
+  const usesRawUnits = typeof amount === "bigint" || isRawUnits;
+
+  // Compact notation is retained for non-raw display values.
+  // Raw protocol amounts must not pass through floating-point formatting.
+  if (compact && !usesRawUnits && typeof amount === "number") {
+    const num = Number(decimalString);
+
+    if (Number.isFinite(num) && Math.abs(num) >= 1000) {
+      const compactFormatter = new Intl.NumberFormat(locale, {
+        notation: "compact",
+        compactDisplay: "short",
+        minimumFractionDigits: minDisplayDecimals,
+        maximumFractionDigits: displayDecimals,
+      });
+
+      const formattedCompact = compactFormatter.format(num);
+
+      return showSymbol && symbol
+        ? `${formattedCompact} ${symbol}`
+        : formattedCompact;
+    }
   }
 
-  // Handle tiny positive amounts that would otherwise round to 0
-  const threshold = Math.pow(10, -displayDecimals);
-  if (num > 0 && num < threshold && displayDecimals > 0) {
-    const minDisplay = `< 0.${"0".repeat(displayDecimals - 1)}1`;
-    return showSymbol && symbol ? `${minDisplay} ${symbol}` : minDisplay;
+  // Preserve tiny positive amounts without floating-point comparisons.
+  try {
+    if (isPositiveBelowDisplayThreshold(decimalString, displayDecimals)) {
+      const threshold = formatExactDecimal(
+        `0.${"0".repeat(displayDecimals - 1)}1`,
+        locale,
+        displayDecimals,
+        displayDecimals,
+      );
+
+      const minDisplay = `< ${threshold}`;
+
+      return showSymbol && symbol ? `${minDisplay} ${symbol}` : minDisplay;
+    }
+  } catch {
+    return showSymbol && symbol ? `${fallback} ${symbol}` : fallback;
   }
 
-  const formatter = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: minDisplayDecimals,
-    maximumFractionDigits: displayDecimals,
-  });
+  let formatted: string;
 
-  const formatted = formatter.format(num);
+  try {
+    formatted = formatExactDecimal(
+      decimalString,
+      locale,
+      minDisplayDecimals,
+      displayDecimals,
+    );
+  } catch {
+    return showSymbol && symbol ? `${fallback} ${symbol}` : fallback;
+  }
+
   return showSymbol && symbol ? `${formatted} ${symbol}` : formatted;
 }
 
@@ -296,7 +476,7 @@ export function formatTokenAmount(
  */
 export function formatEther(
   wei: bigint | string | number | null | undefined,
-  displayDecimals = 4
+  displayDecimals = 4,
 ): string {
   if (wei === null || wei === undefined || wei === "") {
     return (0).toFixed(displayDecimals);
@@ -305,10 +485,16 @@ export function formatEther(
   try {
     const rawBigInt =
       typeof wei === "bigint" ? wei : BigInt(String(wei).trim());
+
     const etherStr = formatUnits(rawBigInt, 18);
-    const num = Number(etherStr);
-    if (Number.isNaN(num)) return (0).toFixed(displayDecimals);
-    return num.toFixed(displayDecimals);
+
+    return formatExactDecimal(
+      etherStr,
+      "en-US",
+      displayDecimals,
+      displayDecimals,
+      false,
+    );
   } catch {
     return (0).toFixed(displayDecimals);
   }
@@ -320,7 +506,7 @@ export function formatEther(
  */
 export function formatBondAmount(
   bondWei: string | bigint | number | null | undefined,
-  displayDecimals = 4
+  displayDecimals = 4,
 ): string {
   return formatEther(bondWei, displayDecimals);
 }
@@ -334,7 +520,7 @@ export function formatBondAmount(
  */
 export function formatNumber(
   value: NumericValue,
-  options: FormatNumberOptions = {}
+  options: FormatNumberOptions = {},
 ): string {
   const {
     minDecimals = 0,
@@ -370,7 +556,7 @@ export function formatNumber(
  */
 export function formatCurrency(
   value: NumericValue,
-  options: FormatCurrencyOptions = {}
+  options: FormatCurrencyOptions = {},
 ): string {
   const {
     currency = "USD",
@@ -411,7 +597,7 @@ export function formatCurrency(
  */
 export function formatPercent(
   value: NumericValue,
-  options: FormatPercentOptions = {}
+  options: FormatPercentOptions = {},
 ): string {
   const {
     decimals = 0,
@@ -456,7 +642,7 @@ export function formatPercent(
  */
 export function formatDate(
   date?: DateInput,
-  optionsOrLocale?: FormatDateOptions | string
+  optionsOrLocale?: FormatDateOptions | string,
 ): string {
   const options: FormatDateOptions =
     typeof optionsOrLocale === "string"
@@ -521,13 +707,9 @@ export function formatDate(
  */
 export function formatDateTime(
   date?: DateInput,
-  options: FormatDateOptions = {}
+  options: FormatDateOptions = {},
 ): string {
-  const {
-    locale = "en-US",
-    timeZone,
-    fallback = "—",
-  } = options;
+  const { locale = "en-US", timeZone, fallback = "—" } = options;
 
   const d = toValidDate(date);
   if (!d) return fallback;
@@ -554,7 +736,7 @@ export function formatDateTime(
  */
 export function formatTime(
   date?: DateInput,
-  optionsOrLocale?: Intl.DateTimeFormatOptions | string
+  optionsOrLocale?: Intl.DateTimeFormatOptions | string,
 ): string {
   const d = toValidDate(date);
   if (!d) return "—";
@@ -562,9 +744,14 @@ export function formatTime(
   const options: Intl.DateTimeFormatOptions =
     typeof optionsOrLocale === "string"
       ? { hour: "2-digit", minute: "2-digit", second: "2-digit" }
-      : optionsOrLocale || { hour: "2-digit", minute: "2-digit", second: "2-digit" };
+      : optionsOrLocale || {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        };
 
-  const locale = typeof optionsOrLocale === "string" ? optionsOrLocale : "en-US";
+  const locale =
+    typeof optionsOrLocale === "string" ? optionsOrLocale : "en-US";
   return d.toLocaleTimeString(locale, options);
 }
 
@@ -573,14 +760,9 @@ export function formatTime(
  */
 export function formatTimeAgo(
   date?: DateInput,
-  options: FormatTimeAgoOptions = {}
+  options: FormatTimeAgoOptions = {},
 ): string {
-  const {
-    relativeTo,
-    maxDaysAgo = 30,
-    short = true,
-    fallback = "—",
-  } = options;
+  const { relativeTo, maxDaysAgo = 30, short = true, fallback = "—" } = options;
 
   const d = toValidDate(date);
   if (!d) return fallback;
@@ -633,7 +815,7 @@ export function formatTimeAgo(
  */
 export function formatDuration(
   value: number | bigint | null | undefined,
-  options: FormatDurationOptions = {}
+  options: FormatDurationOptions = {},
 ): string {
   const {
     unit = "seconds",
@@ -645,10 +827,7 @@ export function formatDuration(
 
   if (value === null || value === undefined) return fallback;
 
-  let totalSeconds =
-    typeof value === "bigint"
-      ? Number(value)
-      : Number(value);
+  let totalSeconds = typeof value === "bigint" ? Number(value) : Number(value);
 
   if (Number.isNaN(totalSeconds) || !Number.isFinite(totalSeconds)) {
     return fallback;
@@ -673,13 +852,23 @@ export function formatDuration(
     parts.push(short ? `${days}d` : `${days} ${days === 1 ? "day" : "days"}`);
   }
   if (hours > 0 && parts.length < maxUnits) {
-    parts.push(short ? `${hours}h` : `${hours} ${hours === 1 ? "hour" : "hours"}`);
+    parts.push(
+      short ? `${hours}h` : `${hours} ${hours === 1 ? "hour" : "hours"}`,
+    );
   }
   if (minutes > 0 && parts.length < maxUnits) {
-    parts.push(short ? `${minutes}m` : `${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+    parts.push(
+      short
+        ? `${minutes}m`
+        : `${minutes} ${minutes === 1 ? "minute" : "minutes"}`,
+    );
   }
   if (seconds > 0 && parts.length < maxUnits && days === 0 && hours === 0) {
-    parts.push(short ? `${seconds}s` : `${seconds} ${seconds === 1 ? "second" : "seconds"}`);
+    parts.push(
+      short
+        ? `${seconds}s`
+        : `${seconds} ${seconds === 1 ? "second" : "seconds"}`,
+    );
   }
 
   return parts.length > 0 ? parts.join(" ") : expiredLabel;
@@ -690,9 +879,13 @@ export function formatDuration(
  * 100% compatible with existing `getDisputeTimeRemaining(deadline)`
  */
 export function getDisputeTimeRemaining(
-  deadline: { timeRemaining?: number } | null | undefined
+  deadline: { timeRemaining?: number } | null | undefined,
 ): string {
-  if (!deadline || deadline.timeRemaining === undefined || deadline.timeRemaining <= 0) {
+  if (
+    !deadline ||
+    deadline.timeRemaining === undefined ||
+    deadline.timeRemaining <= 0
+  ) {
     return "Expired";
   }
 
@@ -716,7 +909,7 @@ export function getDisputeTimeRemaining(
 export function formatAddress(
   address?: string | null,
   charsOrOptions?: number | FormatAddressOptions,
-  legacyOptions?: FormatAddressOptions
+  legacyOptions?: FormatAddressOptions,
 ): string {
   let chars = 4;
   let options: FormatAddressOptions = {};
@@ -757,7 +950,7 @@ export function formatTxHash(
   hash?: string | null,
   prefixChars = 6,
   suffixChars = 4,
-  delimiter = "..."
+  delimiter = "...",
 ): string {
   if (!hash || typeof hash !== "string") return "—";
   const trimmed = hash.trim();

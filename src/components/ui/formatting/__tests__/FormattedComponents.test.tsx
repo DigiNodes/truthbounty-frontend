@@ -35,6 +35,22 @@ describe("Accessible Formatting UI Components", () => {
       const tokenEl = screen.getByLabelText("1.5M TBNT tokens");
       expect(tokenEl).toHaveAttribute("title", "1,500,000 TBNT");
     });
+
+    it("preserves full token precision in the tooltip", () => {
+      render(
+        <FormattedToken
+          amount={123456789012345678n}
+          decimals={18}
+          displayDecimals={2}
+          showTooltip
+          symbol="TBNT"
+        />,
+      );
+
+      expect(
+        screen.getByTitle("0.123456789012345678 TBNT"),
+      ).toBeInTheDocument();
+    });
   });
 
   describe("<FormattedNumber />", () => {

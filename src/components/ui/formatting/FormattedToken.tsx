@@ -1,7 +1,11 @@
 "use client";
 
 import React from "react";
-import { formatTokenAmount, FormatTokenOptions, NumericValue } from "@/lib/format";
+import {
+  formatTokenAmount,
+  FormatTokenOptions,
+  NumericValue,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface FormattedTokenProps extends FormatTokenOptions {
@@ -52,7 +56,7 @@ export const FormattedToken: React.FC<FormattedTokenProps> = ({
 
   const fullExactValue = formatTokenAmount(amount, {
     decimals,
-    displayDecimals: 6,
+    displayDecimals: Math.max(displayDecimals, decimals),
     minDisplayDecimals: 0,
     showSymbol: false,
     isRawUnits,
@@ -61,19 +65,31 @@ export const FormattedToken: React.FC<FormattedTokenProps> = ({
     fallback,
   });
 
-  const accessibleLabel = `${formattedValue} ${symbol ? `${symbol} tokens` : ""}`.trim();
+  const accessibleLabel =
+    `${formattedValue} ${symbol ? `${symbol} tokens` : ""}`.trim();
   const shouldShowTooltip = showTooltip ?? compact;
 
   return (
     <span
-      className={cn("inline-flex items-baseline font-mono tabular-nums", className)}
+      className={cn(
+        "inline-flex items-baseline font-mono tabular-nums",
+        className,
+      )}
       aria-label={accessibleLabel}
-      title={shouldShowTooltip ? `${fullExactValue} ${symbol}`.trim() : undefined}
+      title={
+        shouldShowTooltip ? `${fullExactValue} ${symbol}`.trim() : undefined
+      }
     >
       <span>{formattedValue}</span>
       {showSymbol && symbol && (
-        <span className={cn("ml-1 font-sans text-xs opacity-75 font-normal", symbolClassName)}>
-          {" "}{symbol}
+        <span
+          className={cn(
+            "ml-1 font-sans text-xs opacity-75 font-normal",
+            symbolClassName,
+          )}
+        >
+          {" "}
+          {symbol}
         </span>
       )}
     </span>

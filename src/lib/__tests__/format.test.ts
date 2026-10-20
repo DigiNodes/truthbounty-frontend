@@ -36,33 +36,196 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
 
       // 45,200 TBNT
       const fortyFiveKWei = 45_200n * 1_000_000_000_000_000_000n;
-      expect(formatTokenAmount(fortyFiveKWei, { symbol: "TBNT" })).toBe("45,200 TBNT");
+      expect(formatTokenAmount(fortyFiveKWei, { symbol: "TBNT" })).toBe(
+        "45,200 TBNT",
+      );
     });
 
     it("formats custom decimals like USDC (6 decimals)", () => {
       // 50 USDC = 50_000_000 base units
       const usdcWei = 50_000_000n;
       expect(
-        formatTokenAmount(usdcWei, { decimals: 6, displayDecimals: 2, symbol: "USDC" })
+        formatTokenAmount(usdcWei, {
+          decimals: 6,
+          displayDecimals: 2,
+          symbol: "USDC",
+        }),
       ).toBe("50 USDC");
     });
 
-    it("handles compact notation for large amounts", () => {
-      expect(formatTokenAmount(1_500_000, { compact: true, symbol: "TBNT" })).toBe(
-        "1.5M TBNT"
+    it("rounds exact decimal strings without floating-point errors", () => {
+      expect(
+        formatTokenAmount("1.005", {
+          decimals: 0,
+          displayDecimals: 2,
+        }),
+      ).toBe("1.01");
+    });
+
+    it("rounds decimal values consistently at the display boundary", () => {
+      const options = {
+        decimals: 0,
+        displayDecimals: 2,
+      };
+
+      expect(formatTokenAmount("1.004", options)).toBe("1");
+      expect(formatTokenAmount("1.005", options)).toBe("1.01");
+      expect(formatTokenAmount("1.006", options)).toBe("1.01");
+    });
+
+    it("preserves fractional precision when converting large raw token amounts", () => {
+      expect(
+        formatTokenAmount(123456789012345678901n, {
+          decimals: 18,
+          displayDecimals: 18,
+        }),
+      ).toBe("123.456789012345678901");
+    });
+
+    it("handles rounding that carries into the integer part", () => {
+      expect(
+        formatTokenAmount("999.999", {
+          decimals: 0,
+          displayDecimals: 2,
+        }),
+      ).toBe("1,000");
+    });
+
+    it("formats exact amounts using the requested locale", () => {
+      expect(
+        formatTokenAmount("1234.5", {
+          decimals: 0,
+          displayDecimals: 2,
+          locale: "de-DE",
+        }),
+      ).toBe("1.234,5");
+    });
+
+    it("preserves exact large integer amounts beyond JavaScript's safe integer limit", () => {
+      const amount = 9_007_199_254_740_993n;
+
+      expect(
+        formatTokenAmount(amount, {
+          decimals: 0,
+          displayDecimals: 0,
+        }),
+      ).toBe("9,007,199,254,740,993");
+    });
+
+    it("formats the maximum uint256 value exactly", () => {
+      const maxUint256 = (1n << 256n) - 1n;
+
+      expect(
+        formatTokenAmount(maxUint256, {
+          decimals: 0,
+          displayDecimals: 0,
+        }),
+      ).toBe(
+        "115,792,089,237,316,195,423,570,985,008,687,907,853,269,984,665,640,564,039,457,584,007,913,129,639,935",
       );
+    });
+
+    it("formats zero exactly without introducing a non-zero value", () => {
+      expect(
+        formatTokenAmount(0n, {
+          decimals: 18,
+          displayDecimals: 6,
+        }),
+      ).toBe("0");
+    });
+
+    it("rejects scientific notation in decimal string inputs", () => {
+      expect(
+        formatTokenAmount("1e-7", {
+          decimals: 0,
+          displayDecimals: 8,
+        }),
+      ).toBe("0");
+    });
+
+    it("handles compact notation for large amounts", () => {
+      expect(
+        formatTokenAmount(1_500_000, { compact: true, symbol: "TBNT" }),
+      ).toBe("1.5M TBNT");
     });
 
     it("handles tiny non-zero values below display threshold without rounding to false zero", () => {
       // 0.00001 with 2 display decimals
       expect(formatTokenAmount(0.00001, { displayDecimals: 2 })).toBe("< 0.01");
-      expect(formatTokenAmount(0.000005, { displayDecimals: 4 })).toBe("< 0.0001");
+      expect(formatTokenAmount(0.000005, { displayDecimals: 4 })).toBe(
+        "< 0.0001",
+      );
+    });
+
+    it("formats tiny numeric inputs expressed in scientific notation", () => {
+      expect(
+        formatTokenAmount(0.000000001, {
+          decimals: 0,
+          displayDecimals: 8,
+        }),
+      ).toBe("< 0.00000001");
+    });
+
+    it("formats tiny amounts that round up to the display threshold", () => {
+      const options = {
+        decimals: 0,
+        displayDecimals: 8,
+      };
+
+      expect(formatTokenAmount("0.000000001", options)).toBe("< 0.00000001");
+      expect(formatTokenAmount("0.000000009", options)).toBe("0.00000001");
+      expect(formatTokenAmount("0.000000019", options)).toBe("0.00000002");
+    });
+
+    it("handles the half-up rounding boundary for tiny amounts", () => {
+      const options = {
+        decimals: 0,
+        displayDecimals: 8,
+      };
+
+      expect(formatTokenAmount("0.0000000049", options)).toBe("< 0.00000001");
+      expect(formatTokenAmount("0.000000005", options)).toBe("0.00000001");
+    });
+
+    it("fails closed when display precision exceeds the supported limit", () => {
+      expect(
+        formatTokenAmount("0.000000001", {
+          decimals: 0,
+          displayDecimals: 101,
+        }),
+      ).toBe("0");
+    });
+
+    it("localizes the decimal separator for tiny amounts", () => {
+      expect(
+        formatTokenAmount("0.000000001", {
+          decimals: 0,
+          displayDecimals: 8,
+          locale: "de-DE",
+        }),
+      ).toBe("< 0,00000001");
     });
 
     it("fails closed on invalid, NaN, or corrupted values", () => {
       expect(formatTokenAmount(NaN)).toBe("0");
       expect(formatTokenAmount("invalid_amount")).toBe("0");
       expect(formatTokenAmount(null, { fallback: "—" })).toBe("—");
+    });
+
+    it("rejects unsafe JavaScript numbers used as raw token units", () => {
+      expect(
+        formatTokenAmount(Number.MAX_SAFE_INTEGER + 1, {
+          isRawUnits: true,
+          decimals: 18,
+        }),
+      ).toBe("0");
+
+      expect(
+        formatTokenAmount(1.5, {
+          isRawUnits: true,
+          decimals: 18,
+        }),
+      ).toBe("0");
     });
   });
 
@@ -78,6 +241,12 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
 
     it("formats 0.1234 ETH correctly", () => {
       expect(formatBondAmount("123400000000000000")).toBe("0.1234");
+    });
+
+    it("preserves precision for large wei values", () => {
+      expect(formatEther(90_071_992_547_409_930_000_000_000_000n)).toBe(
+        "90071992547.4099",
+      );
     });
 
     it("handles invalid and zero bond amount strings gracefully", () => {
@@ -102,7 +271,9 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
     });
 
     it("formats decimal numbers with min/max decimal control", () => {
-      expect(formatNumber(12.3456, { minDecimals: 2, maxDecimals: 2 })).toBe("12.35");
+      expect(formatNumber(12.3456, { minDecimals: 2, maxDecimals: 2 })).toBe(
+        "12.35",
+      );
       expect(formatNumber(12, { minDecimals: 2 })).toBe("12.00");
     });
 
@@ -148,7 +319,9 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
 
     it("handles fractional inputs (e.g. 0.95 -> 95%)", () => {
       expect(formatPercent(0.95, { isFraction: true })).toBe("95%");
-      expect(formatPercent(0.985, { isFraction: true, decimals: 1 })).toBe("98.5%");
+      expect(formatPercent(0.985, { isFraction: true, decimals: 1 })).toBe(
+        "98.5%",
+      );
     });
 
     it("clamps values between 0 and 100 by default", () => {
@@ -201,8 +374,12 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
     });
 
     it("formats short and long formats", () => {
-      expect(formatDate(testDate, { format: "short", timeZone: "UTC" })).toContain("26");
-      expect(formatDate(testDate, { format: "long", timeZone: "UTC" })).toContain("January");
+      expect(
+        formatDate(testDate, { format: "short", timeZone: "UTC" }),
+      ).toContain("26");
+      expect(
+        formatDate(testDate, { format: "long", timeZone: "UTC" }),
+      ).toContain("January");
     });
 
     it("formats date + time with bullet separator", () => {
@@ -230,16 +407,16 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
       const fiveMinAgo = new Date(now - 5 * 60 * 1000);
       expect(formatTimeAgo(fiveMinAgo, { relativeTo: now })).toBe("5m ago");
       expect(formatTimeAgo(fiveMinAgo, { relativeTo: now, short: false })).toBe(
-        "5 minutes ago"
+        "5 minutes ago",
       );
     });
 
     it("formats hours ago", () => {
       const twoHoursAgo = new Date(now - 2 * 3600 * 1000);
       expect(formatTimeAgo(twoHoursAgo, { relativeTo: now })).toBe("2h ago");
-      expect(formatTimeAgo(twoHoursAgo, { relativeTo: now, short: false })).toBe(
-        "2 hours ago"
-      );
+      expect(
+        formatTimeAgo(twoHoursAgo, { relativeTo: now, short: false }),
+      ).toBe("2 hours ago");
     });
 
     it("formats days ago", () => {
@@ -304,9 +481,13 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
 
     it("supports custom chars and delimiter", () => {
       expect(formatAddress(address, 6)).toBe("0x742d35...f0eB1E");
-      expect(formatAddress(address, { prefixChars: 6, suffixChars: 4, delimiter: "…" })).toBe(
-        "0x742d…eB1E"
-      );
+      expect(
+        formatAddress(address, {
+          prefixChars: 6,
+          suffixChars: 4,
+          delimiter: "…",
+        }),
+      ).toBe("0x742d…eB1E");
     });
 
     it("handles short inputs and null/undefined safely", () => {
@@ -316,7 +497,8 @@ describe("Standardized Formatting Module (@/lib/format)", () => {
     });
 
     it("truncates tx hash properly", () => {
-      const hash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+      const hash =
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
       expect(formatTxHash(hash)).toBe("0x1234...cdef");
       expect(formatTxHash(null)).toBe("—");
     });

@@ -9,9 +9,9 @@
  * fails closed (returns `null`) so the UI never presents invented economics.
  */
 
-import { formatUnits } from 'viem';
+import { formatUnits } from "viem";
 
-import { getProtocolRelease } from '@/lib/contracts/registry';
+import { getProtocolRelease } from "@/lib/contracts/registry";
 
 export interface CanonicalEconomicParameters {
   chainId: number;
@@ -39,7 +39,8 @@ export function getCanonicalEconomicParameters(): CanonicalEconomicParameters | 
     if (!Number.isInteger(chainId) || chainId <= 0) return null;
     if (minBondWei < 0n) return null;
     if (!Number.isInteger(protocolFeeBps) || protocolFeeBps < 0) return null;
-    if (!Number.isInteger(appealWindowSeconds) || appealWindowSeconds < 0) return null;
+    if (!Number.isInteger(appealWindowSeconds) || appealWindowSeconds < 0)
+      return null;
 
     return { chainId, minBondWei, protocolFeeBps, appealWindowSeconds };
   } catch {
@@ -51,18 +52,28 @@ export function getCanonicalEconomicParameters(): CanonicalEconomicParameters | 
 export function formatTokenAmount(wei: bigint, decimals = 18): string {
   return formatUnits(wei, decimals);
 }
-
-/** Convert basis points to a trimmed percentage string (100 bps -> "1%"). */
+/**
+ * Convert integer basis points to a percentage without floating-point math.
+ * 100 bps = 1%. Preserve two decimal places for non-whole percentages.
+ */
 export function bpsToPercent(bps: number): string {
-  const percent = bps / 100;
-  const decimals = Number.isInteger(percent) ? 0 : 2;
-  return `${percent.toFixed(decimals)}%`;
-}
+  if (!Number.isSafeInteger(bps) || bps < 0) {
+    throw new RangeError("Basis points must be a non-negative safe integer");
+  }
 
+  const wholePercent = Math.floor(bps / 100);
+  const fractionalBps = bps % 100;
+
+  if (fractionalBps === 0) {
+    return `${wholePercent}%`;
+  }
+
+  return `${wholePercent}.${fractionalBps.toString().padStart(2, "0")}%`;
+}
 /** Deterministic, locale-stable duration string for a number of seconds. */
 export function formatDurationSeconds(totalSeconds: number): string {
-  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return 'Unknown';
-  if (totalSeconds === 0) return '0 seconds';
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "Unknown";
+  if (totalSeconds === 0) return "0 seconds";
 
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -70,17 +81,17 @@ export function formatDurationSeconds(totalSeconds: number): string {
   const seconds = Math.floor(totalSeconds % 60);
 
   const parts: string[] = [];
-  if (days) parts.push(`${days} day${days === 1 ? '' : 's'}`);
-  if (hours) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
-  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+  if (days) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  if (hours) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
   if (seconds && parts.length === 0) {
-    parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+    parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
   }
 
-  return parts.join(', ');
+  return parts.join(", ");
 }
 
-export type AllowanceStatus = 'sufficient' | 'insufficient' | 'unknown';
+export type AllowanceStatus = "sufficient" | "insufficient" | "unknown";
 
 /**
  * Compare an on-chain ERC-20 allowance against the amount an action requires.
@@ -91,17 +102,17 @@ export function getAllowanceStatus(
   current: bigint | null | undefined,
   required: bigint,
 ): AllowanceStatus {
-  if (current === null || current === undefined) return 'unknown';
-  return current >= required ? 'sufficient' : 'insufficient';
+  if (current === null || current === undefined) return "unknown";
+  return current >= required ? "sufficient" : "insufficient";
 }
 
-export type BondAffordability = 'affordable' | 'insufficient' | 'unknown';
+export type BondAffordability = "affordable" | "insufficient" | "unknown";
 
 /** Compare a spendable balance against a required bond, failing closed. */
 export function getBondAffordability(
   balance: bigint | null | undefined,
   bond: bigint,
 ): BondAffordability {
-  if (balance === null || balance === undefined) return 'unknown';
-  return balance >= bond ? 'affordable' : 'insufficient';
+  if (balance === null || balance === undefined) return "unknown";
+  return balance >= bond ? "affordable" : "insufficient";
 }
