@@ -10,6 +10,13 @@
  * settlement, or finality. It fails closed: any missing, ambiguous, or
  * invalid input resolves to `null` / `UNKNOWN` rather than a client guess.
  * Lifecycle state is driven by canonical projections, never by timers.
+ *
+ * HYDRATION BOUNDARY:
+ * This module is pure and deterministic. It must never read `window`,
+ * `navigator`, `Date.now()`, `new Date()`, `MathMath.random()`, `performance`,
+ * or any other ambient environment state at module scope. All clock and
+ * locale dependency is injected by the caller (`snowMs`, `locale`, `timeZone`)
+ * so that server shells and client hydration produce identical output.
  */
 
 import { formatLocalDateTime, formatUtcDateTime } from './format';
@@ -36,6 +43,16 @@ export interface BlockDeadlineProjection {
   anchorBlockNumber: bigint | null;
   /** Expected seconds per block used for the projection. */
   avgBlockSeconds: number | null;
+}
+
+/** Deterministic locale context for formatting. */
+export interface DeadlineFormatContext {
+  /** BCP 47 language tag, e.g. 'en-US'. Defaults to 'en-US' when omitted. */
+  locale?: string | null | undefined;
+  /** IANA time zone, e.g. 'UTC'. Defaults to 'UTC' when omitted. */
+  timeZone?: string | null | undefined;
+  /** Whether to include seconds in the formatted output. */
+  includeSeconds?: boolean;
 }
 
 /**
@@ -122,6 +139,9 @@ export function computeClockUncertainty(input: {
 }
 
 const EPSILON = Number.EPSILON;
+
+const DEFAULT_LOCALE = 'en-US';
+const DEFAULT_TIME_ZONE = 'UTC';
 
 /**
  * Normalize a chain block number (bigint | number | string) to `bigint`.
@@ -287,7 +307,7 @@ export function isDeadlineExpired(input: {}): boolean | null {
 
 /**
  * Determine whether a canonical deadline is within a future horizon window
- * (e.g. "expires soon"), without ever signalling a past deadline. Returns
+ * (e.g. "expires soon"), without ever signaling a past deadline. Returns
  * null (fail closed) when the deadline is unknown.
  */
 export function isDeadlineWithinHorizon(input: {
@@ -318,37 +338,41 @@ export function resolveDeadlineState(input: {
   deadlineMs: number | null | undefined;
   nowMs: number;
   clockSkewMs?: number;
-  /** Confirmed canonical status that authoritatively signals expiry. */
-  canonicallyExpired?: boolean;
+  confirmedState?: DeadlineState | null | undefined;
 }): DeadlineState {
-  if (input.canonicallyExpired === true) return 'EXPIRED';
+  const { deadlineMs, nowMs, clockSkewMs = 0, confirmedState } = input;
 
-  const expired = isDeadlineExpired({
-    deadlineMs: input.deadlineMs,
-    nowMs: input.nowMs,
-    clockSkewMs: input.clockSkewMs,
-  });
+  if (confirmedState === 'EXPIRED') return 'EXPIRED';
 
+  const expired = isDeadlineExpired({ deadlineMs, nowMs, clockSkewMs });
   if (expired === null) return 'UNKNOWN';
-  return expired ? 'EXPIRED' : 'ACTIVE';
+  if (expired) return 'EXPIRED';
+  if (confirmedState === 'ACTIVE') return 'ACTIVE';
+  return 'ACTIVE';
 }
 
 /**
- * Compact human context for a canonical deadline: user-local time plus the
- * absolute UTC value and, when available, the block projection. Returns null
- * when the deadline is unknown (fail closed).
+ * Format a canonical deadline for display. Locale and time zone are
+ * explicit inputs (never read from the ambient environment), so server
+ * shells and client hydration produce identical strings. Returns null when
+ * the deadline is unknown (fail closed).
  */
-export function formatDeadlineContext(projection: {
-  deadlineMs: number | null | undefined;
-  blockContext?: string | null | undefined;
-  includeSeconds?: boolean;
-}): string | null {
-  const { deadlineMs, blockContext, includeSeconds = true } = projection;
+export function formatDeadline(
+  deadlineMs: number | null | undefined,
+  context: DeadlineFormatContext = {}
+): string | null {
   if (typeof deadlineMs !== 'number' || !Number.isFinite(deadlineMs)) return null;
 
-  const local = formatLocalDateTime(deadlineMs, { includeSeconds });
-  const utc = formatUtcDateTime(deadlineMs, { includeSeconds });
-  const parts = [local, `(${utc})`];
-  if (blockContext) parts.push(blockContext);
-  return parts.join(' ');
+  const locale = context.locale || DEFAULT_LOCALE;
+  const timeZone = context.timeZone || DEFAULT_TIME_ZONE;
+
+  if (timeZone === DEFAULT_TIME_ZONE) {
+    return formatUtcDateTime(deadlineMs, { locale, includeSeconds: context.includeSeconds });
+  }
+
+  return formatLocalDateTime(deadlineMs, {
+    locale,
+    timeZone,
+    includeSeconds: context.includeSeconds,
+  });
 }
