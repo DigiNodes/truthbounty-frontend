@@ -29,3 +29,41 @@ const SEVERITY_STYLE = {
 export interface SeparationOfDutyNoticeProps {
   warnings: readonly SeparationOfDutyWarning[];
 }
+
+export function SeparationOfDutyNotice({ warnings }: SeparationOfDutyNoticeProps) {
+  if (warnings.length === 0) {
+    return (
+      <div
+        data-testid="separation-of-duty-notice"
+        className="p-4 rounded-xl border border-border bg-card text-xs text-muted-foreground"
+      >
+        <p>
+          Per ADMIN_AUTHORITY_BOUNDARY.md: governance, operations and guardian contexts never
+          share implied power. Role changes here will be evaluated against separation-of-duty
+          rules once a verified release manifest is available — none are fabricated in advance.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2" data-testid="separation-of-duty-notice">
+      {warnings.map((warning) => {
+        const Icon = SEVERITY_ICON[warning.severity];
+        return (
+          <div
+            key={warning.id}
+            role={warning.severity === 'blocking' ? 'alert' : 'status'}
+            className={`flex items-start gap-3 p-4 rounded-xl border text-xs ${SEVERITY_STYLE[warning.severity]}`}
+          >
+            <Icon className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">{warning.summary}</p>
+              <p className="mt-1 text-muted-foreground">{warning.detail}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
