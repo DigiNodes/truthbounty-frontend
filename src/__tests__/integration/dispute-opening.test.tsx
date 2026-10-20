@@ -44,6 +44,9 @@ const mockGetTransactionReceipt = jest.fn();
 const readRefetch = jest.fn(async () => undefined);
 
 let openChallengeValue = false;
+// Refetch resolves with the *fresh* read result, while `.data` deliberately
+// stays on the pre-write value until the next render — same as real wagmi.
+const readOpenChallengeRefetch = jest.fn(async () => ({ data: openChallengeValue }));
 
 function installMocks() {
   mockedUseReadContract.mockImplementation(({ functionName }: { functionName: string }) => {
@@ -58,7 +61,7 @@ function installMocks() {
             return openChallengeValue;
           },
           isLoading: false,
-          refetch: readRefetch,
+          refetch: readOpenChallengeRefetch,
         };
       case 'allowance':
         return { data: 100n * 10n ** 18n, isLoading: false, refetch: readRefetch };

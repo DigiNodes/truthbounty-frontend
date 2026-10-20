@@ -42,6 +42,10 @@ const readRefetch = jest.fn(async () => undefined);
 let allowanceValue = 100n * 10n ** 18n;
 let openChallengeValue = false;
 
+// Real wagmi refetch resolves with the fresh value; `.data` lags a render.
+const allowanceRefetch = jest.fn(async () => ({ data: allowanceValue }));
+const openChallengeRefetch = jest.fn(async () => ({ data: openChallengeValue }));
+
 function createReadStore() {
   return {
     getChallengeBond: () => ({ data: BOND, isLoading: false, refetch: readRefetch }),
@@ -55,14 +59,14 @@ function createReadStore() {
         return openChallengeValue;
       },
       isLoading: false,
-      refetch: readRefetch,
+      refetch: openChallengeRefetch,
     }),
     allowance: () => ({
       get data() {
         return allowanceValue;
       },
       isLoading: false,
-      refetch: readRefetch,
+      refetch: allowanceRefetch,
     }),
     balanceOf: () => ({ data: BALANCE, isLoading: false, refetch: readRefetch }),
   };

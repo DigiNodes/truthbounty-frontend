@@ -406,8 +406,10 @@ export function useDisputeSubmission(
             `Bond approval was rejected: ${extractRevertReason(err)}`
           );
         }
-        await allowanceRead.refetch();
-        currentAllowance = allowanceRead.data as bigint | undefined;
+        // Read the refreshed allowance from the refetch result; `.data` is
+        // still the pre-approval value until React re-renders.
+        const refreshedAllowance = await allowanceRead.refetch();
+        currentAllowance = refreshedAllowance.data as bigint | undefined;
         if (currentAllowance === undefined || currentAllowance < bond) {
           return fail(
             'APPROVAL_REJECTED',
@@ -486,7 +488,10 @@ export function useDisputeSubmission(
       // ------------------------------------------------------------------
       // Reconcile the confirmed receipt with the effective on-chain state
       // ------------------------------------------------------------------
-      await hasOpenChallengeRead.refetch();
+      // Use the refetch result itself: `hasOpenChallengeRead.data` still holds
+      // the pre-write value until React re-renders, which would report a
+      // confirmed receipt as stale.
+      const refreshed = await hasOpenChallengeRead.refetch();
       setPhase('reconciling');
 
       const receiptLike: ReceiptLike = {
@@ -501,7 +506,7 @@ export function useDisputeSubmission(
         onChain: {
           claimId: claimIdBigInt.toString(),
           challenger: address as `0x${string}`,
-          exists: Boolean(hasOpenChallengeRead.data),
+          exists: Boolean(refreshed.data),
           bond,
         },
         expectedBond: bond,
