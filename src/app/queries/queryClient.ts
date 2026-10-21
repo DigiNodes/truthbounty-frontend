@@ -6,9 +6,13 @@ import {
   registerPersistedKey,
   type PersistedKeyRegistration,
 } from '@/app/lib/persistedState';
-import { CACHE_RELEASE, isNonCacheable } from './offlineCache';
-
-type QueryKeyRoot = string | number | null | undefined;
+import {
+  CACHE_RELEASE,
+  CACHEABLE_ROOTS,
+  NON_CACHEABLE_ROOTS,
+  isNonCacheable,
+  type QueryKeyRoot,
+} from './offlineCache';
 
 interface QueryLike {
   queryKey?: readonly unknown[];
@@ -54,37 +58,7 @@ export interface ObservationMeta {
   source: 'cache' | 'network';
 }
 
-/**
- * Cache allow-list. Only public, documentation, legal, and previously viewed
- * projection data may be cached. Everything else (mutations, auth, wallet,
- * evidence, user content) is treated as non-cacheable and fails closed.
- */
-export const CACHEABLE_ROOTS: ReadonlySet<string> = new Set([
-  'public',
-  'docs',
-  'documentation',
-  'legal',
-  'projection',
-  'projections',
-  'viewed',
-  'history',
-]);
-
-/** Roots that must never be cached or served from cache. */
-export const NON_CACHEABLE_ROOTS: ReadonlySet<string> = new Set([
-  'auth',
-  'authorization',
-  'session',
-  'wallet',
-  'account',
-  'mutation',
-  'mutations',
-  'evidence',
-  'user',
-  'userContent',
-  'receipt',
-  'receipts',
-]);
+export { CACHEABLE_ROOTS, NON_CACHEABLE_ROOTS };
 
 function rootOf(queryKey: readonly unknown[] | undefined): QueryKeyRoot {
   const root = queryKey?.[0];
