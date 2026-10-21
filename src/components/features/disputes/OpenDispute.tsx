@@ -1,5 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useDialogFocus } from '@/hooks/useDialogFocus';
+import { useUnsavedChangesDialog } from '@/hooks/useUnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useRecoverableFormDraft } from '@/hooks/useRecoverableFormDraft';
+import { useDraftScope } from '@/hooks/useDraftScope';
+import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
+import { DraftStatusIndicator } from '@/components/ui/DraftStatusIndicator';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useDisputeContext } from '@/hooks/useDisputeContext';
 import { useDisputeSubmission, formatBondAmount } from '@/hooks/useDisputeSubmission';
@@ -13,6 +19,18 @@ interface OpenDisputeProps {
   onClose: () => void;
   onSuccess?: (disputeId: string) => void;
   onError?: (error: string) => void;
+}
+
+interface DisputeDraftPayload {
+  reason: string;
+}
+
+function isDisputeDraftPayload(value: unknown): value is DisputeDraftPayload {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { reason?: unknown }).reason === 'string'
+  );
 }
 
 export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: OpenDisputeProps) => {
@@ -46,6 +64,7 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
     submitDispute,
     isSimulating,
     isSubmitting,
+    isConfirming,
     error: submissionHookError,
     isDisputeSupported,
   } = useDisputeSubmission();
@@ -63,6 +82,29 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
       setSubmissionError(null);
     }
   }, [isOpen]);
+
+  // UI-FE-084: coordinate a local-only draft scoped to account/chain/release.
+  const draftScope = useDraftScope();
+  const draftPayload = useMemo<DisputeDraftPayload>(() => ({ reason }), [reason]);
+  const draft = useRecoverableFormDraft<DisputeDraftPayload>({
+    formId: `dispute:${claimId}`,
+    scope: draftScope,
+    payload: draftPayload,
+    isDirty: reason.trim().length > 0,
+    validatePayload: isDisputeDraftPayload,
+  });
+
+  const handleRestoreDraft = () => {
+    if (draft.restoredPayload) {
+      setReason(draft.restoredPayload.reason);
+    }
+    draft.acknowledgeRestoredDraft();
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draft.acknowledgeRestoredDraft();
+    draft.discardDraft();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,14 +159,22 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
         return;
       }
 
-      // Never invent a dispute ID or success state without a real on-chain write.
-      // submitDispute fails closed until wallet writeContract is integrated.
+      // Only a confirmed receipt opens the dispute. The hook returns whatever
+      // the chain settled on, so a reverting receipt is reported here instead
+      // of being announced as success.
       const tx = await submitDispute(context, payload);
-      if (tx?.transactionHash) {
+      if (tx.status === 'CONFIRMED') {
         handleRealSuccess?.(tx.disputeId ?? tx.transactionHash);
+        // Verified on-chain write — release the local draft and its guard.
+        draft.markPersisted();
         onClose();
         setReason('');
+        return;
       }
+
+      const notConfirmed = `The dispute transaction was not confirmed on-chain (status: ${tx.status}). No bond was locked. Check the transaction before retrying.`;
+      setSubmissionError(notConfirmed);
+      onError?.(notConfirmed);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to submit dispute';
       setSubmissionError(errorMsg);
@@ -133,9 +183,25 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
   };
 
   // Combined loading state
-  const isLoading = isLoadingContext || isSimulating || isSubmitting;
+  const isLoading = isLoadingContext || isSimulating || isSubmitting || isConfirming;
+
+  // UI-FE-084: guard nontrivial dispute input against silent loss.
+  const isDirty = reason.trim().length > 0;
+  const guardDialog = useUnsavedChangesDialog({ onSaveDraft: draft.saveDraft });
+  useUnsavedChangesGuard({ when: isOpen && isDirty && !isLoading, confirm: guardDialog.confirm });
+
   const closeIfIdle = () => {
-    if (!isLoading) onClose();
+    if (isLoading) return;
+    if (isDirty) {
+      void guardDialog.confirm().then((allowed) => {
+        if (allowed) {
+          setReason('');
+          onClose();
+        }
+      });
+      return;
+    }
+    onClose();
   };
   useDialogFocus(isOpen, modalRef, firstFocusableRef, closeIfIdle);
 
@@ -217,7 +283,36 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
             </div>
           )}
 
-          {/* Bond amount display */}
+          {/* Draft restore (UI-FE-084) — local browser draft, explicit recovery */}
+          {draft.hasRestoredDraft && draft.restoredPayload && (
+            <div
+              data-testid="dispute-draft-restore"
+              className="rounded-lg bg-sky-950/30 border border-sky-900/50 p-3 text-sm text-sky-200"
+              role="status"
+            >
+              <p className="mb-2">
+                A local draft of this dispute is available on this device.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleRestoreDraft}
+                  className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sky-700"
+                >
+                  Restore draft
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardRestoredDraft}
+                  className="rounded-md border border-sky-900/50 px-3 py-1.5 text-xs font-medium text-sky-200 hover:text-white"
+                >
+                  Discard draft
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bond amount and bond risk (slash / refund) — canonical context only */}
           {context && (
             <div className="rounded-lg bg-zinc-900/50 border border-zinc-700 p-3">
               <div className="text-sm text-zinc-400 mb-1">Required Challenge Bond</div>
@@ -227,6 +322,53 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
               <div className="text-xs text-zinc-500 mt-1 font-mono tabular-nums">
                 Your balance: {formatBondAmount(context.walletPosition.currentBalance)} ETH
               </div>
+            </div>
+          )}
+
+          {context && (
+            <div
+              data-testid="dispute-bond-risk"
+              className="rounded-lg bg-amber-950/30 border border-amber-900/50 p-3 text-xs text-amber-200"
+              role="note"
+            >
+              <p className="font-medium text-amber-100 mb-1">What happens to your bond</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  <span className="font-mono tabular-nums">
+                    {formatBondAmount(context.bond.bondAmount)} ETH
+                  </span>{' '}
+                  is locked while the dispute is open.
+                </li>
+                <li>
+                  If the challenge fails,{' '}
+                  <span className="font-mono tabular-nums">
+                    {formatBondAmount(context.bond.slashAmount)} ETH
+                  </span>{' '}
+                  ({context.bond.slashPercentage}%) is slashed and only the remainder is
+                  refunded.
+                </li>
+                <li>
+                  If the challenge succeeds, the bond is refunded and you can receive up
+                  to{' '}
+                  <span className="font-mono tabular-nums">
+                    {formatBondAmount(context.bond.potentialReward)} ETH
+                  </span>{' '}
+                  in total.
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* Confirmation feedback — the receipt, not a timer, ends this state */}
+          {isConfirming && (
+            <div
+              data-testid="dispute-confirming"
+              className="flex items-center gap-2 text-zinc-400 text-sm"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              <span>Waiting for on-chain confirmation...</span>
             </div>
           )}
 
@@ -251,6 +393,13 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
             <div id="reason-help" className="text-xs text-zinc-500 mt-1">
               Provide a clear and detailed explanation for challenging this claim
             </div>
+            {reason.trim().length > 0 && (
+              <DraftStatusIndicator
+                status={draft.status}
+                lastSavedAt={draft.lastSavedAt}
+                className="mt-1"
+              />
+            )}
           </div>
 
           {/* Canonical ABI gate — fail closed with an accessible reason */}
@@ -291,13 +440,15 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
               disabled={!canSubmit}
               className="px-4 py-2.5 sm:py-2 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               aria-label={
-                isLoading
-                  ? "Submitting dispute..."
-                  : disputeUnavailableReason
-                    ? disputeUnavailableReason
-                    : !readiness.isReady
-                      ? readiness.message || "Wallet not ready to submit dispute"
-                      : "Confirm dispute"
+                isConfirming
+                  ? "Waiting for on-chain confirmation..."
+                  : isLoading
+                    ? "Submitting dispute..."
+                    : disputeUnavailableReason
+                      ? disputeUnavailableReason
+                      : !readiness.isReady
+                        ? readiness.message || "Wallet not ready to submit dispute"
+                        : "Confirm dispute"
               }
               aria-describedby={
                 disputeUnavailableReason
@@ -310,15 +461,27 @@ export const OpenDispute = ({ claimId, isOpen, onClose, onSuccess, onError }: Op
               {isLoading && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
               {disputeUnavailableReason
                 ? 'Dispute Unavailable'
-                : isSimulating
-                  ? 'Simulating...'
-                  : isSubmitting
-                    ? 'Submitting...'
-                    : 'Confirm Dispute'}
+                : isConfirming
+                  ? 'Confirming...'
+                  : isSimulating
+                    ? 'Simulating...'
+                    : isSubmitting
+                      ? 'Submitting...'
+                      : 'Confirm Dispute'}
             </button>
           </div>
         </form>
       </div>
+
+      <UnsavedChangesDialog
+        open={guardDialog.isConfirmOpen}
+        onConfirmLeave={() => {
+          draft.discardDraft();
+          guardDialog.confirmLeave();
+        }}
+        onCancel={guardDialog.cancelLeave}
+        onSaveDraft={guardDialog.saveDraftAndLeave}
+      />
     </div>
   );
 };

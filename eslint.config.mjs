@@ -8,7 +8,13 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    rules: jsxA11y.flatConfigs.recommended.rules,
+    // Provide the React version explicitly so eslint-plugin-react does not
+    // attempt to detect it via getFilename (removed in ESLint 10 flat config).
+    settings: {
+      react: {
+        version: "19",
+      },
+    },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
@@ -21,13 +27,7 @@ const eslintConfig = defineConfig([
     "*.log",
     "src/modules/**",
   ]),
-  // eslint-config-next already registers the jsx-a11y plugin, so only apply
-  // the recommended rules here — re-registering the plugin would throw
-  // "Cannot redefine plugin jsx-a11y".
-  {
-    name: "jsx-a11y/recommended",
-    rules: jsxA11y.flatConfigs.recommended.rules,
-  },
+  // eslint-config-next registers jsx-a11y and its recommended rules.
   ...storybook.configs["flat/recommended"],
   {
     // Global rule overrides: experimental react-hooks rules that fire on

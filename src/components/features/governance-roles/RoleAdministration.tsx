@@ -41,7 +41,14 @@ import { PendingRoleChangeList } from './PendingRoleChangeList';
 import { SeparationOfDutyNotice } from './SeparationOfDutyNotice';
 import { AuthoritySourceSummary } from './AuthoritySourceSummary';
 import { GrantRevokePreparationForm } from './GrantRevokePreparationForm';
+export type GovernanceSurfaceState =
+  | 'loading' | 'empty' | 'stale' | 'offline' | 'unavailable'
+  | 'error' | 'denied' | 'not-found' | 'wrong-chain'
+  | 'changed-account' | 'changed-release'
+  | 'revoked-authority' | 'expired-authority';
 
+export type GovernanceMutationState =
+  | 'idle' | 'submitting' | 'success' | 'error';
 /** Applicable-surface states per FRONTEND_IMPLEMENTATION_MATRIX.md. */
 export type GovernanceSurfaceState =
   | 'loading'

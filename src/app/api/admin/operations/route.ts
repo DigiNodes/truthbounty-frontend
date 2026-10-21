@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getProtocolRelease } from '@/lib/contracts/registry';
 import type { ExecuteOperationRequest, ExecuteOperationResponse, AdminAuditRecord } from '@/app/types/admin';
+import { resolveCapabilityContext, isCapabilityActive } from '@/lib/authority/capability-context';
+import type { CapabilityContext } from '@/lib/authority/capability-context';
+import { composeOperationalHealth } from '@/lib/health/composeOperationalHealth';
+import type { OperationalHealthSnapshot } from '@/app/types/health';
+
+// UI-FE-036: This route is a protected administrator diagnostic endpoint.
+// Its payloads MUST NOT be reused by the public /status adapter. The public
+// service-status surface composes sanitized observations only and never
+// forwards admin health responses, operator addresses, or audit records.
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const adminHeader = request.headers.get('x-admin-address');
@@ -8,6 +18,8 @@ export async function POST(request: Request) {
   const rawAdmin = String(release.roles.admin || process.env.NEXT_PUBLIC_ADMIN_ADDRESS || '');
   const canonicalAdmin = rawAdmin.toLowerCase();
 
+  // Context selection (headers, query, or body) never grants authority; it only
+  // narrows which canonical capability may be exercised. Default is read-only.
   if (!adminHeader || !canonicalAdmin || adminHeader.toLowerCase() !== canonicalAdmin) {
     return NextResponse.json(
       {
@@ -33,6 +45,28 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'invalid_confirmation', reason: 'Explicit confirmation string "CONFIRM" required' },
         { status: 400 }
+      );
+    }
+
+    // Resolve the requested capability context against canonical registry data.
+    // Denied, revoked, stale, wrong-chain, and unavailable contexts are rejected
+    // before any operation is considered. Context selection grants nothing.
+    const capability = resolveCapabilityContext({
+      operationId,
+      release,
+      requestedContext: (body as ExecuteOperationRequest & { context?: string }).context,
+      chainId: (body as ExecuteOperationRequest & { chainId?: number }).chainId,
+    });
+
+    if (!capability.ok || !isCapabilityActive(capability)) {
+      const unavailable = capability as CapabilityContext & { status?: number };
+      return NextResponse.json(
+        {
+          error: 'capability_unavailable',
+          reason: unavailable.reason,
+          state: unavailable.state,
+        },
+        { status: typeof unavailable.status === 'number' ? unavailable.status : 403 }
       );
     }
 
@@ -93,12 +127,42 @@ export async function POST(request: Request) {
       message: `Bounded operation "${targetOp.action}" executed successfully. Audit reference: ${auditId}`,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        // UI-FE-036: prevent protected diagnostic payloads from being cached
+        // or surfaced through any public status composition boundary.
+        'Cache-Control': 'no-store, private',
+        'X-Robots-Tag': 'noindex, nofollow',
+      },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown server error';
     return NextResponse.json(
       { error: 'execution_failed', reason: message },
       { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    const snapshot: OperationalHealthSnapshot = await composeOperationalHealth();
+    return NextResponse.json(snapshot, {
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-TruthBounty-Health-Source': 'privileged-composition',
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown server error';
+    return NextResponse.json(
+      {
+        error: 'health_unavailable',
+        reason: message,
+        observations: [],
+        overallStatus: 'unavailable',
+      },
+      { status: 503 }
     );
   }
 }

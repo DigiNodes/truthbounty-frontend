@@ -1,28 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Settings, Copy, Check, Lock, FileCode } from 'lucide-react';
+import React from 'react';
+import { Settings, Lock, FileCode } from 'lucide-react';
 import type { ReadOnlyProtocolParameter } from '@/app/types/admin';
+import { CopyableValue } from '@/components/ui/CopyableValue';
 
 export interface ReadOnlyConfigSummaryProps {
   parameters: ReadOnlyProtocolParameter[];
   isLoading?: boolean;
   className?: string;
+  /** Freshness label for the projection data source. Never grants authority. */
+  freshness?: 'live' | 'stale' | 'unavailable';
 }
 
 export function ReadOnlyConfigSummary({
   parameters,
   isLoading = false,
   className = '',
+  freshness = 'live',
 }: ReadOnlyConfigSummaryProps) {
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const handleCopy = (key: string, value: string) => {
-    void navigator.clipboard?.writeText(value);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
   if (isLoading) {
     return (
       <div className={`rounded-2xl border border-border bg-card p-6 space-y-4 animate-pulse ${className}`}>
@@ -32,6 +28,26 @@ export function ReadOnlyConfigSummary({
             <div key={i} className="h-24 bg-muted/60 rounded-xl" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (freshness === 'unavailable' || parameters.length === 0) {
+    return (
+      <div
+        className={`rounded-2xl border border-border bg-card p-6 space-y-2 ${className}`}
+        data-testid="readonly-config-summary"
+        data-freshness="unavailable"
+        role="status"
+        aria-live="polite"
+      >
+        <h2 className="text-base font-semibold tracking-tight text-foreground flex items-center gap-2">
+          <Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span>Read-Only Protocol Configuration</span>
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Configuration projection unavailable. No parameters are shown and no actions are enabled.
+        </p>
       </div>
     );
   }
@@ -46,6 +62,14 @@ export function ReadOnlyConfigSummary({
             <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
               Enforced Read-Only
             </span>
+            {freshness === 'stale' && (
+              <span
+                className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase tracking-wider"
+                data-testid="readonly-config-stale-badge"
+              >
+                Stale Projection
+              </span>
+            )}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Immutable parameters verified against canonical release artifacts. Configuration changes require on-chain multi-sig execution.
@@ -56,12 +80,12 @@ export function ReadOnlyConfigSummary({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {parameters.map((param) => {
           const isAddress = param.value.startsWith('0x');
-          const isCopied = copiedKey === param.key;
 
           return (
             <div
               key={param.key}
               className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between shadow-xs transition-colors hover:border-border/80"
+              data-freshness={freshness}
             >
               <div>
                 <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
@@ -85,18 +109,13 @@ export function ReadOnlyConfigSummary({
                   </span>
 
                   {isAddress && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(param.key, param.value)}
-                      aria-label={`Copy ${param.label}`}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-                    >
-                      {isCopied ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                      )}
-                    </button>
+                    <CopyableValue
+                      kind="address"
+                      value={param.value}
+                      displayValue=""
+                      label={param.label}
+                      accessibleLabel={`Copy ${param.label}`}
+                    />
                   )}
                 </div>
 
