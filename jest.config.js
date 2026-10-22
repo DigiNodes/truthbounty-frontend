@@ -48,10 +48,11 @@ const jestConfigWithNextDefaults = createJestConfig(customJestConfig)
 
 module.exports = async () => {
   const config = await jestConfigWithNextDefaults()
-  // Allow next-intl (and its peer next-intl/server, next-intl/middleware) to be
-  // transformed alongside wagmi and viem which next/jest already handles.
+  // Allow next-intl and its ESM-only dependency graph (use-intl, @formatjs/*,
+  // intl-messageformat) to be transformed alongside wagmi and viem which
+  // next/jest already handles.
   config.transformIgnorePatterns = (config.transformIgnorePatterns ?? []).map(
-    (pattern) => (typeof pattern === 'string' ? pattern.replace(/\(wagmi/g, '(next-intl|wagmi') : pattern)
+    (pattern) => (typeof pattern === 'string' ? pattern.replace(/\(wagmi/g, '(@formatjs|intl-messageformat|next-intl|use-intl|wagmi') : pattern)
   )
   return config
 }

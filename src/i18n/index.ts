@@ -6,8 +6,69 @@
  */
 
 // Core configuration
-export { locales, defaultLocale, localeNames, i18nConfig } from './config';
-export type { Locale } from './config';
+export {
+  locales,
+  shippableLocales,
+  pseudoLocales,
+  primaryLocale,
+  defaultLocale,
+  fallbackLocale,
+  rtlLocales,
+  localeNames,
+  i18nConfig,
+  isProductionEnvironment,
+  isPseudoLocale,
+  isShippableLocale,
+  isLocale,
+  isRtlLocale,
+  isNonProductionLocale,
+  getRuntimeLocales,
+  resolveLocale,
+} from './config';
+export type { Locale, ShippableLocale, PseudoLocale } from './config';
+
+// Catalogue resolution, fallback policy, and missing-key behaviour (UI-FE-063)
+export {
+  CATALOGS,
+  MISSING_KEY_OPEN,
+  MISSING_KEY_CLOSE,
+  makeMissingKeyMarker,
+  isMissingKeyMarker,
+  hasCatalog,
+  getCatalog,
+  getMessageByPath,
+  resolveCatalog,
+  getMessageFallback,
+  shouldWarnOnMissingKey,
+  isPseudoCatalog,
+} from './fallback';
+export type { Messages as CatalogMessages, ResolvedCatalog } from './fallback';
+
+// Pseudo-locale generation (UI-FE-063)
+export {
+  PSEUDO_LOCALE_DEFAULTS,
+  transformMessage,
+  pseudoLocalizeString,
+  pseudoLocalizeMessages,
+  isPseudoLocalizedString,
+} from './pseudo-locale';
+export type { PseudoLocaleOptions } from './pseudo-locale';
+
+// Legal-copy policy (UI-FE-063)
+export {
+  LEGAL_NAMESPACES,
+  LEGAL_COPY_UNAVAILABLE,
+  LEGAL_COPY_POLICY,
+  getNamespace,
+  isLegalKey,
+  isLegalNamespace,
+  resolveLegalCopy,
+} from './legal';
+export type {
+  LegalNamespace,
+  LegalCopyStatus,
+  LegalCopyResolution,
+} from './legal';
 
 // Client-side hooks and utilities
 export {

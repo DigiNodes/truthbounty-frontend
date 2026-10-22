@@ -59,13 +59,58 @@ truthbounty-frontend/
 
 ### Supported Locales
 
-Currently configured locales (extendable):
-- `en` - English (default)
-- `es` - Spanish
-- `fr` - French
-- `de` - German
-- `zh` - Chinese
-- `ja` - Japanese
+`src/i18n/config.ts` is the authority for locale policy.
+
+**Shippable locales** (register a reviewed `messages/<locale>.json` in
+`src/i18n/fallback.ts` `CATALOGS` before serving):
+- `en` - English (primary + fallback; the canonical catalogue)
+
+**Pseudo-locales** (UI-FE-063, non-production only):
+- `en-XA` - accented, length-expanded English (exposes hard-coded copy and
+  layout overflow)
+- `ar-XB` - right-to-left bidi (RTL readiness)
+
+Pseudo-locales are labelled "not a translation", are stripped from
+`getRuntimeLocales()` in production, and never satisfy a real translation
+requirement.
+
+### Catalogue resolution and fallback
+
+`resolveCatalog(locale)` returns the catalogue actually served:
+
+| Requested | Result |
+|---|---|
+| Registered locale | Served directly |
+| Pseudo-locale (non-production) | Canonical catalogue + pseudo transform |
+| Pseudo-locale (production) | canonical `en` |
+| Declared-but-untranslated / unknown | canonical `en` (`usedFallback: true`) |
+
+A declared locale with no registered catalogue therefore never renders an empty
+tree - it resolves deterministically to `en`.
+
+### Missing copy
+
+`getMessageFallback` (wired into `src/i18n/request.ts`):
+
+| Environment | Behaviour |
+|---|---|
+| Non-production | Visible `⟦missing:ns.key⟧` marker |
+| Production | Canonical English copy |
+| Legal key | `[[legal-copy:unavailable]]` (fail closed) |
+
+### Legal copy
+
+Legal namespaces (`legal`, `terms`, `privacy`, `disclosures`, `consent`) are
+never pseudo-localized. `resolveLegalCopy()` returns `approved` only when the
+requested version, approved version, and locale all match and copy is present;
+every other case returns `unavailable`, so an approval is never fabricated.
+
+### Gate
+
+`npm run verify:i18n` (also part of `prebuild`) bundles and exercises the real
+modules to enforce pseudo expansion/markers, ICU preservation, fallback,
+missing-copy, legal policy, and production pseudo exclusion. Unit tests:
+`npm run test:i18n`.
 
 ### Locale Detection
 
