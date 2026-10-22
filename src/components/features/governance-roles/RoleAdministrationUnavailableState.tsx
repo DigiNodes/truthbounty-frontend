@@ -29,3 +29,10 @@ export function RoleAdministrationUnavailableState({ reason }: RoleAdministratio
       </div>
       <p className="text-xs text-muted-foreground max-w-prose">{reason}</p>
       <p className="text-xs text-muted-foreground max-w-prose">
+        This is the expected state until a verified release manifest supplies canonical role
+        data. No role membership, pending change, or grant/revoke control is sourced from a
+        fixture or inferred from a legacy role name.
+      </p>
+    </div>
+  );
+}
