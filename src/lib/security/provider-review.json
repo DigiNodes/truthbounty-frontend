@@ -2,7 +2,7 @@
   "owner": "@truthbounty/v2-maintainers",
   "purpose": "Review inventory of existing URL literals, environment reads and network call sites. Inventory is not CSP authorization; only provider-policy.mjs grants egress.",
   "dependencies": {
-    "package.json": "696b8913e433c6f6c15070b685589eb3fd1728e55a950ca9dba53de521894520",
+    "package.json": "47613e72cd58499149fee49d0eb07da8f4b3d79a3e9841ef535aa7c12fb1fb78",
     "pnpm-lock.yaml": "11fd923db0d6412d214e7b0037f0e6d0cb88a064fc21b30af503ce1d7ad6e775"
   },
   "sources": {
@@ -10,7 +10,9 @@
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
     ],
-    "next.config.ts": [],
+    "next.config.ts": [
+      "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
+    ],
     "public/file.svg": [
       "asset:dd47c910e24e3a8b465584a63ff52f40333082add135aba120c93203b2536901"
     ],
@@ -30,18 +32,27 @@
       "network:4de1371d9994995a8082cfea8b3b0f250a7d80f716718cc5aafa0a3b8afaed6a",
       "network:787b2374b61e7a4058d7023013b1b2e4e102e1c3b4c5e5a1713a655150064dfa"
     ],
+    "src/adapters/legalConsentAdapter.ts": [
+      "network:1066448cb8899f13361a06b66a68589dcc4432df519444823b516411ca39ec7f",
+      "network:ca03f9715f1a282c701535c26104fd2a499afaa66d34d4a148bce3c7488c948d"
+    ],
     "src/app/(dashboard)/disputes/page.tsx": [
       "network:7be210fddba32f00d4ee48900bafd68ce808cc1bf5d8eda5c875620ec154d777"
     ],
     "src/app/(dashboard)/page.tsx": [
       "url:59dbf4bdcfee6b6eff4cdceaba1b549d7426ea10b031b28284175ecdb6e22566"
     ],
+    "src/app/(dashboard)/privacy/PrivacyPageClient.tsx": [
+      "network:3abed5d1b4ac2d367d39288ca1cd9159326bff0a88d886ca4fb5ef1290e02ff3"
+    ],
     "src/app/(dashboard)/terms/TermsPageClient.tsx": [
       "network:3abed5d1b4ac2d367d39288ca1cd9159326bff0a88d886ca4fb5ef1290e02ff3"
     ],
     "src/app/api/admin.api.ts": [
-      "network:220944686766452e1cf8846322f62233ef96069643831ab50b8a9f8dd3f5f087",
-      "network:a2a68e2c3a3325429084bd8656b83ac52cc30d7f88e695182c9421f7db830dc5"
+      "network:31cebe28eed01066b1b5ee6babfd534b9696d118693863b18ef2c05e25c464be",
+      "network:4be22a4985ed7328e6afa5afe92a2051150413e4c2e77853db75d68a9f7e5d68",
+      "network:5a7965fabe955b4db9bcd28818cc4fe81f0c7e185d2720046714f7212de15cbe",
+      "network:b39cde206af1e005b8cc11cef85c1ccfe0f0351a6449f1ac15a9c1cedaf3571c"
     ],
     "src/app/api/admin/operations/route.ts": [
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
@@ -56,6 +67,17 @@
     "src/app/api/claim-detail.api.ts": [
       "network:81d9d5113d98ba1fb3494c5f91126e18b777618cf1240aae7dfda65d54db5609"
     ],
+    "src/app/api/claims.api.ts": [
+      "network:01ead9e6e75f54242088dcf5b1ed06eeedc7636953e485d1be7985693809673e",
+      "network:4ccd41d5baa65daeaeff43b3ab608cf0aa37e9eb6cdf2c2d12f10334969f112f",
+      "network:654063b069c3c51d6159d19c7d9e0b52063724ea72817b3e5a4867e37be2ebc4",
+      "network:77579d04b55414ab5f7f7c22d862ebdb70841046a188a2ebe96c6724bd0be7c4",
+      "network:c7986c5f14b9dfd0d31ad457b9e474337adb250b67c98d4e0c36c23deac86396",
+      "network:c93a36a5e5f4ac3d595091274e826f17785d464cead2e9207ce310acf10c2fc9",
+      "network:cdbb59755ba1f9f41740e59e14a9d88b47a5f1102046d05a0b669e24ca2e8891",
+      "network:eb40844ddd856595e4e44fdf78b119b27faadd01dfee4f6c3283d32c5caa347b",
+      "network:ebd12b9f8d0803c511a5ced19e438e2503c5a00c095cc345597ec43d2a337e6b"
+    ],
     "src/app/api/claims/catchup.ts": [
       "network:4aa994c77b8141bf422d7a60d1b8ccf6cdbfa83b7f5e234b84d8abcb9828726c",
       "network:51691b4126aad0eaf782eccaa72fd7afc6461c1612ec52f503d3126267b0faab"
@@ -64,9 +86,9 @@
       "network:6e5a0063be3bed41320e3d6c50047e52c7656ad747e824fe6ee28d95475a48c4"
     ],
     "src/app/api/disputes.api.ts": [
-      "network:12e9894e91a19490a1614d9bec7cff05d10e977ca73b45016d305cd93504b91e",
-      "network:575cc28c89d230e0f7a395199d597616907265674c8c43e85d12ae187dddf484",
-      "network:7ed565d6e5ef74bac0dcc5fdbf581472036d17b83582260e8ea7f37ef7967014"
+      "network:01301509bf3355b97b324ead8c0c4b6b39ca009775d53a6123c2c7f202143c1a",
+      "network:0694fbc44c8b06bfccad6db86a27dbb9ee517d72062196c4ab316761dc4ff109",
+      "network:b235a8b2164f88e807dd6999c033ed45233ff1e603a74e61dd60c29eb5c22a07"
     ],
     "src/app/api/freshness.api.ts": [
       "network:eb843768edd92b2bc9ba5889c245c820246d2eaa9ee8772b1a3ba8759cca9f91"
@@ -112,8 +134,25 @@
       "network:a7e169d0b82613de91945e0a56a02479f508e781ae0a85b1fbc65e1f22be247e"
     ],
     "src/app/lib/api.ts": [
+      "env:9d71f961ed5724f30873482dc9716ad6d496962a362c2788534ffbe1a62f51d7",
+      "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
       "network:cf629dd23c7d054018bb5e2ca987ded5018891ab403af6c4f0e249fbe72df000",
       "network:df2763d634242784bb55393d8347b087e99b438b82941d2ed0f239f0fb9282a1"
+    ],
+    "src/app/lib/canonical-query-params.ts": [
+      "network:064a456590a5223721153b41bcd092edff25d01b9e9614402a21b31e433d32b2",
+      "network:0666b4a6ffb1ff1e58933c7e3993de2df2221a867a7c7d06b09e9132f796e6f4",
+      "network:4d260049c16c32a3a41bae8848e0edca8a24744f0e141a89549eef06bc5a09d4",
+      "network:7be210fddba32f00d4ee48900bafd68ce808cc1bf5d8eda5c875620ec154d777",
+      "network:7fef6ce49f68a940a834437bed2ef33f948b67fc6065b4e8c5125976fc0a017a",
+      "network:8490625ee75475ac7b3ad9bc5c98c287dacebd73dbec475d19c57bdfa8d3684c",
+      "network:8e2f7e0099246a0b16051fc9343015fa3f0d7dab5a779e38aa4eb96caa557e4b",
+      "network:8f84b5535a3f257a682a94b42ed6841edc10f772e10492c594772ad009742c8a",
+      "network:97af1d4167189847a1dc8f42c83cd0a4c6b2ce8c36cca25e60ebbf214c06286a",
+      "network:98e8e784174fe7af1d76ac31ac5e2f3ae7f81ef301433a948e789844f071edf3",
+      "network:9d39e1ec4cf27232c1beb401c357ca297ea564870f597b9abfc6567a80364199",
+      "network:b3a4816ea7b6ce4eb5ba9a77b520783f10712ef43e1752936c98060e50a011a4",
+      "network:b93afabdfc50c3185f41eccff0d61651a08b114ebccf13e63f90fffc6a33ad9d"
     ],
     "src/app/lib/claim-list-url.ts": [
       "network:44927fc6112cbc788aeb45dc5ef195ff2904e7d5895292551297403c39030934",
@@ -121,8 +160,18 @@
       "network:68bcca009da28a0d40f1d892e971bf0f3826c806c06062a527391bcbf08d1ff6",
       "network:9708b2dc6bdf2d28dad75878ee5a21466c6487be674f7c5ff2064d3e8f6cd3e2"
     ],
+    "src/app/lib/env.ts": [
+      "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
+      "url:6979d1f3c713f9e99c22399a00501e816dd53261bf23fb3ea17b6583a4d71731",
+      "url:94b422cc33259bdf1739e8f69dda8a3ad8e5017d88c953bf7a05da0de71ff05d",
+      "url:f1de9e489ba88cb15968b97f40f59e8ef0da5ca03ad1f37fc13a2aa45a2512a9"
+    ],
     "src/app/lib/persistedState.ts": [
       "network:3fe2f00556202a1d2abebbe011aba0168074d09f9e7b92ec94b98197dfb65b20"
+    ],
+    "src/app/lib/sanitize.ts": [
+      "url:66dfeeedabf1f022d223bd6b9f464d1ca241d6da54ab7ade5b2c7758b4e08fa8",
+      "url:8c8dac95aa0a16cdc1d9219faf6edef368449abe8bc11404601ca000013efe9d"
     ],
     "src/app/lib/verification-reconcile.ts": [
       "network:0fff318d15852d6c6bae91c702dfd60326bcf5392fd1807a5baa9f38aa036a60",
@@ -140,11 +189,26 @@
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
     ],
+    "src/components/features/admin-dashboard/AdminUnauthorizedState.tsx": [
+      "url:5e0ff0cbf470ed48a173458e9aef75da306ad97f98c74bdfe84caa64984615b3"
+    ],
     "src/components/features/claim-detail-canonical/ClaimDetailWithActions.example.tsx": [
       "network:29ca9692838b795a8e9812f14d0bbdc692feea832931c1cd96b3df4a35dc03dd"
     ],
     "src/components/features/claim-detail-canonical/ClaimSettlement.tsx": [
       "url:b9e58f3aa5dc7581394f08c882370dc1af9c3d61644b2a709fb88f5f6e917f01"
+    ],
+    "src/components/features/claim-detail/ActionRail.tsx": [
+      "url:3e6ebd09cba57913b18d47385dcefd3cc4a3211ba86b33f88f80e149f3a32206"
+    ],
+    "src/components/features/claim-detail/ApiStaleBanner.tsx": [
+      "url:dd47c910e24e3a8b465584a63ff52f40333082add135aba120c93203b2536901"
+    ],
+    "src/components/features/claim-detail/ProvenanceFooter.tsx": [
+      "url:3e6ebd09cba57913b18d47385dcefd3cc4a3211ba86b33f88f80e149f3a32206"
+    ],
+    "src/components/features/claim-detail/SourceBadge.tsx": [
+      "url:dd47c910e24e3a8b465584a63ff52f40333082add135aba120c93203b2536901"
     ],
     "src/components/features/claim-lifecycle/ClaimLifecycleTimeline.tsx": [
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
@@ -163,6 +227,12 @@
     "src/components/features/claim-submission/wizard/ClaimDetailsStep.tsx": [
       "url:65a8ad8e22723880a03ca30264e56322cdceaee6d6ac3b65af0a4747ca4b7bf9"
     ],
+    "src/components/features/claim-submission/wizard/EvidenceUploadStep.tsx": [
+      "url:65a8ad8e22723880a03ca30264e56322cdceaee6d6ac3b65af0a4747ca4b7bf9"
+    ],
+    "src/components/features/claim-submission/wizard/fixtures.ts": [
+      "url:ebe1586498ea7be7b1ba69c06e2762fa9c9c7cd56b592b93d0a71d7d0f7c3937"
+    ],
     "src/components/features/claim-verification/EvidenceViewer.tsx": [
       "url:100680ad546ce6a577f42f52df33b4cfdca756859e664b8d7de329b150d09ce9",
       "url:c4fb91da8b9c2d42c30e26765f2478fa8d63f15a1b558e92e7ba8705977ae382"
@@ -173,8 +243,15 @@
     "src/components/features/disputes/DisputeEvidenceEntry.tsx": [
       "url:ee7bd89d6c85997d6097de9aeed4e406f63401ab7be7692e5f166c1eca7fb151"
     ],
+    "src/components/features/privacy/PrivacyRenderer.tsx": [
+      "network:7b82c51994b662bdccb8b346e1011d2e77be32ca7d189c8db1cd294b841a1667",
+      "network:bc5749f088023b6b82ad659ee1ba7f619d57bbbe6fb9c474c9f03824f97a771b"
+    ],
     "src/components/features/public-claims/ClaimsExplorer.tsx": [
       "network:7d0cfadc6913119dd7d6e45bbc71a9c296033c1853007ba8e4b47d345209ee32"
+    ],
+    "src/components/features/support/troubleshooting-topics.ts": [
+      "url:97d289f844babbf4e885f14b8748cd76341f0c8af04d03358e5d11f1a50c4cf9"
     ],
     "src/components/features/terms/TermsRenderer.tsx": [
       "network:7b82c51994b662bdccb8b346e1011d2e77be32ca7d189c8db1cd294b841a1667",
@@ -338,6 +415,14 @@
     "src/hooks/useFeatureFlag.ts": [
       "network:dff4d80982138d0fad908e35c2531c99c86b95825de22f2a3c2b300c26030d07"
     ],
+    "src/hooks/useGovernanceProposals.ts": [
+      "env:3010f49ebb7e3e01d96d5b57e684dea7d97c4b1c86ffc655e0a2c731cb1421d7",
+      "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
+      "env:c1f3b32a3cf7b8b2efcd7407ec37100f1a46031b094c07aeb3bffa0b614d1e06"
+    ],
+    "src/hooks/useOptimisticUpdates.ts": [
+      "network:e057ca55c13e427717389104d67fb0197cedf9779d83df83fdf53bbaced2b025"
+    ],
     "src/hooks/useReceipt.ts": [
       "network:52c8df441431d8b4eb3f6f94e578f1e2ce6cf20435ce9b5507379f707b1b6d68",
       "network:8222cb2c1f0317e9ecbd8abf2c22e93037ab2aba58c8aa003b20303b95ef8c2e"
@@ -386,6 +471,10 @@
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
     ],
+    "src/i18n/config.ts": [
+      "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
+      "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
+    ],
     "src/i18n/formatters.ts": [
       "url:3e6ebd09cba57913b18d47385dcefd3cc4a3211ba86b33f88f80e149f3a32206",
       "url:4728b3d962866da01208980fb15fdd417d8600e0d3dbbebd08f99e0b327969ea",
@@ -395,6 +484,9 @@
       "url:3e6ebd09cba57913b18d47385dcefd3cc4a3211ba86b33f88f80e149f3a32206",
       "url:4728b3d962866da01208980fb15fdd417d8600e0d3dbbebd08f99e0b327969ea",
       "url:fa8d01891bbc61be89f01c4a3d77c81a813899f53e6601fa3557803abcd035ff"
+    ],
+    "src/lib/a11y/announcer.ts": [
+      "network:cc32dc8d5d9ed92032b109d155fc9eb41936d4fd772df94cc99103e4e0e07e93"
     ],
     "src/lib/appeals/projection.ts": [
       "network:85329c3a957f126fc0bc92bd44011f411b4fcfe99b0cdd1ff2cbe91fb07bf025"
@@ -460,10 +552,21 @@
       "url:28e9af6645fd1a7864d0e0085bfd885d79b0bc885e93bf2908911245aef8519a",
       "url:aa73222fccc35b0ccbfd4de258488a3af689334b7725e20b947e60e3684f0b0c"
     ],
+    "src/lib/evidence-gateway.ts": [
+      "network:2149975f79576b73340bc1a1892541d0e4aceb84e6c1c01495112f3518d63b78",
+      "network:573b12f86b62cbf47027c1576fec5a93c9f9c52149f95f76b5e636a0c9b84993",
+      "network:91a37679305f249a76e185f6cfeddd91a5985493ee7c5002dad4564a3935b42c",
+      "network:bfc59288e5d84359f5b64375f7b6dcdeb30e9f459316fd788e6cd393d023f996",
+      "url:4871badff967099bf27f9469cd46ee5a7f1c2f2adce91f7a45ecc66cf1f48cac",
+      "url:96ff12c9bf63e54fad09a40163476eaa9c9b2e580aca292ddd02a792cec29275"
+    ],
     "src/lib/explorer.ts": [
       "network:5ddd5eb29ecc1304dd0f46a70092eaa21f748054eb2274e442e02dbdad1d2758",
       "url:3e6ebd09cba57913b18d47385dcefd3cc4a3211ba86b33f88f80e149f3a32206",
       "url:4728b3d962866da01208980fb15fdd417d8600e0d3dbbebd08f99e0b327969ea"
+    ],
+    "src/lib/governed-change/action-catalogue.ts": [
+      "network:8f95394841a89cbb283c1486392815d99976339700e8e07c3cd591fa4058cbf5"
     ],
     "src/lib/localization/i18n.ts": [
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
@@ -474,6 +577,10 @@
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
       "url:100680ad546ce6a577f42f52df33b4cfdca756859e664b8d7de329b150d09ce9",
       "url:72445bfff6dff2ec87efeab6a64aa8b0a746e6a192a76765ec7077197499d163"
+    ],
+    "src/lib/optimistic/optimistic-store.ts": [
+      "network:48e90fcb0bc96a921908ead82b1ef0e54b008ae9862a9079dddee65e8272a5e8",
+      "network:5d8355d90af145469a13b1ce6d25b6b987b0be68c2ac36cb5851a4c90c8828f3"
     ],
     "src/lib/rewards/reconcile-claim.ts": [
       "network:60eae1db1ebb7f2bbbf0b1793c30fb3834bc94099055375e6ef2f4511748dfe7",
@@ -533,13 +640,16 @@
       "url:e9156bff69e732b4c5c813b2c59797beaf921ee159556cf624e7aeb3da6fbec0",
       "url:f97b745a875a86b1c23807af72d81161ab7462ac2cd6d8cf988bda93d86af628"
     ],
+    "src/lib/sync/channel.ts": [
+      "network:20ee47bce931be361567657dc6836a3aa8c5608c7c35f40e3c7a29032d76b038",
+      "network:aeec4b6fe13465dd093899d1f552efcc265e89d2646e1191b3422d0bb8f18d77",
+      "network:e4e7f37df26debc25bab9e97c82f7d9623a54d4cf4c4b9f0342925f8b3b94d57",
+      "network:e8f9b8eb95d91dda6130ed177968215916a2f6be3f18c1b637e4c304cedc09e6"
+    ],
     "src/lib/telemetry.ts": [
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457",
       "env:ff7c6412e8caac666ccfea5ae73ea47e1e5fe39db678efea63643a3308d49672"
-    ],
-    "src/lib/validation/evidenceUri.ts": [
-      "url:9f0acec2370ea21ca6bfc2067dede675c7ffe2b0300681d287b6f87df56534f0"
     ],
     "src/lib/wallet-boundary/config-guard.ts": [
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
@@ -548,6 +658,12 @@
     "src/middleware.ts": [
       "env:5457474c941c23c7a87a391cedabafb4225fde0e25aaa79bc0b1626d4c0f408d",
       "env:a97d7492edeb30eaf7b260e2b02ffe125474c2adcf5764051a055aeb22e51457"
+    ],
+    "src/testing/public-claimant-journey/PublicClaimantJourney.tsx": [
+      "url:112d762169cb2c212bd5b6621096ac4dbfa682fbe9586e3b57b112cf53838a9c"
+    ],
+    "src/testing/verifier-dispute-journey/VerifierDisputeJourney.tsx": [
+      "url:2499af13126d9b256252a2521cda6a5292a466d46b4a2cb35c28c41d45a4783d"
     ]
   }
 }
