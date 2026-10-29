@@ -29,12 +29,34 @@ export const __FORMAT_BOUNDARY_DURATION = "server-shell" as const;
 import {
   formatDate,
   formatDateTime,
-  formatRelativeTime,
-  formatTime,
-  formatTimeZone,
+  formatAddress,
   formatTokenAmount,
-  formatWalletAddress,
+  type DateInput,
 } from "@/lib/format";
+
+export const formatWalletAddress = formatAddress;
+
+export function formatRelativeTime(date?: DateInput): string {
+  return formatDate(date);
+}
+
+export function formatTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+export function formatTime(date?: DateInput): string {
+  return formatDate(date, { format: 'timeOnly' });
+}
+
+
+export function formatLocalDateTime(date?: DateInput): string {
+  return formatDateTime(date);
+}
+
+export function formatUtcDateTime(date?: DateInput): string {
+  return formatDateTime(date, { timeZone: 'UTC' }) + ' UTC';
+}
+
 
 /**
  * Canonical time source kinds. The contract or a reviewed API

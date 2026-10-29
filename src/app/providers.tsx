@@ -16,9 +16,11 @@ import {
   ReducedDataProvider,
   CrossTabSyncProvider,
 } from '@/components/providers';
+import { OfflineCacheProvider } from '@/components/providers/OfflineCacheProvider';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { IntegrityBoundary } from '@/components/security/IntegrityBoundary';
+import { PlatformSupportGuard } from '@/components/providers/PlatformSupportGuard';
 
 // Client-only, non-deterministic surfaces must never render on the server.
 // Loading them dynamically with ssr:false guarantees the server shell is
@@ -38,33 +40,37 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ThemeProvider defaultTheme="system">
-      <ReducedDataProvider>
-        <Web3Provider>
-          <QueryProvider>
-            <RainbowKitThemedProvider>
-              <SiweAuthProvider>
-                <FeatureFlagProvider enablePersistence={true}>
-                  <ErrorBoundary>
-                    <IntegrityBoundary>
-                      <WalletStateGuard>
-                        <CrossTabSyncProvider>
-                          {children}
-                          {/* Feature flag panel is client-only; rendered after
-                              hydration to keep the server shell deterministic. */}
-                          <Suspense fallback={null}>
-                            <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                          </Suspense>
-                        </CrossTabSyncProvider>
-                      </WalletStateGuard>
-                    </IntegrityBoundary>
-                  </ErrorBoundary>
-                </FeatureFlagProvider>
-              </SiweAuthProvider>
-            </RainbowKitThemedProvider>
-          </QueryProvider>
-        </Web3Provider>
-      </ReducedDataProvider>
-    </ThemeProvider>
+    <PlatformSupportGuard>
+      <ThemeProvider defaultTheme="system">
+        <ReducedDataProvider>
+          <Web3Provider>
+            <QueryProvider>
+              <RainbowKitThemedProvider>
+                <SiweAuthProvider>
+                  <FeatureFlagProvider enablePersistence={true}>
+                    <OfflineCacheProvider>
+                      <ErrorBoundary>
+                        <IntegrityBoundary>
+                          <WalletStateGuard>
+                            <CrossTabSyncProvider>
+                              {children}
+                              {/* Feature flag panel is client-only; rendered after
+                                  hydration to keep the server shell deterministic. */}
+                              <Suspense fallback={null}>
+                                <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                              </Suspense>
+                            </CrossTabSyncProvider>
+                          </WalletStateGuard>
+                        </IntegrityBoundary>
+                      </ErrorBoundary>
+                    </OfflineCacheProvider>
+                  </FeatureFlagProvider>
+                </SiweAuthProvider>
+              </RainbowKitThemedProvider>
+            </QueryProvider>
+          </Web3Provider>
+        </ReducedDataProvider>
+      </ThemeProvider>
+    </PlatformSupportGuard>
   );
 }
