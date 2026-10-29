@@ -2,9 +2,8 @@
 import { QueryClient } from '@tanstack/react-query';
 import { readLowBandwidth } from '@/hooks/useNetworkStatus';
 import {
-  readPersisted,
-  registerPersistedKey,
-  type PersistedKeyRegistration,
+  createPersistedStore,
+  type PersistedKeyRegistryEntry,
 } from '@/app/lib/persistedState';
 import {
   CACHE_RELEASE,
@@ -43,8 +42,16 @@ function retryDelay(attemptIndex: number): number {
   return Math.min(1000 * 2 ** attemptIndex, 30_000);
 }
 
-function resolveStaleTime(): number {
-  return isBrowser() && readLowBandwidth() ? LOW_BANDWIDTH_STALE_TIME : BASE_STALE_TIME;
+/**
+ * Resolve stale time deterministically for the server shell.
+ *
+ * The server must not read browser-only hints (e.g. navigator.connection)
+ * because that would produce different output from the client and break
+ * hydration. The client applies the lowBandwidth override after mount via
+ * `syncLowBandwidthStaleTime`.
+ */
+export function resolveStaleTime(): number {
+  return BASE_STALE_TIME;
 }
 
 /** Observation metadata attached to every successful query. */
@@ -127,41 +134,61 @@ function guardMutation(mutation: MutationLike): void {
  * contract receipts, reviewed API projections, signatures, and secrets are never
  * persisted here.
  */
-export const queryCachePersistence: PersistedKeyRegistration<unknown> = {
+export const queryCachePersistence: PersistedKeyRegistryEntry = {
   key: 'tb.queryCache.v1',
-  arena: 'localStorage',
-  owner: 'query',
-  version: 1,
-  minVersion: 1,
-  retentionMs: GC_TIME,
-  maxBytes: 250 * 1024,
+  owner: 'app/queries/queryClient',
+  schemaVersion: 1,
+  retention: {
+    maxAgeMs: GC_TIME,
+    maxBytes: 250 * 1024,
+  },
   sensitivity: 'internal',
-  validate: (value): value is unknown => value !== undefined,
+  storage: 'localStorage',
 };
 
-registerPersistedKey(queryCachePersistence);
+export function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: resolveStaleTime(),
+        gcTime: GC_TIME,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+        networkMode: 'online',
+        retry: shouldRetry,
+        retryDelay,
+        // Offline read-only: serve last observed projections with metadata.
+        // Mutations remain gated by networkMode: 'online'.
+        meta: attachObservationMeta,
+      },
+      mutations: {
+        onMutate: guardMutation,
+        onError: (error) => {
+          // Fail closed and keep the console clean in production.
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Mutation error:', error);
+          }
+        },
+        networkMode: 'online',
+      },
+    },
+  });
+}
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: resolveStaleTime(),
-      gcTime: GC_TIME,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-      networkMode: 'online',
-      retry: shouldRetry,
-      retryDelay,
-      // Offline read-only: serve last observed projections with metadata.
-      // Mutations remain gated by networkMode: 'online'.
-      meta: attachObservationMeta,
-    },
-    mutations: {
-      onMutate: guardMutation,
-      onError: (error) => console.error('Mutation error:', error),
-      networkMode: 'online',
-    },
-  },
-});
+/**
+ * Browser-side only override. Call after hydration from a client effect
+ * (e.g. in a top-level client component) to apply the low-bandwidth
+ * stale time without causing a server/client mismatch.
+ */
+export function syncLowBandwidthStaleTime(client: QueryClient): void {
+  if (!isBrowser()) return;
+  if (!readLowBandwidth()) return;
+  client.setDefaultOptions({
+    queries: { ...client.getDefaultOptions().queries, staleTime: LOW_BANDWIDTH_STALE_TIME },
+  });
+}
+
+export const queryClient = createQueryClient();
 
 /**
  * Rehydrate the query cache from browser storage. The persistence layer enforces
@@ -171,7 +198,7 @@ export const queryClient = new QueryClient({
 export function rehydrateQueryCache(): void {
   if (!isBrowser()) return;
   try {
-    readPersisted(queryCachePersistence.key);
+    void createPersistedStore(queryCachePersistence).read();
   } catch {
     // Fail closed: drop untrusted persisted state without boot-looping.
   }
